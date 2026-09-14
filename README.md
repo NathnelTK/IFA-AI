@@ -1,10 +1,5 @@
-Absolutely. Since **IFA** is now the final project name and the target is broader than Grade 12 students, I’d make the README professional enough for judges and developers, but still honest about what is currently implemented versus planned.
-
-You can copy this directly into `README.md`:
-
-````markdown
 # IFA
-
+![IFA](ifa.png)
 > AI-powered adaptive learning companion that understands how you learn.
 
 IFA is an AI-powered adaptive learning platform designed to help learners achieve different learning goals through personalized, research-driven learning experiences.
