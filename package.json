@@ -1,0 +1,14 @@
+{
+  "name": "ifa",
+  "version": "0.1.0",
+  "private": true,
+  "description": "IFA - AI-powered adaptive learning companion (Team XOR, STARK Official Hackathon 2026)",
+  "scripts": {
+    "changelog:add": "node scripts/update-changelog.js add",
+    "changelog:verify": "node scripts/update-changelog.js verify"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}

@@ -1,0 +1,24 @@
+# Normalize line endings across Windows and Unix.
+# Text files are stored and checked out with LF; binary assets are untouched.
+* text=auto eol=lf
+
+*.cs      text
+*.csproj  text
+*.slnx    text
+*.svelte  text
+*.ts      text
+*.js      text
+*.json    text
+*.md      text
+*.yml     text
+*.yaml    text
+*.css     text
+*.html    text
+
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.ico     binary
+*.pdf     binary
+*.pfx     binary

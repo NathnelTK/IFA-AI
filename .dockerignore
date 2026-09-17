@@ -1,0 +1,27 @@
+# Keep the Docker build context small and deterministic.
+
+# Dependencies and generated build output are rebuilt inside the images.
+**/node_modules
+**/.svelte-kit
+**/build
+**/dist
+**/bin
+**/obj
+**/.vite
+
+# Version control and editor state.
+**/.git
+**/.github
+**/.vs
+**/.vscode
+**/.idea
+
+# Local tooling state and logs.
+.kilo/worktrees
+**/*.log
+**/.env
+**/.env.*
+
+# Documentation is not needed to build the images.
+docs
+IFA_AI_Learning_Companion_Implementation_Plan_v3.md

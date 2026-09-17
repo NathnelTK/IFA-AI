@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1
+
+# ---------------------------------------------------------------------------
+# Build stage — restore first (cached), then publish the API in Release.
+# ---------------------------------------------------------------------------
+FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
+WORKDIR /src
+
+COPY src/IFA.Domain/IFA.Domain.csproj src/IFA.Domain/
+COPY src/IFA.Application/IFA.Application.csproj src/IFA.Application/
+COPY src/IFA.Infrastructure/IFA.Infrastructure.csproj src/IFA.Infrastructure/
+COPY src/IFA.API/IFA.API.csproj src/IFA.API/
+RUN dotnet restore src/IFA.API/IFA.API.csproj
+
+COPY src/ src/
+RUN dotnet publish src/IFA.API/IFA.API.csproj -c Release -o /app/publish /p:UseAppHost=false
+
+# ---------------------------------------------------------------------------
+# Runtime stage — minimal ASP.NET Core image.
+# ---------------------------------------------------------------------------
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS runtime
+WORKDIR /app
+
+ENV ASPNETCORE_URLS=http://+:8080
+EXPOSE 8080
+
+COPY --from=build /app/publish .
+ENTRYPOINT ["dotnet", "IFA.API.dll"]

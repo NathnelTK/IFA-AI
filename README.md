@@ -32,7 +32,7 @@ Instead of:
 
 ```text
 Choose Course → Watch Lessons → Take Quiz → Finish Course
-````
+```
 
 IFA follows:
 
@@ -399,7 +399,7 @@ The initial architecture follows a Clean/Onion Architecture approach.
 
 ```text
                     ┌─────────────────────┐
-                    │    Angular Client   │
+                    │   SvelteKit Client  │
                     │                     │
                     │ Web Application     │
                     └──────────┬──────────┘
@@ -438,7 +438,7 @@ The initial architecture follows a Clean/Onion Architecture approach.
 The backend follows a layered Clean/Onion Architecture.
 
 ```text
-TalentOS
+IFA
 │
 └── src
     │
@@ -493,7 +493,7 @@ Contains external implementations such as:
 
 ### API
 
-Provides HTTP endpoints used by the Angular frontend.
+Provides HTTP endpoints used by the SvelteKit frontend.
 
 ---
 
@@ -501,10 +501,10 @@ Provides HTTP endpoints used by the Angular frontend.
 
 ## Frontend
 
-* Angular(we may chenge it)
+* SvelteKit 2 (Svelte 5)
 * TypeScript
 * HTML
-* CSS(we may chenge it)
+* Tailwind CSS
 
 ## Backend
 
@@ -559,7 +559,7 @@ The intended deployment architecture is:
                        ▼
               ┌─────────────────┐
               │   IFA Frontend  │
-              │    Angular      │
+              │   SvelteKit     │
               └────────┬────────┘
                        │
                        ▼
@@ -889,6 +889,9 @@ Used to document:
 
 Used to document development progress during the hackathon.
 
+Entries live in [`docs/stark-changelog.md`](docs/stark-changelog.md), are appended
+with `npm run changelog:add`, and are validated with `npm run changelog:verify`.
+
 Examples:
 
 * Architecture decisions
@@ -924,7 +927,7 @@ Planned for deployment.
 
 * Project repository
 * Backend architecture
-* Angular application
+* SvelteKit application
 * Database
 * Authentication
 * Initial domain models
@@ -983,20 +986,25 @@ IFA/
 │   ├── IFA.Infrastructure/
 │   └── IFA.API/
 │
-├── client/
-│   └── IFA.Web/
+├── client/                     # SvelteKit 2 web client
+│   ├── src/
+│   └── package.json
 │
-├── tests/
+├── tests/                      # planned unit and integration tests
 │   ├── IFA.UnitTests/
 │   └── IFA.IntegrationTests/
 │
 ├── docs/
 │   ├── architecture/
 │   ├── research/
-│   └── design/
+│   ├── design/
+│   └── stark-changelog.md
 │
-├── docker/
+├── scripts/                    # STARK changelog automation
 │
+├── docker/                     # Dockerfiles for the API and web client
+│
+├── docker-compose.yml
 ├── .gitignore
 ├── README.md
 └── LICENSE
@@ -1036,7 +1044,7 @@ The team is focusing on building a working MVP under the hackathon time constrai
 
 **Status:** 🚧 In Development
 
-IFA is currently being developing as part of the STARK Official Hackathon 2026.
+IFA is currently being developed as part of the STARK Official Hackathon 2026.
 
 The project is actively evolving based on:
 
@@ -1045,6 +1053,14 @@ The project is actively evolving based on:
 * Technical feasibility
 * Hackathon requirements
 * Development feedback
+
+### Phase 1 — Foundation (complete)
+
+* SvelteKit 2 client shell with the IFA design system and dashboard components
+* ASP.NET Core Clean Architecture solution (`Domain`, `Application`, `Infrastructure`, `API`)
+* EF Core + PostgreSQL persistence with entity configurations and an initial migration
+* Swagger, a SvelteKit-scoped CORS policy, and a `/api/health` endpoint
+* STARK changelog automation (`npm run changelog:verify`) and a local `docker-compose.yml`
 
 ---
 
@@ -1088,5 +1104,3 @@ IFA's long-term vision is to make personalized learning more accessible by givin
 ## Built with ❤️ by Team XOR
 
 **IFA — Adaptive learning built around you.**
-
-````

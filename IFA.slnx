@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/IFA.API/IFA.API.csproj" />
+    <Project Path="src/IFA.Application/IFA.Application.csproj" />
+    <Project Path="src/IFA.Domain/IFA.Domain.csproj" />
+    <Project Path="src/IFA.Infrastructure/IFA.Infrastructure.csproj" />
+  </Folder>
+</Solution>

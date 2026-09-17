@@ -1,0 +1,56 @@
+name: ifa
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ifa-postgres
+    environment:
+      POSTGRES_DB: ifa
+      POSTGRES_USER: ifa
+      POSTGRES_PASSWORD: ifa_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - ifa-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ifa -d ifa"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: ifa-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=ifa;Username=ifa;Password=ifa_dev_password"
+      Cors__AllowedOrigins__0: "http://localhost:5173"
+    ports:
+      - "5011:8080"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    container_name: ifa-web
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOST: 0.0.0.0
+      ORIGIN: "http://localhost:5173"
+    ports:
+      - "5173:3000"
+    restart: unless-stopped
+
+volumes:
+  ifa-postgres-data:
