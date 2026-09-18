@@ -3,7 +3,7 @@
 # ---------------------------------------------------------------------------
 # Build stage — restore first (cached), then publish the API in Release.
 # ---------------------------------------------------------------------------
-FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
 WORKDIR /src
 
 COPY src/IFA.Domain/IFA.Domain.csproj src/IFA.Domain/
@@ -18,7 +18,7 @@ RUN dotnet publish src/IFA.API/IFA.API.csproj -c Release -o /app/publish /p:UseA
 # ---------------------------------------------------------------------------
 # Runtime stage — minimal ASP.NET Core image.
 # ---------------------------------------------------------------------------
-FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
 WORKDIR /app
 
 ENV ASPNETCORE_URLS=http://+:8080
