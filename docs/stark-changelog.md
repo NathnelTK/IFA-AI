@@ -55,3 +55,10 @@ whole file with `npm run changelog:verify`.
 - **Files:** `client/package.json`, `client/tailwind.config.js`, `client/svelte.config.js`, `client/src/routes/+layout.svelte`, `client/src/routes/+page.svelte`, `client/src/lib/components/*`, `client/src/lib/stores/dashboardStore.ts`
 - **Verification:** `npm run check` (svelte-check) reports 0 errors and 0 warnings.
 - **Problem / Solution:** The container build requires a Node adapter, so `@sveltejs/adapter-node` replaced `adapter-auto` to produce a runnable `build/` output for Docker.
+
+## [2026-09-20] ARCHITECTURE: Three-Model AI Pipeline & Adaptive Engine Foundation
+- **Author:** Team XOR
+- **Phase:** Phase 2 & 3
+- **Type:** ARCHITECTURE
+- **Summary:** Completed the AI Foundation and Three-Model course generation pipeline with JIT materialization and Adaptive Learning Engine. Intentionally stubbed integration clients with detailed implementation tasks for the team.
+- **Verification:** dotnet build IFA.slnx succeeds with 0 errors and 0 warnings; npm run check succeeds with 0 errors and 0 warnings.
