@@ -34,7 +34,11 @@ namespace IFA.Infrastructure
             services.AddScoped<SkillProfileService>();
             services.AddScoped<CourseSharingService>();
 
+            services.AddScoped<IResearchService, ResearchService>();
+
+
             return services;
         }
+
     }
 }
