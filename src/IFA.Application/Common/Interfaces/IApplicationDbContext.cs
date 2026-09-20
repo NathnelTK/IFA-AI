@@ -22,6 +22,9 @@ namespace IFA.Application.Common.Interfaces
         IQueryable<LearnerProfile> LearnerProfiles { get; }
         IQueryable<ResearchPackage> ResearchPackages { get; }
 
-        Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+        void Add<TEntity>(TEntity entity) where TEntity : class;
+        void Remove<TEntity>(TEntity entity) where TEntity : class;
+         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }
 }

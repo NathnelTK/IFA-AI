@@ -29,8 +29,11 @@ namespace IFA.Infrastructure
                 provider.GetRequiredService<ApplicationDbContext>());
 
             services.AddScoped<IScholarxivService, ScholarxivService>();
+            services.AddScoped<IResearchService, ResearchService>();
+            
 
             return services;
         }
+        
     }
 }

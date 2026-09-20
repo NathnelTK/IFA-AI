@@ -1,3 +1,4 @@
+using IFA.API.Endpoints;
 using IFA.Infrastructure;
 using Microsoft.OpenApi.Models;
 
@@ -58,13 +59,14 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.MapControllers();
+app.MapLearnerEndpoints();
 
 app.MapGet("/api/health", () => Results.Ok(new
-    {
-        status = "healthy",
-        service = "IFA.API",
-        timestampUtc = DateTime.UtcNow
-    }))
+{
+    status = "healthy",
+    service = "IFA.API",
+    timestampUtc = DateTime.UtcNow
+}))
     .WithName("GetHealth")
     .WithTags("Health");
 
