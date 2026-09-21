@@ -298,7 +298,7 @@ gantt
 - **Verification**: `npm run dev` serves with 0 console warnings; responsive layout matches visual tokens.
 
 #### `PR 1.2`: ASP.NET Core Clean Architecture Backend Setup
-- **Objective**: Initialize the .NET 8/10 Clean Architecture solution with Domain, Application, Infrastructure, and API layers.
+- **Objective**: Initialize the .NET 10 Clean Architecture solution with Domain, Application, Infrastructure, and API layers.
 - **Key Files**:
   - `src/IFA.Domain`: Entities `Learner`, `LearningGoal`, `Course`, `Module`, `Lesson`, `Quiz`, `Question`, `SkillMetric`, `CourseShareInvite`, `CourseEnrollment`.
   - `src/IFA.Infrastructure`: EF Core PostgreSQL `ApplicationDbContext`, repository abstractions, migration configs.
@@ -490,7 +490,7 @@ gantt
 #### `PR 6.1`: EthioDeploy Production Containerization & Cloud Deployment
 - **Objective**: Package the entire system for EthioDeploy hosting.
 - **Key Files**:
-  - `docker/Dockerfile.backend`: Optimized .NET 8 multi-stage Alpine build.
+  - `docker/Dockerfile.backend`: Optimized .NET 10 multi-stage Alpine build.
   - `docker/Dockerfile.frontend`: Multi-stage Node.js build for SvelteKit using `@sveltejs/adapter-node`.
   - `ethiodeploy.json`: Deployment spec, resource allocations, healthcheck endpoints (`/api/health`).
 - **Verification**: `docker-compose up` runs locally without error; healthcheck returns HTTP 200 OK.

@@ -49,6 +49,7 @@ pnpm-debug.log*
 
 # -----------------------------------------------------------------------------
 # Environment & local secrets
+# Local DB connection settings and passwords live in `.env` (see .env.example).
 # -----------------------------------------------------------------------------
 .env
 .env.*

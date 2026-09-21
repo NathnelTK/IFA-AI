@@ -1,6 +1,12 @@
 using IFA.API.Endpoints;
 using IFA.Infrastructure;
-using Microsoft.OpenApi.Models;
+using IFA.Infrastructure.Configuration;
+using IFA.Infrastructure.Data;
+using Microsoft.OpenApi;
+
+// Load local secrets (see .env.example) before configuration is built so the
+// PostgreSQL password never has to be committed. Missing file is a no-op.
+EnvFile.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,9 +27,21 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException(
-        "Connection string 'DefaultConnection' was not found in configuration.");
+// A fully-formed connection string can still be injected through the
+// ConnectionStrings__DefaultConnection environment variable. Otherwise the
+// string is composed from the Database section plus the DB_PASSWORD secret.
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    var database = builder.Configuration.GetSection("Database");
+
+    connectionString = PostgresConnectionString.Create(
+        host: database["Host"] ?? "localhost",
+        port: database.GetValue("Port", 5432),
+        database: database["Name"] ?? "ifa",
+        username: database["User"] ?? "ifa",
+        password: builder.Configuration["DB_PASSWORD"] ?? database["Password"] ?? string.Empty);
+}
 
 builder.Services.AddInfrastructure(connectionString);
 

@@ -5,15 +5,15 @@ services:
     image: postgres:16-alpine
     container_name: ifa-postgres
     environment:
-      POSTGRES_DB: ifa
-      POSTGRES_USER: ifa
-      POSTGRES_PASSWORD: ifa_dev_password
+      POSTGRES_DB: ${DB_NAME:-ifa}
+      POSTGRES_USER: ${DB_USER:-ifa}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
     ports:
       - "5432:5432"
     volumes:
       - ifa-postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ifa -d ifa"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -30,7 +30,11 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=ifa;Username=ifa;Password=ifa_dev_password"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-ifa}
+      DB_USER: ${DB_USER:-ifa}
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
       Cors__AllowedOrigins__0: "http://localhost:5173"
     ports:
       - "5011:8080"

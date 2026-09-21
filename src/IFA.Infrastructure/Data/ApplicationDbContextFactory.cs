@@ -1,3 +1,5 @@
+using System;
+using IFA.Infrastructure.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
@@ -5,24 +7,44 @@ namespace IFA.Infrastructure.Data
 {
     /// <summary>
     /// Enables `dotnet ef` to create the DbContext at design time without
-    /// booting the API. The connection string can be overridden with the
-    /// IFA_DB_CONNECTION environment variable.
+    /// booting the API. Configuration is resolved from the local .env file
+    /// and process environment variables; a full connection string can be
+    /// supplied through ConnectionStrings__DefaultConnection or
+    /// IFA_DB_CONNECTION.
     /// </summary>
     public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<ApplicationDbContext>
     {
-        private const string DefaultConnectionString =
-            "Host=localhost;Port=5432;Database=ifa;Username=ifa;Password=ifa_dev_password";
-
         public ApplicationDbContext CreateDbContext(string[] args)
         {
-            var connectionString =
-                Environment.GetEnvironmentVariable("IFA_DB_CONNECTION") ?? DefaultConnectionString;
+            EnvFile.Load();
 
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-                .UseNpgsql(connectionString)
+                .UseNpgsql(ResolveConnectionString())
                 .Options;
 
             return new ApplicationDbContext(options);
         }
+
+        private static string ResolveConnectionString()
+        {
+            var explicitConnection =
+                Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+                ?? Environment.GetEnvironmentVariable("IFA_DB_CONNECTION");
+
+            if (!string.IsNullOrWhiteSpace(explicitConnection))
+            {
+                return explicitConnection;
+            }
+
+            return PostgresConnectionString.Create(
+                host: Environment.GetEnvironmentVariable("DB_HOST") ?? "localhost",
+                port: ParsePort(Environment.GetEnvironmentVariable("DB_PORT")),
+                database: Environment.GetEnvironmentVariable("DB_NAME") ?? "ifa",
+                username: Environment.GetEnvironmentVariable("DB_USER") ?? "ifa",
+                password: Environment.GetEnvironmentVariable("DB_PASSWORD") ?? string.Empty);
+        }
+
+        private static int ParsePort(string? value) =>
+            int.TryParse(value, out var port) ? port : 5432;
     }
 }
