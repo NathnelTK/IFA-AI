@@ -35,6 +35,7 @@ namespace IFA.Infrastructure
 
             // External Research & Media Services
             services.AddScoped<IScholarxivService, ScholarxivService>();
+            services.AddScoped<IResearchService, ResearchService>();
             services.AddScoped<IYouTubeResourceService, YouTubeResourceService>();
             services.AddScoped<IVoxService, VoxideClient>();
 

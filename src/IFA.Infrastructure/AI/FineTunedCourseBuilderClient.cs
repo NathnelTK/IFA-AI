@@ -57,7 +57,7 @@ namespace IFA.Infrastructure.AI
                 Title = spec.Title,
                 Summary = $"Comprehensive hands-on module covering {spec.Topic}.",
                 EstimatedHours = 4,
-                IsGenerated = true,
+                GenerationStatus = ModuleGenerationStatus.Ready,
                 GeneratedAt = DateTime.UtcNow
             };
 

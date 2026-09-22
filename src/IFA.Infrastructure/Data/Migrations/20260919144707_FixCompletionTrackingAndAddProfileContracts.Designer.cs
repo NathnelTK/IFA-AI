@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using IFA.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,13 +13,15 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace IFA.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260919144707_FixCompletionTrackingAndAddProfileContracts")]
+    partial class FixCompletionTrackingAndAddProfileContracts
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.8")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -56,7 +59,7 @@ namespace IFA.Infrastructure.Data.Migrations
 
                     b.HasIndex("ResearchPackageId");
 
-                    b.ToTable("AcademicEvidence", (string)null);
+                    b.ToTable("AcademicEvidence");
                 });
 
             modelBuilder.Entity("IFA.Domain.Entities.Course", b =>
@@ -308,7 +311,7 @@ namespace IFA.Infrastructure.Data.Migrations
 
                     b.HasIndex("LearnerId");
 
-                    b.ToTable("LearnerProfiles", (string)null);
+                    b.ToTable("LearnerProfiles");
                 });
 
             modelBuilder.Entity("IFA.Domain.Entities.Lesson", b =>
@@ -432,7 +435,7 @@ namespace IFA.Infrastructure.Data.Migrations
 
                     b.HasIndex("ResearchPackageId");
 
-                    b.ToTable("PracticalResources", (string)null);
+                    b.ToTable("PracticalResource");
                 });
 
             modelBuilder.Entity("IFA.Domain.Entities.Question", b =>
@@ -527,10 +530,9 @@ namespace IFA.Infrastructure.Data.Migrations
 
                     b.HasIndex("QuestionId");
 
-                    b.HasIndex("QuizAttemptId", "QuestionId")
-                        .IsUnique();
+                    b.HasIndex("QuizAttemptId");
 
-                    b.ToTable("QuizAnswers", (string)null);
+                    b.ToTable("QuizAnswers");
                 });
 
             modelBuilder.Entity("IFA.Domain.Entities.ResearchPackage", b =>
@@ -549,7 +551,7 @@ namespace IFA.Infrastructure.Data.Migrations
 
                     b.HasIndex("LearnerProfileId");
 
-                    b.ToTable("ResearchPackages", (string)null);
+                    b.ToTable("ResearchPackages");
                 });
 
             modelBuilder.Entity("IFA.Domain.Entities.SkillMetric", b =>
@@ -621,7 +623,7 @@ namespace IFA.Infrastructure.Data.Migrations
 
                     b.HasIndex("ResearchPackageId");
 
-                    b.ToTable("VideoResources", (string)null);
+                    b.ToTable("VideoResource");
                 });
 
             modelBuilder.Entity("LessonProgress", b =>
@@ -646,10 +648,9 @@ namespace IFA.Infrastructure.Data.Migrations
 
                     b.HasIndex("LearnerId");
 
-                    b.HasIndex("LessonId", "LearnerId")
-                        .IsUnique();
+                    b.HasIndex("LessonId");
 
-                    b.ToTable("LessonProgress", (string)null);
+                    b.ToTable("LessonProgress");
                 });
 
             modelBuilder.Entity("QuizAttempt", b =>
@@ -680,9 +681,9 @@ namespace IFA.Infrastructure.Data.Migrations
 
                     b.HasIndex("LearnerId");
 
-                    b.HasIndex("QuizId", "LearnerId");
+                    b.HasIndex("QuizId");
 
-                    b.ToTable("QuizAttempts", (string)null);
+                    b.ToTable("QuizAttempts");
                 });
 
             modelBuilder.Entity("IFA.Domain.Entities.AcademicEvidence", b =>
