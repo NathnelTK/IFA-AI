@@ -23,6 +23,42 @@ namespace IFA.Infrastructure.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("IFA.Domain.Entities.AcademicEvidence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Authors")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Doi")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("RelevanceNote")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ResearchPackageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ResearchPackageId");
+
+                    b.ToTable("AcademicEvidence", (string)null);
+                });
+
             modelBuilder.Entity("IFA.Domain.Entities.Course", b =>
                 {
                     b.Property<Guid>("Id")
@@ -218,6 +254,63 @@ namespace IFA.Infrastructure.Data.Migrations
                     b.ToTable("Learners", (string)null);
                 });
 
+            modelBuilder.Entity("IFA.Domain.Entities.LearnerProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("AvailableStudyHoursPerWeek")
+                        .HasColumnType("integer");
+
+                    b.PrimitiveCollection<List<string>>("Constraints")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CurrentLevel")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Goal")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.PrimitiveCollection<List<string>>("KnownStrengths")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
+                    b.PrimitiveCollection<List<string>>("KnownWeaknesses")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
+                    b.Property<Guid>("LearnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PreferredLanguage")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PreferredLearningStyle")
+                        .HasColumnType("text");
+
+                    b.PrimitiveCollection<List<string>>("PreferredYouTubeChannels")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
+                    b.Property<string>("SubjectTopic")
+                        .HasColumnType("text");
+
+                    b.Property<string>("TargetOutcome")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LearnerId");
+
+                    b.ToTable("LearnerProfiles", (string)null);
+                });
+
             modelBuilder.Entity("IFA.Domain.Entities.Lesson", b =>
                 {
                     b.Property<Guid>("Id")
@@ -231,9 +324,6 @@ namespace IFA.Infrastructure.Data.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsCompleted")
-                        .HasColumnType("boolean");
 
                     b.Property<int>("LessonNumber")
                         .HasColumnType("integer");
@@ -293,11 +383,8 @@ namespace IFA.Infrastructure.Data.Migrations
                     b.Property<DateTime?>("GeneratedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<bool>("IsCompleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsGenerated")
-                        .HasColumnType("boolean");
+                    b.Property<int>("GenerationStatus")
+                        .HasColumnType("integer");
 
                     b.Property<int>("ModuleNumber")
                         .HasColumnType("integer");
@@ -320,6 +407,34 @@ namespace IFA.Infrastructure.Data.Migrations
                     b.ToTable("Modules", (string)null);
                 });
 
+            modelBuilder.Entity("IFA.Domain.Entities.PracticalResource", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ResearchPackageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SourceType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ResearchPackageId");
+
+                    b.ToTable("PracticalResources", (string)null);
+                });
+
             modelBuilder.Entity("IFA.Domain.Entities.Question", b =>
                 {
                     b.Property<Guid>("Id")
@@ -339,7 +454,7 @@ namespace IFA.Infrastructure.Data.Migrations
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)");
 
-                    b.Property<List<string>>("Options")
+                    b.PrimitiveCollection<List<string>>("Options")
                         .IsRequired()
                         .HasColumnType("text[]");
 
@@ -369,15 +484,6 @@ namespace IFA.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsPassed")
-                        .HasColumnType("boolean");
-
-                    b.Property<int?>("LastScorePercentage")
-                        .HasColumnType("integer");
-
                     b.Property<Guid>("ModuleId")
                         .HasColumnType("uuid");
 
@@ -397,6 +503,53 @@ namespace IFA.Infrastructure.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("Quizzes", (string)null);
+                });
+
+            modelBuilder.Entity("IFA.Domain.Entities.QuizAnswer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsCorrect")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("QuestionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("QuizAttemptId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SelectedOptionIndex")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("QuestionId");
+
+                    b.HasIndex("QuizAttemptId", "QuestionId")
+                        .IsUnique();
+
+                    b.ToTable("QuizAnswers", (string)null);
+                });
+
+            modelBuilder.Entity("IFA.Domain.Entities.ResearchPackage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("LearnerProfileId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LearnerProfileId");
+
+                    b.ToTable("ResearchPackages", (string)null);
                 });
 
             modelBuilder.Entity("IFA.Domain.Entities.SkillMetric", b =>
@@ -438,6 +591,107 @@ namespace IFA.Infrastructure.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("SkillMetrics", (string)null);
+                });
+
+            modelBuilder.Entity("IFA.Domain.Entities.VideoResource", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ChannelName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("FromPreferredChannel")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("ResearchPackageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("YouTubeVideoId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ResearchPackageId");
+
+                    b.ToTable("VideoResources", (string)null);
+                });
+
+            modelBuilder.Entity("LessonProgress", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsCompleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("LearnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("LessonId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LearnerId");
+
+                    b.HasIndex("LessonId", "LearnerId")
+                        .IsUnique();
+
+                    b.ToTable("LessonProgress", (string)null);
+                });
+
+            modelBuilder.Entity("QuizAttempt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsPassed")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("LearnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("QuizId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ScorePercentage")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LearnerId");
+
+                    b.HasIndex("QuizId", "LearnerId");
+
+                    b.ToTable("QuizAttempts", (string)null);
+                });
+
+            modelBuilder.Entity("IFA.Domain.Entities.AcademicEvidence", b =>
+                {
+                    b.HasOne("IFA.Domain.Entities.ResearchPackage", null)
+                        .WithMany("AcademicSources")
+                        .HasForeignKey("ResearchPackageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("IFA.Domain.Entities.Course", b =>
@@ -488,6 +742,17 @@ namespace IFA.Infrastructure.Data.Migrations
                     b.Navigation("SenderLearner");
                 });
 
+            modelBuilder.Entity("IFA.Domain.Entities.LearnerProfile", b =>
+                {
+                    b.HasOne("IFA.Domain.Entities.Learner", "Learner")
+                        .WithMany()
+                        .HasForeignKey("LearnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Learner");
+                });
+
             modelBuilder.Entity("IFA.Domain.Entities.Lesson", b =>
                 {
                     b.HasOne("IFA.Domain.Entities.Module", "Module")
@@ -508,6 +773,15 @@ namespace IFA.Infrastructure.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Course");
+                });
+
+            modelBuilder.Entity("IFA.Domain.Entities.PracticalResource", b =>
+                {
+                    b.HasOne("IFA.Domain.Entities.ResearchPackage", null)
+                        .WithMany("PracticalResources")
+                        .HasForeignKey("ResearchPackageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("IFA.Domain.Entities.Question", b =>
@@ -532,6 +806,36 @@ namespace IFA.Infrastructure.Data.Migrations
                     b.Navigation("Module");
                 });
 
+            modelBuilder.Entity("IFA.Domain.Entities.QuizAnswer", b =>
+                {
+                    b.HasOne("IFA.Domain.Entities.Question", "Question")
+                        .WithMany()
+                        .HasForeignKey("QuestionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("QuizAttempt", "QuizAttempt")
+                        .WithMany("Answers")
+                        .HasForeignKey("QuizAttemptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Question");
+
+                    b.Navigation("QuizAttempt");
+                });
+
+            modelBuilder.Entity("IFA.Domain.Entities.ResearchPackage", b =>
+                {
+                    b.HasOne("IFA.Domain.Entities.LearnerProfile", "LearnerProfile")
+                        .WithMany()
+                        .HasForeignKey("LearnerProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("LearnerProfile");
+                });
+
             modelBuilder.Entity("IFA.Domain.Entities.SkillMetric", b =>
                 {
                     b.HasOne("IFA.Domain.Entities.Learner", "Learner")
@@ -541,6 +845,53 @@ namespace IFA.Infrastructure.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Learner");
+                });
+
+            modelBuilder.Entity("IFA.Domain.Entities.VideoResource", b =>
+                {
+                    b.HasOne("IFA.Domain.Entities.ResearchPackage", null)
+                        .WithMany("VideoResources")
+                        .HasForeignKey("ResearchPackageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("LessonProgress", b =>
+                {
+                    b.HasOne("IFA.Domain.Entities.Learner", "Learner")
+                        .WithMany()
+                        .HasForeignKey("LearnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("IFA.Domain.Entities.Lesson", "Lesson")
+                        .WithMany()
+                        .HasForeignKey("LessonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Learner");
+
+                    b.Navigation("Lesson");
+                });
+
+            modelBuilder.Entity("QuizAttempt", b =>
+                {
+                    b.HasOne("IFA.Domain.Entities.Learner", "Learner")
+                        .WithMany()
+                        .HasForeignKey("LearnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("IFA.Domain.Entities.Quiz", "Quiz")
+                        .WithMany("Attempts")
+                        .HasForeignKey("QuizId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Learner");
+
+                    b.Navigation("Quiz");
                 });
 
             modelBuilder.Entity("IFA.Domain.Entities.Course", b =>
@@ -570,7 +921,23 @@ namespace IFA.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("IFA.Domain.Entities.Quiz", b =>
                 {
+                    b.Navigation("Attempts");
+
                     b.Navigation("Questions");
+                });
+
+            modelBuilder.Entity("IFA.Domain.Entities.ResearchPackage", b =>
+                {
+                    b.Navigation("AcademicSources");
+
+                    b.Navigation("PracticalResources");
+
+                    b.Navigation("VideoResources");
+                });
+
+            modelBuilder.Entity("QuizAttempt", b =>
+                {
+                    b.Navigation("Answers");
                 });
 #pragma warning restore 612, 618
         }
