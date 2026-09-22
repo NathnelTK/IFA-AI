@@ -6,6 +6,7 @@
   import RecommendationsList from '$lib/components/RecommendationsList.svelte';
   import RecentActivityFeed from '$lib/components/RecentActivityFeed.svelte';
   import AiTutorDock from '$lib/components/AiTutorDock.svelte';
+  import { goto } from '$app/navigation';
   import { activeCourse, recommendations, overallProgress } from '$lib/stores/dashboardStore';
 
   let notificationToast: string | null = null;
@@ -20,7 +21,8 @@
   }
 
   function handleContinueLearning() {
-    showToast('Entering interactive lesson: "Working with REST APIs"');
+    showToast('Entering interactive lesson…');
+    goto('/learn');
   }
 
   function handleShareCourse() {
