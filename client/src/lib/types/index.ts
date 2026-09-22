@@ -53,3 +53,62 @@ export interface PipelineModuleProposal {
   estimatedHours: number;
   topics: string[];
 }
+
+// -----------------------------------------------------------------------------
+// Three-model pipeline output (mirrors GeneratedModuleResult from the API —
+// see src/IFA.Application/Common/Interfaces/ICourseGenerationService.cs).
+// Field names match the ASP.NET camelCase JSON contract exactly.
+// -----------------------------------------------------------------------------
+export interface GeneratedQuestion {
+  id: string;
+  prompt: string;
+  options: string[];
+  correctOptionIndex: number;
+  explanation: string;
+  targetSkillName: string;
+  bloomTaxonomyLevel?: string;
+}
+
+export interface GeneratedQuiz {
+  id: string;
+  title: string;
+  passingScorePercentage: number;
+  questions: GeneratedQuestion[];
+}
+
+export interface GeneratedLesson {
+  id: string;
+  lessonNumber: number;
+  title: string;
+  summary: string;
+  contentMarkdown: string;
+  readingTimeMinutes: number;
+  youTubeVideoId?: string | null;
+  youTubeVideoTitle?: string | null;
+  scholarxivCitationDoi?: string | null;
+  scholarxivPaperTitle?: string | null;
+  keyTakeaways?: string[];
+}
+
+export interface GeneratedModule {
+  id: string;
+  moduleNumber: number;
+  title: string;
+  summary: string;
+  estimatedHours: number;
+  generationStatus?: string;
+  isGenerated?: boolean;
+}
+
+export interface GeneratedModuleResult {
+  module: GeneratedModule;
+  lesson: GeneratedLesson;
+  quiz: GeneratedQuiz;
+}
+
+export interface QuizResult {
+  scorePercent: number;
+  correctCount: number;
+  totalQuestions: number;
+  passed: boolean;
+}
