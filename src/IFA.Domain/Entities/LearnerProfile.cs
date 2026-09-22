@@ -4,9 +4,8 @@ using System.Collections.Generic;
 namespace IFA.Domain.Entities
 {
     /// <summary>
-    /// Output of the Learning Advisor & Research Orchestrator (Model 1).
-    /// Captures the learner's conversational intake, goals, constraints,
-    /// and learning preferences.
+    /// Output of Model 1 (Learning Advisor). Every field except Goal is
+    /// optional so a partially-filled intake never breaks the pipeline.
     /// </summary>
     public class LearnerProfile
     {
@@ -27,7 +26,6 @@ namespace IFA.Domain.Entities
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        // Navigation property
         public Learner? Learner { get; set; }
     }
 }

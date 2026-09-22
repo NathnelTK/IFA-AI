@@ -26,16 +26,33 @@ namespace IFA.Infrastructure.Data
         public DbSet<CourseEnrollment> CourseEnrollments => Set<CourseEnrollment>();
         public DbSet<CourseShareInvite> CourseShareInvites => Set<CourseShareInvite>();
 
-        IEnumerable<Learner> IApplicationDbContext.Learners => Learners;
-        IEnumerable<Course> IApplicationDbContext.Courses => Courses;
-        IEnumerable<Module> IApplicationDbContext.Modules => Modules;
-        IEnumerable<Lesson> IApplicationDbContext.Lessons => Lessons;
-        IEnumerable<Quiz> IApplicationDbContext.Quizzes => Quizzes;
-        IEnumerable<Question> IApplicationDbContext.Questions => Questions;
-        IEnumerable<SkillMetric> IApplicationDbContext.SkillMetrics => SkillMetrics;
-        IEnumerable<CourseEnrollment> IApplicationDbContext.CourseEnrollments => CourseEnrollments;
-        IEnumerable<CourseShareInvite> IApplicationDbContext.CourseShareInvites => CourseShareInvites;
+        // New sets, backing the entities added this round:
+        public DbSet<LessonProgress> LessonProgress => Set<LessonProgress>();
+        public DbSet<QuizAttempt> QuizAttempts => Set<QuizAttempt>();
+        public DbSet<QuizAnswer> QuizAnswers => Set<QuizAnswer>();
+        public DbSet<LearnerProfile> LearnerProfiles => Set<LearnerProfile>();
+        public DbSet<ResearchPackage> ResearchPackages => Set<ResearchPackage>();
 
+        // IApplicationDbContext now declares IQueryable<T>, and DbSet<T>
+        // already IS an IQueryable<T> natively — so these explicit
+        // implementations no longer downcast anything. They just forward
+        // the same object the interface asked for, unmodified.
+        IQueryable<Learner> IApplicationDbContext.Learners => Learners;
+        IQueryable<Course> IApplicationDbContext.Courses => Courses;
+        IQueryable<Module> IApplicationDbContext.Modules => Modules;
+        IQueryable<Lesson> IApplicationDbContext.Lessons => Lessons;
+        IQueryable<Quiz> IApplicationDbContext.Quizzes => Quizzes;
+        IQueryable<Question> IApplicationDbContext.Questions => Questions;
+        IQueryable<SkillMetric> IApplicationDbContext.SkillMetrics => SkillMetrics;
+        IQueryable<CourseEnrollment> IApplicationDbContext.CourseEnrollments => CourseEnrollments;
+        IQueryable<CourseShareInvite> IApplicationDbContext.CourseShareInvites => CourseShareInvites;
+        IQueryable<LessonProgress> IApplicationDbContext.LessonProgress => LessonProgress;
+        IQueryable<QuizAttempt> IApplicationDbContext.QuizAttempts => QuizAttempts;
+        IQueryable<QuizAnswer> IApplicationDbContext.QuizAnswers => QuizAnswers;
+        IQueryable<LearnerProfile> IApplicationDbContext.LearnerProfiles => LearnerProfiles;
+        IQueryable<ResearchPackage> IApplicationDbContext.ResearchPackages => ResearchPackages;
+        void IApplicationDbContext.Add<TEntity>(TEntity entity) where TEntity : class => Set<TEntity>().Add(entity);
+        void IApplicationDbContext.Remove<TEntity>(TEntity entity) where TEntity : class => Set<TEntity>().Remove(entity);
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);

@@ -4,8 +4,8 @@ using System.Collections.Generic;
 namespace IFA.Domain.Entities
 {
     /// <summary>
-    /// Output of the Research Orchestration phase (Model 1 + Scholarxiv + Web/YouTube).
-    /// Grounded knowledge and media artifacts consumed by Course Architect (Model 2).
+    /// Output of the Research Agent, normalized so Model 2 can consume it
+    /// without knowing whether it came from Scholarxiv, web search or YouTube.
     /// </summary>
     public class ResearchPackage
     {

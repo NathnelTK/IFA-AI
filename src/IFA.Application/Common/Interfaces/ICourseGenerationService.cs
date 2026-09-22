@@ -41,7 +41,10 @@ namespace IFA.Application.Common.Interfaces
 
     public interface ICourseGenerationService
     {
-        Task<CoursePipelineProposal> GenerateCoursePipelineProposalAsync(string goal, int hoursPerWeek, string preferredCreator, CancellationToken cancellationToken = default);
+        Task<CoursePipelineProposal> GenerateCoursePipelineProposalAsync(
+        LearnerProfile profile,
+        ResearchPackage researchPackage,
+        CancellationToken cancellationToken = default);
         Task<GeneratedModuleResult> GenerateJitModuleAsync(JitModuleGenerationRequest request, CancellationToken cancellationToken = default);
     }
 }
