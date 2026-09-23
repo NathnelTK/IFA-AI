@@ -1,10 +1,12 @@
 <script lang="ts">
   import { ArrowRight, Sparkles, Send, X, Mic, Volume2 } from 'lucide-svelte';
+  import VoiceCommandOverlay from './VoiceCommandOverlay.svelte';
 
   let isOpen = false;
   let chatMessage = '';
   let isThinking = false;
   let isSpeaking = false;
+  let showVoiceOverlay = false;
 
   let messages = [
     {
@@ -30,8 +32,8 @@
     }, 1200);
   }
 
-  function simulateVoiceQuestion() {
-    chatMessage = 'Explain how JWT authentication works in ASP.NET Core middleware.';
+  function handleVoiceInput(text: string) {
+    chatMessage = text;
     sendMessage();
   }
 </script>
@@ -85,8 +87,8 @@
       <div class="flex items-center gap-1">
         <button
           type="button"
-          on:click={simulateVoiceQuestion}
-          title="Simulate Voice Prompt"
+          on:click={() => showVoiceOverlay = true}
+          title="Voice Command"
           class="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-cyan-400 hover:bg-white/20"
         >
           <Mic class="w-3.5 h-3.5" />
@@ -144,3 +146,10 @@
     </div>
   </div>
 {/if}
+
+<!-- Voice Command Overlay -->
+<VoiceCommandOverlay
+  isActive={showVoiceOverlay}
+  onClose={() => showVoiceOverlay = false}
+  onVoiceInput={handleVoiceInput}
+/>
