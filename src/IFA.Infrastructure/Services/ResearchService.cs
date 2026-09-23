@@ -88,6 +88,7 @@ namespace IFA.Infrastructure.Services
                 Authors = paper.Authors,
                 Summary = paper.Abstract,
                 Doi = paper.Doi,
+                PublishedYear = paper.PublishedYear,
                 // Placeholder relevance logic - good enough for MVP, but
                 // flag it: real relevance scoring (matching against
                 // profile.KnownWeaknesses, semantic similarity, etc.)

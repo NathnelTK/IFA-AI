@@ -1,5 +1,5 @@
-
 using IFA.API.Endpoints;
+using IFA.Application;
 using IFA.Infrastructure;
 using IFA.Infrastructure.Configuration;
 using IFA.Infrastructure.Data;
@@ -48,6 +48,7 @@ if (string.IsNullOrWhiteSpace(connectionString))
 }
 
 builder.Services.AddInfrastructure(connectionString);
+builder.Services.AddApplication();
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?? new[] { "http://localhost:5173" };
@@ -112,4 +113,3 @@ app.MapGet("/api/health", () => Results.Ok(new
     .WithTags("Health");
 
 app.Run();
-

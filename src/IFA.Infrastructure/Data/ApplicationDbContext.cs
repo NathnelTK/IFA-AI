@@ -51,8 +51,8 @@ namespace IFA.Infrastructure.Data
         IQueryable<QuizAnswer> IApplicationDbContext.QuizAnswers => QuizAnswers;
         IQueryable<LearnerProfile> IApplicationDbContext.LearnerProfiles => LearnerProfiles;
         IQueryable<ResearchPackage> IApplicationDbContext.ResearchPackages => ResearchPackages;
-        public void Add<TEntity>(TEntity entity) where TEntity : class => Set<TEntity>().Add(entity);
-        public void Remove<TEntity>(TEntity entity) where TEntity : class => Set<TEntity>().Remove(entity);
+        void IApplicationDbContext.Add<TEntity>(TEntity entity) where TEntity : class => Set<TEntity>().Add(entity);
+        void IApplicationDbContext.Remove<TEntity>(TEntity entity) where TEntity : class => Set<TEntity>().Remove(entity);
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);

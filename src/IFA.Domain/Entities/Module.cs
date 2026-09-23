@@ -24,6 +24,7 @@ namespace IFA.Domain.Entities
         // "currently generating" — which matters if a learner double
         // clicks "Continue" and fires two requests for the same module.
         public ModuleGenerationStatus GenerationStatus { get; set; } = ModuleGenerationStatus.Blueprint;
+        public bool IsGenerated => GenerationStatus == ModuleGenerationStatus.Ready;
         public DateTime? GeneratedAt { get; set; }
 
         // IsCompleted removed for the same per-learner reason as Lesson/Quiz.
