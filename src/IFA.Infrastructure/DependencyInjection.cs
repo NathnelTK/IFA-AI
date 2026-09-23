@@ -1,4 +1,5 @@
 using IFA.Application.Common.Interfaces;
+using IFA.Application.Skills.Services;
 using IFA.Infrastructure.Data;
 using IFA.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
@@ -29,6 +30,7 @@ namespace IFA.Infrastructure
                 provider.GetRequiredService<ApplicationDbContext>());
 
             services.AddScoped<IScholarxivService, ScholarxivService>();
+            services.AddScoped<SkillProfileService>();
 
             return services;
         }
