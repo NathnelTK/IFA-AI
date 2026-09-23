@@ -53,3 +53,18 @@ export interface PipelineModuleProposal {
   estimatedHours: number;
   topics: string[];
 }
+
+export interface SkillComparison {
+  name: string;
+  userPercentage: number;
+  peerPercentage: number;
+}
+
+export interface PeerComparison {
+  enabled: boolean;
+  user: string;
+  peerName: string;
+  userProgress: number;
+  peerProgress: number;
+  skillComparison: SkillComparison[];
+}

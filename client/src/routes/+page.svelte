@@ -6,9 +6,11 @@
   import RecommendationsList from '$lib/components/RecommendationsList.svelte';
   import RecentActivityFeed from '$lib/components/RecentActivityFeed.svelte';
   import AiTutorDock from '$lib/components/AiTutorDock.svelte';
-  import { activeCourse, recommendations, overallProgress } from '$lib/stores/dashboardStore';
+  import PeerComparisonView from '$lib/components/PeerComparisonView.svelte';
+  import { activeCourse, recommendations, overallProgress, peerComparison } from '$lib/stores/dashboardStore';
 
   let notificationToast: string | null = null;
+  let showPeerComparison = false;
 
   function showToast(msg: string) {
     notificationToast = msg;
@@ -28,7 +30,10 @@
   }
 
   function handleCompareToggle() {
-    showToast('Toggled Peer Progress Comparison with Ermiyas!');
+    showPeerComparison = !showPeerComparison;
+    if (showPeerComparison) {
+      showToast('Opening Peer Progress Comparison with Ermiyas!');
+    }
   }
 
   function handlePublishCourse() {
@@ -71,6 +76,11 @@
     <div class="xl:col-span-4 space-y-5">
       <!-- Donut Chart & Skill Breakdown -->
       <LearningOverviewDonut />
+
+      <!-- Peer Progress Comparison View (Conditional) -->
+      {#if showPeerComparison}
+        <PeerComparisonView onClose={() => showPeerComparison = false} />
+      {/if}
 
       <!-- IFA Recommends Adaptive Actions -->
       <RecommendationsList onSelectRecommendation={handleSelectRecommendation} />

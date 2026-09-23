@@ -132,7 +132,15 @@ export const publicCourses = writable<CourseCard[]>([
 
 export const peerComparison = writable({
   enabled: false,
+  user: 'Nathnel',
   peerName: 'Ermiyas',
+  userProgress: 72,
   peerProgress: 61,
-  userProgress: 72
+  skillComparison: [
+    { name: 'C#', userPercentage: 84, peerPercentage: 78 },
+    { name: 'Databases', userPercentage: 61, peerPercentage: 72 },
+    { name: 'APIs', userPercentage: 55, peerPercentage: 48 },
+    { name: 'Authentication', userPercentage: 45, peerPercentage: 38 },
+    { name: 'Testing', userPercentage: 32, peerPercentage: 42 }
+  ]
 });
