@@ -1,4 +1,5 @@
 using IFA.Application.Common.Interfaces;
+using IFA.Application.Courses.Services;
 using IFA.Application.Skills.Services;
 using IFA.Infrastructure.Data;
 using IFA.Infrastructure.Services;
@@ -31,6 +32,7 @@ namespace IFA.Infrastructure
 
             services.AddScoped<IScholarxivService, ScholarxivService>();
             services.AddScoped<SkillProfileService>();
+            services.AddScoped<CourseSharingService>();
 
             return services;
         }
