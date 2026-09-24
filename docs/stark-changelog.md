@@ -161,3 +161,27 @@ whole file with `npm run changelog:verify`.
 - **Summary:** Created HeroGoalSuggestions component for IFA-recommended learning goals. Displays personalized goal suggestions based on learner progress. Goal cards show title, description, estimated time, and difficulty with difficulty-based color coding (Beginner, Intermediate, Advanced) and icon-based goal categorization. Click to select and start learning path with view all suggestions link for expanded options.
 - **Files:** `client/src/lib/components/HeroGoalSuggestions.svelte`
 - **Verification:** `npm run check` in client reports 0 errors and 0 warnings.
+
+## [2026-09-24] FEATURE: Course Sharing & Enrollment (PRs 5.1 + 5.7)
+- **Author:** Team XOR
+- **Phase:** Phase 5 / PRs 5.1 + 5.7
+- **Type:** FEATURE
+- **Summary:** Implemented course sharing and enrollment system. Added CourseSharingService backend service for share code generation and validation. Created ShareCourseCommand DTOs and CourseSharingController API endpoint. Created CourseShareDialog component for generating share links with optional expiration and message. Created course join route at /courses/join/[code] for enrollment via share code. Integrated with CourseShareInvite entity and dependency injection.
+- **Files:** `src/IFA.Application/Courses/Commands/ShareCourseCommand.cs`, `src/IFA.Application/Courses/Services/CourseSharingService.cs`, `src/IFA.API/Controllers/CourseSharingController.cs`, `client/src/lib/components/CourseShareDialog.svelte`, `client/src/routes/courses/join/[code]/+page.svelte`, `src/IFA.Infrastructure/DependencyInjection.cs`
+- **Verification:** Backend `dotnet build` succeeds with 0 warnings and 0 errors. Frontend `npm run check` reports 0 errors and 0 warnings.
+
+## [2026-09-24] FEATURE: Course Marketplace & Discovery (PRs 5.2 + 5.8)
+- **Author:** Team XOR
+- **Phase:** Phase 5 / PRs 5.2 + 5.8
+- **Type:** FEATURE
+- **Summary:** Implemented Course Marketplace for public course discovery. Created Marketplace page with search, category filters, and grid/list view toggle. Created PublicCourseCard component with rating, reviews, enrollment stats, and course metadata. Created MarketplaceFilters component for category-based filtering. Course cards display thumbnail, instructor, rating, reviews, enrollments, level, duration, modules, and tags. Includes enroll and bookmark actions for public courses. Statistics showing total courses and enrollments.
+- **Files:** `client/src/routes/marketplace/+page.svelte`, `client/src/lib/components/PublicCourseCard.svelte`, `client/src/lib/components/MarketplaceFilters.svelte`
+- **Verification:** `npm run check` in client reports 0 errors and 0 warnings.
+
+## [2026-09-24] FEATURE: Social Features & Recommendation Engine (PRs 5.3 + 5.4 + 5.5 + 5.6)
+- **Author:** Team XOR
+- **Phase:** Phase 5 / PRs 5.3 + 5.4 + 5.5 + 5.6
+- **Type:** FEATURE
+- **Summary:** Implemented social learning features and AI-powered recommendations. Created ActivityStream component for peer activity feed with enrollment, completion, achievement, and recommendation activity types. Created PeerProgressComparison component for skill-level peer comparison with overall progress and skill breakdown charts. Created RecommendationEngine component for AI-powered course recommendations with confidence scores and personalization reasons. Type-based icon and color coding for activity items and visual skill comparison bar charts for peer benchmarking.
+- **Files:** `client/src/lib/components/ActivityStream.svelte`, `client/src/lib/components/PeerProgressComparison.svelte`, `client/src/lib/components/RecommendationEngine.svelte`
+- **Verification:** `npm run check` in client reports 0 errors and 0 warnings.
