@@ -3,8 +3,9 @@
   import LearningPreferences from '$lib/components/LearningPreferences.svelte';
   import ResourcePreferences from '$lib/components/ResourcePreferences.svelte';
   import NotificationPreferences from '$lib/components/NotificationPreferences.svelte';
+  import ThemePreferences from '$lib/components/ThemePreferences.svelte';
 
-  let activeTab = 'learning'; // 'learning' | 'resources' | 'notifications' | 'account'
+  let activeTab = 'learning'; // 'learning' | 'resources' | 'notifications' | 'theme' | 'account'
   let saving = false;
 
   const userSettings = {
@@ -26,6 +27,13 @@
       assessmentResults: true,
       recommendations: true,
       emailDigest: 'weekly'
+    },
+    theme: {
+      theme: 'light',
+      accentColor: 'pine',
+      fontSize: 'medium',
+      compactMode: false,
+      reducedMotion: false
     },
     account: {
       name: 'Nathnel',
@@ -100,6 +108,15 @@
     </button>
     <button
       type="button"
+      on:click={() => handleTabChange('theme')}
+      class="flex-1 py-2 px-4 rounded-lg text-sm font-semibold transition {activeTab === 'theme'
+        ? 'bg-white text-ifa-pine shadow-soft'
+        : 'text-ifa-text-secondary hover:text-ifa-pine'}"
+    >
+      Theme
+    </button>
+    <button
+      type="button"
       on:click={() => handleTabChange('account')}
       class="flex-1 py-2 px-4 rounded-lg text-sm font-semibold transition {activeTab === 'account'
         ? 'bg-white text-ifa-pine shadow-soft'
@@ -116,6 +133,8 @@
     <ResourcePreferences settings={userSettings.resources} />
   {:else if activeTab === 'notifications'}
     <NotificationPreferences settings={userSettings.notifications} />
+  {:else if activeTab === 'theme'}
+    <ThemePreferences settings={userSettings.theme} />
   {:else if activeTab === 'account'}
     <div class="bg-ifa-card rounded-2xl border border-ifa-border p-6">
       <h2 class="text-lg font-bold text-ifa-text-primary mb-6 flex items-center gap-2">
