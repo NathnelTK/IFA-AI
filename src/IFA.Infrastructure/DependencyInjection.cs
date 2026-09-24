@@ -51,7 +51,7 @@ namespace IFA.Infrastructure
                 {
                     client.BaseAddress = new Uri("https://scholarxiv.com");
                     client.Timeout = TimeSpan.FromSeconds(30);
-                    var apiKey = configuration["SCHOLARXIV_API_KEY"];
+                    var apiKey = configuration["SCHOLARXIV_API_KEY_IFA"];
 
                     if (string.IsNullOrWhiteSpace(apiKey))
                     {

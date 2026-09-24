@@ -27,6 +27,10 @@ namespace IFA.Domain.Entities
     {
         public Guid Id { get; set; } = Guid.NewGuid();
         public Guid ResearchPackageId { get; set; }
+
+        public string Source { get; set; } = string.Empty;
+
+        public string ExternalId { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;
         public string Authors { get; set; } = string.Empty;
         public string Summary { get; set; } = string.Empty;

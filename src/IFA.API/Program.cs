@@ -47,7 +47,7 @@ if (string.IsNullOrWhiteSpace(connectionString))
             ?? string.Empty);
 }
 
-builder.Services.AddInfrastructure(connectionString);
+builder.Services.AddInfrastructure(connectionString, builder.Configuration);
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?? new[] { "http://localhost:5173" };
