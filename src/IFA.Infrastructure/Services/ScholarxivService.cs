@@ -117,20 +117,42 @@ namespace IFA.Infrastructure.Services
                 searchFilterString = new { all = doi },
                 limit = 1
             };
-            var response = await _httpClient.PostAsJsonAsync(
-                "api/v1/papers/search", body, cancellationToken);
-            response.EnsureSuccessStatusCode();
 
-            var result = await response.Content.ReadFromJsonAsync<ScholarxivSearchResponse>(
-                cancellationToken: cancellationToken
-            );
-            var match = result?.Data.FirstOrDefault();
-            if (match is null || !string.Equals(match.Doi, doi, StringComparison.OrdinalIgnoreCase))
+            var stopwatch = Stopwatch.StartNew();
+
+            _logger.LogInformation(
+                "ScholarXIV paper details request starting. DOI: '{Doi}'",
+                doi);
+            try
             {
-                _logger.LogInformation("No confident DOI match found for {Doi}", doi);
-                return null;
+                var response = await _httpClient.PostAsJsonAsync(
+           "api/v1/papers/search", body, cancellationToken);
+                _logger.LogInformation(
+                 "ScholarXIV paper details responded with {StatusCode} after {ElapsedMs}ms",
+                 response.StatusCode,
+                 stopwatch.ElapsedMilliseconds);
+                response.EnsureSuccessStatusCode();
+
+                var result = await response.Content.ReadFromJsonAsync<ScholarxivSearchResponse>(
+              cancellationToken: cancellationToken
+          );
+                var match = result?.Data.FirstOrDefault();
+
+                if (match is null || !string.Equals(match.Doi, doi, StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogInformation("No confident DOI match found for {Doi}", doi);
+                    return null;
+                }
+                return MapToSummary(match);
             }
-            return MapToSummary(match);
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning(
+           "ScholarXIV paper details request was cancelled after {ElapsedMs}ms",
+           stopwatch.ElapsedMilliseconds);
+
+                throw;
+            }
         }
 
         private static ScholarxivPaperSummary MapToSummary(ScholarxivPaperDto dto) => new()

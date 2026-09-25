@@ -33,7 +33,6 @@ namespace IFA.Infrastructure
             services.AddScoped<IApplicationDbContext>(provider =>
                 provider.GetRequiredService<ApplicationDbContext>());
 
-            services.AddScoped<IScholarxivService, ScholarxivService>();
             services.AddScoped<SkillProfileService>();
             services.AddScoped<CourseSharingService>();
 
@@ -56,10 +55,8 @@ namespace IFA.Infrastructure
                     if (string.IsNullOrWhiteSpace(apiKey))
                     {
                         throw new InvalidOperationException(
-                            "SCHOLARXIV_API_KEY not set.");
+                            "SCHOLARXIV_API_KEY_IFA not set.");
                     }
-                    // client.DefaultRequestHeaders.Authorization =
-                    //     new System.Net.Http.Headers.AuthenticationHeaderValue("x-api-key", apiKey);
                     client.DefaultRequestHeaders.Add("x-api-key", apiKey);
                 });
             }
