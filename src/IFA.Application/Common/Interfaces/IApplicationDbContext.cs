@@ -21,10 +21,11 @@ namespace IFA.Application.Common.Interfaces
         IQueryable<LessonProgress> LessonProgress { get; }
         IQueryable<LearnerProfile> LearnerProfiles { get; }
         IQueryable<ResearchPackage> ResearchPackages { get; }
-
+        IQueryable<ChatSession> ChatSessions { get; }
+        IQueryable<ChatMessage> ChatMessages { get; }
 
         void Add<TEntity>(TEntity entity) where TEntity : class;
         void Remove<TEntity>(TEntity entity) where TEntity : class;
-         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+        Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }
 }

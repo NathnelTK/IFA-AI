@@ -37,6 +37,8 @@ namespace IFA.Infrastructure
             services.AddScoped<CourseSharingService>();
 
             services.AddScoped<IResearchService, ResearchService>();
+
+            services.AddScoped<IUnderstandingAgentService, UnderstandingAgentService>();
             // services.AddScoped<IScholarxivService, ScholarxivService>();
             var useMock = configuration.GetValue<bool>("Scholarxiv:UseMockData", true);
 

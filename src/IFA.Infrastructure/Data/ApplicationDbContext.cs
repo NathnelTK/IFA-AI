@@ -32,6 +32,8 @@ namespace IFA.Infrastructure.Data
         public DbSet<QuizAnswer> QuizAnswers => Set<QuizAnswer>();
         public DbSet<LearnerProfile> LearnerProfiles => Set<LearnerProfile>();
         public DbSet<ResearchPackage> ResearchPackages => Set<ResearchPackage>();
+        public DbSet<ChatSession> ChatSessions => Set<ChatSession>();
+        public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
 
         // IApplicationDbContext now declares IQueryable<T>, and DbSet<T>
         // already IS an IQueryable<T> natively — so these explicit
@@ -51,6 +53,10 @@ namespace IFA.Infrastructure.Data
         IQueryable<QuizAnswer> IApplicationDbContext.QuizAnswers => QuizAnswers;
         IQueryable<LearnerProfile> IApplicationDbContext.LearnerProfiles => LearnerProfiles;
         IQueryable<ResearchPackage> IApplicationDbContext.ResearchPackages => ResearchPackages;
+        IQueryable<ChatSession> IApplicationDbContext.ChatSessions => ChatSessions;
+        IQueryable<ChatMessage> IApplicationDbContext.ChatMessages => ChatMessages;
+
+
         public void Add<TEntity>(TEntity entity) where TEntity : class => Set<TEntity>().Add(entity);
         public void Remove<TEntity>(TEntity entity) where TEntity : class => Set<TEntity>().Remove(entity);
         protected override void OnModelCreating(ModelBuilder modelBuilder)

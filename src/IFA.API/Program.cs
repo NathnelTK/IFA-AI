@@ -101,7 +101,7 @@ if (!app.Environment.IsDevelopment())
 
 app.MapControllers();
 app.MapLearnerEndpoints();
-
+app.MapLearnerEndpoints();
 app.MapGet("/api/health", () => Results.Ok(new
 {
     status = "healthy",
