@@ -1,6 +1,7 @@
 using IFA.Application.Common.Interfaces;
 using IFA.Application.Courses.Services;
 using IFA.Application.Skills.Services;
+using IFA.Infrastructure.AI;
 using IFA.Infrastructure.Data;
 using IFA.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
@@ -63,7 +64,13 @@ namespace IFA.Infrastructure
                 });
             }
 
+            services.AddHttpClient<OllamaLlmProvider>(client =>
+            {
+                client.BaseAddress = new Uri("http://localhost:11434");
 
+            });
+            services.AddScoped<OllamaLlmProvider>();
+            services.AddScoped<ILlmGateway, LlmGateway>();
             return services;
         }
 
@@ -71,3 +78,8 @@ namespace IFA.Infrastructure
 
 
 }
+
+
+
+
+

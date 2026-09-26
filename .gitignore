@@ -46,7 +46,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 .npm/
-
+.editorconfig
 # -----------------------------------------------------------------------------
 # Environment & local secrets
 # Local DB connection settings and passwords live in `.env` (see .env.example).

@@ -4,14 +4,13 @@ using System.Text;
 using System.Text.Json;
 using IFA.Application.Common.Interfaces;
 using IFA.Domain.Entities;
-using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.Extensions.Logging;
 
 public class UnderstandingAgentService : IUnderstandingAgentService
 {
 
-    private readonly ILlmGateway _llmGateway;
-    private readonly ILogger<UnderstandingAgentService> _logger;
+    private readonly ILlmGateway _llmGateway;  // talk to llm
+    private readonly ILogger<UnderstandingAgentService> _logger; //needs to record what went wrong
 
 
     private const string ConversationSystemPrompt = """
@@ -50,15 +49,15 @@ public class UnderstandingAgentService : IUnderstandingAgentService
         _logger = logger;
     }
 
-    public async Task<string> ContinueConverstaionAsync(ChatSession session, string learnerMessage, CancellationToken ct)
+    public async Task<string> ContinueConversationAsync(ChatSession session, string learnerMessage, CancellationToken ct)
     {
         var transcript = BuildTranscript(session, includeLatestUserMessage: learnerMessage);
 
-        var result = await _llmGateway.ComplateAsync(new LlmCompletionRequest
+        var result = await _llmGateway.CompleteAsync(new LlmCompletionRequest
         {
-            ExtractionSystemPrompt = ConversationSystemPrompt,
+            SystemPrompt = ConversationSystemPrompt,
             UserPrompt = transcript,
-            Temprature = 0.6f
+            Temperature = 0.6f
         }, ct);
 
         return result.Success
@@ -72,7 +71,7 @@ public class UnderstandingAgentService : IUnderstandingAgentService
 
         for (var attempt = 1; attempt <= 2; attempt++)
         {
-            var result = await _llmGateway.ComplateAsync(new LlmCompletionRequest
+            var result = await _llmGateway.CompleteAsync(new LlmCompletionRequest
             {
                 SystemPrompt = ExtractionSystemPrompt,
                 UserPrompt = transcript,
@@ -99,8 +98,8 @@ public class UnderstandingAgentService : IUnderstandingAgentService
                 _logger.LogWarning(ex, "Extraction attempt {Attempt}: invalid JSON from LLM.", attempt);
             }
             _logger.LogError("Profile extraction failed after retry for session {SessionId}.", session.Id);
-            return null;
         }
+        return null;
     }
     private static string BuildTranscript(ChatSession session, string? includeLatestUserMessage)
     {
@@ -129,12 +128,6 @@ public class UnderstandingAgentService : IUnderstandingAgentService
         KnownStrengths = dto.KnownStrengths ?? new(),
         KnownWeaknesses = dto.KnownWeaknesses ?? new()
     };
-
-    public Task<string> ContinueConversationAsync(ChatSession session, string learnerMessage, CancellationToken cancellationToken = default)
-    {
-        throw new NotImplementedException();
-    }
-
     private class ExtractedProfileDto
     {
         public string? Goal { get; set; }
