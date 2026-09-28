@@ -15,7 +15,7 @@ namespace IFA.Infrastructure.AI
         {
             _ollama = ollama;
             _logger = logger;
-            _useOllama = config.GetValue<bool>("Llm:UseOllama", defaultValue: true);
+            _useOllama = config.GetValue<bool>("LlmGateway:UseOllama", defaultValue: true);
         }
 
         public async Task<LlmCompletionResult> CompleteAsync(
