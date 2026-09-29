@@ -1,3 +1,5 @@
+
+using IFA.API.Endpoints;
 using IFA.Infrastructure;
 using IFA.Infrastructure.Configuration;
 using IFA.Infrastructure.Data;
@@ -30,6 +32,7 @@ builder.Services.AddSwaggerGen(options =>
 // ConnectionStrings__DefaultConnection environment variable. Otherwise the
 // string is composed from the Database section plus the DB_PASSWORD secret.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
 if (string.IsNullOrWhiteSpace(connectionString))
 {
     var database = builder.Configuration.GetSection("Database");
@@ -39,10 +42,12 @@ if (string.IsNullOrWhiteSpace(connectionString))
         port: database.GetValue("Port", 5432),
         database: database["Name"] ?? "ifa",
         username: database["User"] ?? "ifa",
-        password: builder.Configuration["DB_PASSWORD"] ?? database["Password"] ?? string.Empty);
+        password: builder.Configuration["DB_PASSWORD"]
+            ?? database["Password"]
+            ?? string.Empty);
 }
 
-builder.Services.AddInfrastructure(connectionString);
+builder.Services.AddInfrastructure(connectionString, builder.Configuration);
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?? new[] { "http://localhost:5173" };
@@ -57,6 +62,25 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// -------------------------------------------------------------------------
+// Development seed data
+// -------------------------------------------------------------------------
+// Creates the fixed demo learner used by Swagger/local development.
+// This does NOT modify the database schema; it only inserts the demo row
+// if it does not already exist.
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+    var logger = scope.ServiceProvider
+        .GetRequiredService<ILoggerFactory>()
+        .CreateLogger("DevSeeder");
+
+    await DevSeeder.SeedAsync(db, logger);
+}
 
 // -------------------------------------------------------------------------
 // HTTP request pipeline
@@ -76,14 +100,16 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.MapControllers();
-
+app.MapLearnerEndpoints();
+app.MapIntakeEndpoints();
 app.MapGet("/api/health", () => Results.Ok(new
-    {
-        status = "healthy",
-        service = "IFA.API",
-        timestampUtc = DateTime.UtcNow
-    }))
+{
+    status = "healthy",
+    service = "IFA.API",
+    timestampUtc = DateTime.UtcNow
+}))
     .WithName("GetHealth")
     .WithTags("Health");
 
 app.Run();
+

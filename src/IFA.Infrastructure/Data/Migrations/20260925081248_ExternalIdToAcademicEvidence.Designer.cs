@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using IFA.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace IFA.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260925081248_ExternalIdToAcademicEvidence")]
+    partial class ExternalIdToAcademicEvidence
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -22,61 +25,6 @@ namespace IFA.Infrastructure.Data.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("ChatMessage", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ChatSessionId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("Role")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("SequenceNumber")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ChatSessionId", "SequenceNumber")
-                        .IsUnique();
-
-                    b.ToTable("ChatMessages", (string)null);
-                });
-
-            modelBuilder.Entity("ChatSession", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("LearnerId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("ResultingLearnerProfileId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("LearnerId");
-
-                    b.ToTable("ChatSessions", (string)null);
-                });
 
             modelBuilder.Entity("IFA.Domain.Entities.AcademicEvidence", b =>
                 {
@@ -748,28 +696,6 @@ namespace IFA.Infrastructure.Data.Migrations
                     b.ToTable("QuizAttempts", (string)null);
                 });
 
-            modelBuilder.Entity("ChatMessage", b =>
-                {
-                    b.HasOne("ChatSession", "chatSession")
-                        .WithMany("Messages")
-                        .HasForeignKey("ChatSessionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("chatSession");
-                });
-
-            modelBuilder.Entity("ChatSession", b =>
-                {
-                    b.HasOne("IFA.Domain.Entities.Learner", "Learner")
-                        .WithMany()
-                        .HasForeignKey("LearnerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Learner");
-                });
-
             modelBuilder.Entity("IFA.Domain.Entities.AcademicEvidence", b =>
                 {
                     b.HasOne("IFA.Domain.Entities.ResearchPackage", null)
@@ -977,11 +903,6 @@ namespace IFA.Infrastructure.Data.Migrations
                     b.Navigation("Learner");
 
                     b.Navigation("Quiz");
-                });
-
-            modelBuilder.Entity("ChatSession", b =>
-                {
-                    b.Navigation("Messages");
                 });
 
             modelBuilder.Entity("IFA.Domain.Entities.Course", b =>
