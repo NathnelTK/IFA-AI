@@ -207,3 +207,10 @@ whole file with `npm run changelog:verify`.
 - **Type:** FEATURE
 - **Summary:** JIT module selection: claim current module for generation
 - **Verification:** Build and type-check pass locally.
+
+## [2026-09-30] CHORE: Content Builder: LLM-generated modules and quizzes
+- **Author:** Team XOR
+- **Phase:** Phase 1
+- **Type:** CHORE
+- **Summary:** Content Builder: LLM-generated modules and quizzes
+- **Verification:** Build and type-check pass locally.
