@@ -1,4 +1,6 @@
 using IFA.Application.Common.Interfaces;
+using IFA.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace IFA.API.Endpoints
 {
@@ -9,6 +11,10 @@ namespace IFA.API.Endpoints
             app.MapGet("/api/courses/{courseId:guid}/current-module", GetCurrentModule)
                 .WithTags("Modules")
                 .WithSummary("PR 3.2 - selects the learner's current module, claiming it for generation if needed");
+
+            app.MapPost("/api/modules/{moduleId:guid}/generate", GenerateModuleContent)
+            .WithTags("Modules")
+            .WithSummary("PR 3.3 - Content Builder: writes lessons + quiz for a module already claimed via current-module");
         }
 
         private static async Task<IResult> GetCurrentModule(
@@ -31,6 +37,83 @@ namespace IFA.API.Endpoints
                     status = result.Module.GenerationStatus.ToString()
                 })
             };
+        }
+        private static async Task<IResult> GenerateModuleContent(
+            Guid moduleId, IApplicationDbContext db, IContentBuilderService contentBuilder, CancellationToken ct)
+        {
+            var module = await db.Modules.Include(m => m.Course)
+                .FirstOrDefaultAsync(m => m.Id == moduleId, ct);
+            if (module is null) return Results.NotFound();
+
+            // Enforces the sequence: must go through PR 3.2's claim step first.
+            // Prevents generating content for a module nobody selected, and
+            // prevents re-generating one that's already Ready.
+            if (module.GenerationStatus != ModuleGenerationStatus.Generating)
+                return Results.Conflict($"Module must be in 'Generating' status first (currently '{module.GenerationStatus}'). Call /current-module to claim it.");
+
+            var profile = module.Course!.SourceLearnerProfileId is Guid profileId
+                ? await db.LearnerProfiles.FirstOrDefaultAsync(p => p.Id == profileId, ct)
+                : null;
+            if (profile is null)
+                return Results.UnprocessableEntity("This course has no source learner profile — cannot generate content without it.");
+
+            var research = module.Course.SourceResearchPackageId is Guid researchId
+                ? await db.ResearchPackages.Include(r => r.AcademicSources).FirstOrDefaultAsync(r => r.Id == researchId, ct)
+                : null;
+
+            var content = await contentBuilder.GenerateModuleContentAsync(
+                module, profile, research ?? new ResearchPackage { LearnerProfileId = profile.Id }, ct);
+
+            if (content is null)
+            {
+                // Mark Failed, not left stuck on Generating - PR 3.2's claim
+                // logic already treats Failed as claimable again, so a retry
+                // via /current-module will pick this module back up.
+                module.GenerationStatus = ModuleGenerationStatus.Failed;
+                await db.SaveChangesAsync(ct);
+                return Results.Problem("Content generation failed. The module can be retried.", statusCode: StatusCodes.Status502BadGateway);
+            }
+
+            for (var i = 0; i < content.Lessons.Count; i++)
+            {
+                var l = content.Lessons[i];
+                db.Add(new Lesson
+                {
+                    ModuleId = module.Id,
+                    LessonNumber = i + 1,
+                    Title = l.Title,
+                    Summary = l.Summary,
+                    ContentMarkdown = l.ContentMarkdown,
+                    ReadingTimeMinutes = l.ReadingTimeMinutes
+                });
+            }
+
+            var quiz = new Quiz { ModuleId = module.Id, Title = content.QuizTitle };
+            foreach (var q in content.Questions)
+            {
+                quiz.Questions.Add(new Question
+                {
+                    Prompt = q.Prompt,
+                    Options = q.Options,
+                    CorrectOptionIndex = q.CorrectOptionIndex,
+                    Explanation = q.Explanation,
+                    TargetSkillName = q.TargetSkillName,
+                    BloomTaxonomyLevel = q.BloomTaxonomyLevel
+                });
+            }
+            db.Add(quiz);
+
+            module.GenerationStatus = ModuleGenerationStatus.Ready;
+            module.GeneratedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(new
+            {
+                moduleId = module.Id,
+                status = module.GenerationStatus.ToString(),
+                lessonCount = content.Lessons.Count,
+                questionCount = content.Questions.Count
+            });
         }
     }
 }

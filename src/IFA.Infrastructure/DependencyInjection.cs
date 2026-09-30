@@ -67,13 +67,14 @@ namespace IFA.Infrastructure
             services.AddHttpClient<OllamaLlmProvider>(client =>
             {
                 client.BaseAddress = new Uri("http://localhost:11434");
-                client.Timeout = TimeSpan.FromSeconds(120);
+                client.Timeout = TimeSpan.FromSeconds(300);
 
             });
             // services.AddScoped<OllamaLlmProvider>();
             services.AddScoped<ILlmGateway, LlmGateway>();
             services.AddScoped<ICourseArchitectService, CourseArchitectService>();
             services.AddScoped<ICourseOrchestrationService, CourseOrchestrationService>();
+            services.AddScoped<IContentBuilderService, ContentBuilderService>();
 
 
             return services;

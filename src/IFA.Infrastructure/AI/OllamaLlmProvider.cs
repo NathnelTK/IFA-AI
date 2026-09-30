@@ -39,7 +39,11 @@ namespace IFA.Infrastructure.AI
                 ["prompt"] = request.UserPrompt,
                 ["system"] = request.SystemPrompt,
                 ["stream"] = false,
-                ["options"] = new { temperature = request.Temperature }
+                ["options"] = new
+                {
+                    temperature = request.Temperature,
+                    num_predict = 18000
+                }
             };
 
             // Only extraction calls set JsonSchemaHint. Ollama's "format": "json"
