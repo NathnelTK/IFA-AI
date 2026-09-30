@@ -73,6 +73,7 @@ namespace IFA.Infrastructure
             // services.AddScoped<OllamaLlmProvider>();
             services.AddScoped<ILlmGateway, LlmGateway>();
             services.AddScoped<ICourseArchitectService, CourseArchitectService>();
+            services.AddScoped<ICourseOrchestrationService, CourseOrchestrationService>();
 
 
             return services;

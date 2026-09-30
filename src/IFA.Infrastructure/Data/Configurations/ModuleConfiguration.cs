@@ -13,7 +13,7 @@ namespace IFA.Infrastructure.Data.Configurations
 
             builder.Property(m => m.Title).IsRequired().HasMaxLength(200);
             builder.Property(m => m.Summary).HasMaxLength(2000);
-
+            builder.Property(m => m.GenerationStatus).HasConversion<string>();
             // A module exists only once per course and its ordering is unique.
             builder.HasIndex(m => new { m.CourseId, m.ModuleNumber }).IsUnique();
 

@@ -103,6 +103,7 @@ app.MapControllers();
 app.MapLearnerEndpoints();
 app.MapIntakeEndpoints();
 app.MapCourseEndpoints();
+app.MapModuleEndpoints();
 app.MapGet("/api/health", () => Results.Ok(new
 {
     status = "healthy",
