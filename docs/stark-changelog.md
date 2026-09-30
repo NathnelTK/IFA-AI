@@ -200,3 +200,10 @@ whole file with `npm run changelog:verify`.
 - **Type:** FEATURE
 - **Summary:** Course Architect: LLM-generated course blueprints
 - **Verification:** Build and type-check pass locally.
+
+## [2026-09-30] FEATURE: JIT module selection: claim current module for generation
+- **Author:** Team XOR
+- **Phase:** PR 3.2
+- **Type:** FEATURE
+- **Summary:** JIT module selection: claim current module for generation
+- **Verification:** Build and type-check pass locally.
