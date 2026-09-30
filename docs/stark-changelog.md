@@ -193,3 +193,10 @@ whole file with `npm run changelog:verify`.
 - **Summary:** Created comprehensive project documentation and pitch deck for STARK Hackathon. Updated README with project overview, features by phase, technology stack, getting started guide, environment setup, project structure, and scripts. Created pitch deck covering problem statement, solution, three-model pipeline, key features, architecture, demo highlights, team information, and next steps. Removed call-to-action sections as project is ongoing.
 - **Files:** `README.md`, `docs/PITCH_DECK.md`
 - **Verification:** Documentation reviewed for completeness and accuracy.
+
+## [2026-09-30] FEATURE: Course Architect: LLM-generated course blueprints
+- **Author:** Team XOR
+- **Phase:** PR 3.1
+- **Type:** FEATURE
+- **Summary:** Course Architect: LLM-generated course blueprints
+- **Verification:** Build and type-check pass locally.
