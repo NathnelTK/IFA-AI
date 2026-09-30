@@ -10,6 +10,7 @@ namespace IFA.Application.Common.Interfaces
         public string CourseTitle { get; set; } = string.Empty;
         public string TargetGoal { get; set; } = string.Empty;
         public int TotalEstimatedHours { get; set; }
+        public string Description { get; set; } = string.Empty;
         public List<ModuleSummaryDto> Modules { get; set; } = new List<ModuleSummaryDto>();
     }
 

@@ -35,5 +35,7 @@ namespace IFA.Domain.Entities
         public Course? Course { get; set; }
         public ICollection<Lesson> Lessons { get; set; } = new List<Lesson>();
         public Quiz? ModuleQuiz { get; set; }
+        public List<string> KeyTopics { get; set; } = new();
+
     }
 }

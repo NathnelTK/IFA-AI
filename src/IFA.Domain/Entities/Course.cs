@@ -6,6 +6,8 @@ namespace IFA.Domain.Entities
     public class Course
     {
         public Guid Id { get; set; } = Guid.NewGuid();
+        public Guid? SourceLearnerProfileId { get; set; }
+        public Guid? SourceResearchPackageId { get; set; }
         public string Title { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public string Category { get; set; } = "Software Engineering";
