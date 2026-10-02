@@ -44,16 +44,35 @@ namespace IFA.API.Controllers
 
             if (lesson == null) return NotFound();
 
-            lesson.IsCompleted = true;
-
             var learnerId = await GetCurrentLearnerIdAsync(_context);
+
+            // Completion is per-learner and lives on LessonProgress.
+            var progress = await _context.LessonProgress
+                .FirstOrDefaultAsync(p => p.LessonId == id && p.LearnerId == learnerId);
+            if (progress == null)
+            {
+                _context.Add(new LessonProgress
+                {
+                    Id = Guid.NewGuid(),
+                    LessonId = id,
+                    LearnerId = learnerId,
+                    IsCompleted = true,
+                    CompletedAt = DateTime.UtcNow
+                });
+            }
+            else
+            {
+                progress.IsCompleted = true;
+                progress.CompletedAt ??= DateTime.UtcNow;
+            }
 
             // Update course enrollment progress
             if (lesson.Module?.CourseId != null)
             {
                 var courseId = lesson.Module.CourseId;
                 var totalLessons = await _context.Lessons.CountAsync(l => l.Module!.CourseId == courseId);
-                var completedLessons = await _context.Lessons.CountAsync(l => l.Module!.CourseId == courseId && l.IsCompleted);
+                var completedLessons = await _context.LessonProgress
+                    .CountAsync(p => p.LearnerId == learnerId && p.IsCompleted && p.Lesson!.Module!.CourseId == courseId);
 
                 var enrollment = await _context.CourseEnrollments
                     .FirstOrDefaultAsync(e => e.CourseId == courseId && e.LearnerId == learnerId);

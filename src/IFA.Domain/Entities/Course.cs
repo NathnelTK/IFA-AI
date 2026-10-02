@@ -27,5 +27,6 @@ namespace IFA.Domain.Entities
         public ICollection<Module> Modules { get; set; } = new List<Module>();
         public ICollection<CourseEnrollment> Enrollments { get; set; } = new List<CourseEnrollment>();
         public ICollection<CourseShareInvite> ShareInvites { get; set; } = new List<CourseShareInvite>();
+        public ICollection<ResearchPackage> ResearchPackages { get; set; } = new List<ResearchPackage>();
     }
 }

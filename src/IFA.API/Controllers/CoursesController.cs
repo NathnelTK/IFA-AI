@@ -70,6 +70,11 @@ namespace IFA.API.Controllers
                     .ToListAsync();
             }
 
+            var completedLessonIds = await _context.LessonProgress
+                .Where(p => p.LearnerId == learnerId && p.IsCompleted)
+                .Select(p => p.LessonId)
+                .ToListAsync();
+
             var courses = enrollments.Select(e => new
             {
                 e.Course!.Id,
@@ -87,8 +92,11 @@ namespace IFA.API.Controllers
                 e.ProgressPercentage,
                 e.LastAccessedAt,
                 TotalModules = e.Course.Modules.Count,
-                CompletedModules = e.Course.Modules.Count(m => m.IsCompleted),
-                ActiveModuleNumber = e.Course.Modules.FirstOrDefault(m => !m.IsCompleted)?.ModuleNumber ?? e.Course.Modules.Count
+                CompletedModules = e.Course.Modules.Count(m => m.Lessons.Count > 0 && m.Lessons.All(l => completedLessonIds.Contains(l.Id))),
+                ActiveModuleNumber = e.Course.Modules
+                    .OrderBy(m => m.ModuleNumber)
+                    .FirstOrDefault(m => !(m.Lessons.Count > 0 && m.Lessons.All(l => completedLessonIds.Contains(l.Id))))?.ModuleNumber
+                    ?? e.Course.Modules.Count
             });
 
             return Ok(courses);

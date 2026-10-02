@@ -37,7 +37,7 @@ namespace IFA.API.Controllers
 
             if (module == null) return NotFound(new { message = "Module not found." });
 
-            if (module.IsGenerated && module.Lessons.Count > 0)
+            if (module.GenerationStatus == ModuleGenerationStatus.Ready && module.Lessons.Count > 0)
             {
                 return Ok(module);
             }
@@ -56,14 +56,14 @@ namespace IFA.API.Controllers
 
             var generated = await _generationService.GenerateJitModuleAsync(jitRequest);
 
-            module.IsGenerated = true;
+            module.GenerationStatus = ModuleGenerationStatus.Ready;
             module.GeneratedAt = DateTime.UtcNow;
 
             generated.Lesson.ModuleId = module.Id;
-            _context.Lessons.Add(generated.Lesson);
+            _context.Add(generated.Lesson);
 
             generated.Quiz.ModuleId = module.Id;
-            _context.Quizzes.Add(generated.Quiz);
+            _context.Add(generated.Quiz);
 
             await _context.SaveChangesAsync();
 

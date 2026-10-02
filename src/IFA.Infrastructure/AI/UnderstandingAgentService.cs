@@ -247,17 +247,17 @@ Return ONLY a single JSON object that matches this schema exactly. No markdown, 
         private static LearnerProfile MapToProfile(ExtractedProfileDto dto, Guid learnerId) => new()
         {
             LearnerId = learnerId,
-            Goal = dto.Goal!,
-            SubjectTopic = dto.SubjectTopic,
-            CurrentLevel = dto.CurrentLevel,
-            TargetOutcome = dto.TargetOutcome,
-            AvailableStudyHoursPerWeek = dto.AvailableStudyHoursPerWeek,
-            PreferredLanguage = dto.PreferredLanguage,
-            PreferredLearningStyle = dto.PreferredLearningStyle,
-            Constraints = dto.Constraints ?? new(),
-            PreferredYouTubeChannels = dto.PreferredYouTubeChannels ?? new(),
-            KnownStrengths = dto.KnownStrengths ?? new(),
-            KnownWeaknesses = dto.KnownWeaknesses ?? new()
+            LearningGoal = dto.Goal!,
+            Subject = dto.SubjectTopic ?? "General",
+            CurrentLevel = dto.CurrentLevel ?? "Beginner",
+            TargetOutcome = dto.TargetOutcome ?? string.Empty,
+            WeeklyStudyHours = dto.AvailableStudyHoursPerWeek ?? 5,
+            PreferredLanguage = dto.PreferredLanguage ?? "en",
+            LearningStyle = dto.PreferredLearningStyle ?? "Hands-on",
+            Constraints = dto.Constraints is null ? string.Empty : JsonSerializer.Serialize(dto.Constraints),
+            PreferredYouTubeChannelsJson = JsonSerializer.Serialize(dto.PreferredYouTubeChannels ?? new List<string>()),
+            KnownStrengthsJson = JsonSerializer.Serialize(dto.KnownStrengths ?? new List<string>()),
+            KnownWeaknessesJson = JsonSerializer.Serialize(dto.KnownWeaknesses ?? new List<string>())
         };
 
         private class ExtractedProfileDto

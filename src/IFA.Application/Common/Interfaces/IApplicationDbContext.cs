@@ -20,9 +20,14 @@ namespace IFA.Application.Common.Interfaces
         IQueryable<QuizAnswer> QuizAnswers { get; }
         IQueryable<LessonProgress> LessonProgress { get; }
         IQueryable<LearnerProfile> LearnerProfiles { get; }
+        IQueryable<LearnerState> LearnerStates { get; }
+        IQueryable<LearnerSettings> LearnerSettings { get; }
         IQueryable<ResearchPackage> ResearchPackages { get; }
         IQueryable<ChatSession> ChatSessions { get; }
         IQueryable<ChatMessage> ChatMessages { get; }
+        IQueryable<Notification> Notifications { get; }
+        IQueryable<Assessment> Assessments { get; }
+        IQueryable<LearningActivity> Activities { get; }
 
         void Add<TEntity>(TEntity entity) where TEntity : class;
         void Remove<TEntity>(TEntity entity) where TEntity : class;

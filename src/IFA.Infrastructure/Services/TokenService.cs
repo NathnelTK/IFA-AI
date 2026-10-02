@@ -38,7 +38,7 @@ namespace IFA.Infrastructure.Services
                     new Claim(ClaimTypes.NameIdentifier, learner.Id.ToString()),
                     new Claim(ClaimTypes.Name, learner.Name ?? "Learner"),
                     new Claim(ClaimTypes.Email, learner.Email ?? ""),
-                    new Claim(ClaimTypes.Role, learner.Role ?? "Learner")
+                    new Claim(ClaimTypes.Role, learner.Role)
                 }),
                 Expires = expiresAt,
                 Issuer = Issuer,

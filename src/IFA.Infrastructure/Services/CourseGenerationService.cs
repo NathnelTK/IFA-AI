@@ -31,9 +31,12 @@ namespace IFA.Infrastructure.Services
             _logger = logger;
         }
 
-        public async Task<CoursePipelineProposal> GenerateCoursePipelineProposalAsync(string goal, int hoursPerWeek, string preferredCreator, CancellationToken cancellationToken = default)
+        public async Task<CoursePipelineProposal> GenerateCoursePipelineProposalAsync(
+            LearnerProfile profile,
+            ResearchPackage? researchPackage,
+            CancellationToken cancellationToken = default)
         {
-            var userPrompt = $"Learning Goal: {goal}\nHours Per Week: {hoursPerWeek}\nPreferred Creator/Style: {preferredCreator}";
+            var userPrompt = $"Learning Goal: {profile.LearningGoal}\nSubject: {profile.Subject}\nCurrent Level: {profile.CurrentLevel}\nWeekly Hours: {profile.WeeklyStudyHours}";
             
             var proposal = await _llmGateway.CompleteJsonAsync<CoursePipelineProposal>(
                 PromptRegistry.Model2_CourseArchitectSystemPrompt,
@@ -45,9 +48,9 @@ namespace IFA.Infrastructure.Services
             {
                 proposal = new CoursePipelineProposal
                 {
-                    CourseTitle = $"Mastering {goal}",
-                    TargetGoal = goal,
-                    TotalEstimatedHours = 20,
+                    CourseTitle = $"Mastering {profile.Subject}",
+                    TargetGoal = profile.LearningGoal,
+                    TotalEstimatedHours = profile.WeeklyStudyHours * 8,
                     Modules = new List<ModuleSummaryDto>
                     {
                         new() { ModuleNumber = 1, Title = "Foundations & Core Principles", Summary = "Essential syntax, execution model, and basic paradigms.", EstimatedHours = 4, KeyTopics = new List<string> { "Foundations", "Syntax", "Data Types" } },
@@ -82,7 +85,7 @@ namespace IFA.Infrastructure.Services
                 ModuleNumber = request.ModuleNumber,
                 Title = request.ModuleTitle,
                 Summary = $"Module covering {request.ModuleTitle}",
-                IsGenerated = true,
+                GenerationStatus = ModuleGenerationStatus.Ready,
                 GeneratedAt = DateTime.UtcNow
             };
 
@@ -98,9 +101,7 @@ namespace IFA.Infrastructure.Services
                 YouTubeVideoId = resultDto?.Lesson?.YouTubeVideoId ?? "dQw4w9WgXcQ",
                 YouTubeVideoTitle = resultDto?.Lesson?.YouTubeVideoTitle ?? $"{request.ModuleTitle} Guide",
                 ScholarxivCitationDoi = resultDto?.Lesson?.ScholarxivCitationDoi ?? "10.48550/arXiv.2401.00123",
-                ScholarxivPaperTitle = resultDto?.Lesson?.ScholarxivPaperTitle ?? $"Research on {request.ModuleTitle}",
-                KeyTakeawaysJson = JsonSerializer.Serialize(resultDto?.Lesson?.KeyTakeaways ?? new List<string> { "Core concepts mastered", "Practical implementation verified" }),
-                ExercisesJson = JsonSerializer.Serialize(resultDto?.Lesson?.Exercises ?? new List<ExerciseDto>())
+                ScholarxivPaperTitle = resultDto?.Lesson?.ScholarxivPaperTitle ?? $"Research on {request.ModuleTitle}"
             };
 
             var quiz = new Quiz
@@ -108,8 +109,7 @@ namespace IFA.Infrastructure.Services
                 Id = Guid.NewGuid(),
                 ModuleId = module.Id,
                 Title = resultDto?.Quiz?.Title ?? $"{request.ModuleTitle} Mastery Quiz",
-                PassingScorePercentage = resultDto?.Quiz?.PassingScorePercentage ?? 70,
-                IsPassed = false
+                PassingScorePercentage = resultDto?.Quiz?.PassingScorePercentage ?? 70
             };
 
             if (resultDto?.Quiz?.Questions != null && resultDto.Quiz.Questions.Any())
@@ -165,7 +165,28 @@ namespace IFA.Infrastructure.Services
         public async Task<Course> CreateFullCourseAsync(Guid learnerId, string goal, int hoursPerWeek = 5, string preferredCreator = "freeCodeCamp", CancellationToken ct = default)
         {
             // 1. Model 2 generates the Course Blueprint
-            var proposal = await GenerateCoursePipelineProposalAsync(goal, hoursPerWeek, preferredCreator, ct);
+            var profile = await _context.LearnerProfiles
+                .FirstOrDefaultAsync(p => p.LearnerId == learnerId, ct);
+
+            if (profile is null)
+            {
+                profile = new LearnerProfile
+                {
+                    Id = Guid.NewGuid(),
+                    LearnerId = learnerId,
+                    LearningGoal = goal,
+                    Subject = goal,
+                    CurrentLevel = "Beginner",
+                    WeeklyStudyHours = hoursPerWeek > 0 ? hoursPerWeek : 5,
+                    UpdatedAt = DateTime.UtcNow
+                };
+            }
+            else if (hoursPerWeek > 0)
+            {
+                profile.WeeklyStudyHours = hoursPerWeek;
+            }
+
+            var proposal = await GenerateCoursePipelineProposalAsync(profile, null, ct);
 
             var course = new Course
             {
@@ -182,8 +203,6 @@ namespace IFA.Infrastructure.Services
                 IsPublic = false,
                 ShareCode = Guid.NewGuid().ToString("N").Substring(0, 8),
                 CreatorLearnerId = learnerId,
-                BlueprintJson = JsonSerializer.Serialize(proposal),
-                LearningObjectivesJson = JsonSerializer.Serialize(proposal.Modules.Select(m => m.Title)),
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -198,13 +217,12 @@ namespace IFA.Infrastructure.Services
                     Title = modDto.Title,
                     Summary = modDto.Summary,
                     EstimatedHours = modDto.EstimatedHours,
-                    IsGenerated = false,
-                    ObjectivesJson = JsonSerializer.Serialize(modDto.KeyTopics)
+                    GenerationStatus = ModuleGenerationStatus.Blueprint
                 };
                 course.Modules.Add(module);
             }
 
-            _context.Courses.Add(course);
+            _context.Add(course);
 
             // Auto-enroll the creator
             var enrollment = new CourseEnrollment
@@ -215,7 +233,7 @@ namespace IFA.Infrastructure.Services
                 ProgressPercentage = 0,
                 LastAccessedAt = DateTime.UtcNow
             };
-            _context.CourseEnrollments.Add(enrollment);
+            _context.Add(enrollment);
 
             // 2. Materialize Module 1 immediately using Model 3 (JIT generation)
             var firstModule = course.Modules.OrderBy(m => m.ModuleNumber).First();
@@ -229,7 +247,7 @@ namespace IFA.Infrastructure.Services
             };
 
             var generatedM1 = await GenerateJitModuleAsync(jitRequest, ct);
-            firstModule.IsGenerated = true;
+            firstModule.GenerationStatus = ModuleGenerationStatus.Ready;
             firstModule.GeneratedAt = DateTime.UtcNow;
 
             // Attach lesson and quiz to the first module

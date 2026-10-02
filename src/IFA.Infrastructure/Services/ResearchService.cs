@@ -87,7 +87,7 @@ namespace IFA.Infrastructure.Services
                 });
             }
 
-            _context.ResearchPackages.Add(researchPackage);
+            _context.Add(researchPackage);
             await _context.SaveChangesAsync(ct);
 
             return researchPackage;

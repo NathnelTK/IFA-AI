@@ -90,16 +90,12 @@ namespace IFA.Infrastructure.Services
 
             assessment.ScorePercentage = scorePercentage;
             assessment.IsPassed = isPassed;
-            _context.Assessments.Add(assessment);
+            _context.Add(assessment);
 
-            quiz.LastScorePercentage = scorePercentage;
-            quiz.IsPassed = isPassed;
-            quiz.CompletedAt = DateTime.UtcNow;
-
-            if (isPassed && quiz.Module != null)
-            {
-                quiz.Module.IsCompleted = true;
-            }
+            // Quiz score/pass state is per-learner and lives on Assessment
+            // (and QuizAttempt); the Quiz entity no longer stores it. Module
+            // completion is computed from LessonProgress + passing Assessments,
+            // so nothing is written to quiz.Module here.
 
             // Update SkillMetrics for the learner
             var mastered = new List<string>();
@@ -124,7 +120,7 @@ namespace IFA.Infrastructure.Services
                         IsWeakArea = accuracy < 0.70,
                         LastAssessedAt = DateTime.UtcNow
                     };
-                    _context.SkillMetrics.Add(existingSkill);
+                    _context.Add(existingSkill);
                 }
                 else
                 {

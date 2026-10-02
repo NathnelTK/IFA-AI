@@ -43,7 +43,7 @@ namespace IFA.Application.Common.Interfaces
     {
         Task<CoursePipelineProposal> GenerateCoursePipelineProposalAsync(
         LearnerProfile profile,
-        ResearchPackage researchPackage,
+        ResearchPackage? researchPackage,
         CancellationToken cancellationToken = default);
         Task<GeneratedModuleResult> GenerateJitModuleAsync(JitModuleGenerationRequest request, CancellationToken cancellationToken = default);
     }

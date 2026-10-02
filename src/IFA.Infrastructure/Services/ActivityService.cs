@@ -31,7 +31,7 @@ namespace IFA.Infrastructure.Services
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.Activities.Add(activity);
+            _context.Add(activity);
             await _context.SaveChangesAsync(ct);
         }
 

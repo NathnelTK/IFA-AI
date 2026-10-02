@@ -75,7 +75,7 @@ namespace IFA.Infrastructure.Services
                                 Id = Guid.NewGuid(),
                                 LearnerId = learnerId
                             };
-                            _context.LearnerProfiles.Add(existing);
+                            _context.Add(existing);
                         }
 
                         existing.LearningGoal = response.Profile.LearningGoal;

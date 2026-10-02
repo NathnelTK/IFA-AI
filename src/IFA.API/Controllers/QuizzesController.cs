@@ -37,14 +37,20 @@ namespace IFA.API.Controllers
 
             if (quiz == null) return NotFound(new { message = "Quiz not found." });
 
+            var learnerId = await GetCurrentLearnerIdAsync(_context);
+            var lastAttempt = await _context.Assessments
+                .Where(a => a.QuizId == id && a.LearnerId == learnerId)
+                .OrderByDescending(a => a.SubmittedAt)
+                .FirstOrDefaultAsync();
+
             return Ok(new
             {
                 quiz.Id,
                 quiz.ModuleId,
                 quiz.Title,
                 quiz.PassingScorePercentage,
-                quiz.LastScorePercentage,
-                quiz.IsPassed,
+                LastScorePercentage = lastAttempt?.ScorePercentage,
+                IsPassed = lastAttempt?.IsPassed ?? false,
                 Questions = quiz.Questions.Select(q => new
                 {
                     q.Id,

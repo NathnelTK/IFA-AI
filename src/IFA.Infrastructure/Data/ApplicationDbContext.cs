@@ -42,14 +42,7 @@ namespace IFA.Infrastructure.Data
         public DbSet<QuizAttempt> QuizAttempts => Set<QuizAttempt>();
         public DbSet<QuizAnswer> QuizAnswers => Set<QuizAnswer>();
 
-        // New sets, backing the entities added this round:
         public DbSet<LessonProgress> LessonProgress => Set<LessonProgress>();
-        public DbSet<QuizAttempt> QuizAttempts => Set<QuizAttempt>();
-        public DbSet<QuizAnswer> QuizAnswers => Set<QuizAnswer>();
-        public DbSet<LearnerProfile> LearnerProfiles => Set<LearnerProfile>();
-        public DbSet<ResearchPackage> ResearchPackages => Set<ResearchPackage>();
-        public DbSet<ChatSession> ChatSessions => Set<ChatSession>();
-        public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
 
         // IApplicationDbContext now declares IQueryable<T>, and DbSet<T>
         // already IS an IQueryable<T> natively — so these explicit
@@ -68,13 +61,18 @@ namespace IFA.Infrastructure.Data
         IQueryable<QuizAttempt> IApplicationDbContext.QuizAttempts => QuizAttempts;
         IQueryable<QuizAnswer> IApplicationDbContext.QuizAnswers => QuizAnswers;
         IQueryable<LearnerProfile> IApplicationDbContext.LearnerProfiles => LearnerProfiles;
+        IQueryable<LearnerState> IApplicationDbContext.LearnerStates => LearnerStates;
+        IQueryable<LearnerSettings> IApplicationDbContext.LearnerSettings => LearnerSettings;
         IQueryable<ResearchPackage> IApplicationDbContext.ResearchPackages => ResearchPackages;
         IQueryable<ChatSession> IApplicationDbContext.ChatSessions => ChatSessions;
         IQueryable<ChatMessage> IApplicationDbContext.ChatMessages => ChatMessages;
+        IQueryable<Notification> IApplicationDbContext.Notifications => Notifications;
+        IQueryable<Assessment> IApplicationDbContext.Assessments => Assessments;
+        IQueryable<LearningActivity> IApplicationDbContext.Activities => Activities;
 
 
-        public void Add<TEntity>(TEntity entity) where TEntity : class => Set<TEntity>().Add(entity);
-        public void Remove<TEntity>(TEntity entity) where TEntity : class => Set<TEntity>().Remove(entity);
+        public new void Add<TEntity>(TEntity entity) where TEntity : class => Set<TEntity>().Add(entity);
+        public new void Remove<TEntity>(TEntity entity) where TEntity : class => Set<TEntity>().Remove(entity);
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);

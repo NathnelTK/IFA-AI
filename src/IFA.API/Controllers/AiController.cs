@@ -5,6 +5,7 @@ using IFA.Application.Common.Interfaces;
 using IFA.Domain.Entities;
 using IFA.Infrastructure.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace IFA.API.Controllers
 {
@@ -53,10 +54,21 @@ namespace IFA.API.Controllers
         [HttpPost("course/propose")]
         public async Task<IActionResult> ProposeCourse([FromBody] ProposeCourseRequest request)
         {
-            var proposal = await _generationService.GenerateCoursePipelineProposalAsync(
-                request.Goal,
-                request.HoursPerWeek,
-                request.PreferredCreator);
+            var learnerId = await GetCurrentLearnerIdAsync(_context);
+
+            var profile = await _context.LearnerProfiles
+                .FirstOrDefaultAsync(p => p.LearnerId == learnerId);
+
+            profile ??= new LearnerProfile
+            {
+                Id = Guid.NewGuid(),
+                LearnerId = learnerId,
+                LearningGoal = request.Goal,
+                Subject = request.Goal,
+                WeeklyStudyHours = request.HoursPerWeek > 0 ? request.HoursPerWeek : 5
+            };
+
+            var proposal = await _generationService.GenerateCoursePipelineProposalAsync(profile, null);
 
             return Ok(proposal);
         }

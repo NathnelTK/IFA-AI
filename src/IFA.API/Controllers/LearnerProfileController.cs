@@ -40,7 +40,7 @@ namespace IFA.API.Controllers
                     LearningStyle = "Hands-on",
                     UpdatedAt = DateTime.UtcNow
                 };
-                _context.LearnerProfiles.Add(profile);
+                _context.Add(profile);
                 await _context.SaveChangesAsync();
             }
 
@@ -60,7 +60,7 @@ namespace IFA.API.Controllers
                     Id = Guid.NewGuid(),
                     LearnerId = learnerId
                 };
-                _context.LearnerProfiles.Add(profile);
+                _context.Add(profile);
             }
 
             profile.LearningGoal = updated.LearningGoal ?? profile.LearningGoal;
@@ -98,7 +98,7 @@ namespace IFA.API.Controllers
                     CompletedQuizzesCount = 3,
                     UpdatedAt = DateTime.UtcNow
                 };
-                _context.LearnerStates.Add(state);
+                _context.Add(state);
                 await _context.SaveChangesAsync();
             }
 

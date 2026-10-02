@@ -39,7 +39,7 @@ namespace IFA.API.Controllers
                     AccentColor = "pine",
                     FontSize = "medium"
                 };
-                _context.LearnerSettings.Add(settings);
+                _context.Add(settings);
                 await _context.SaveChangesAsync();
             }
 
@@ -59,7 +59,7 @@ namespace IFA.API.Controllers
                     Id = Guid.NewGuid(),
                     LearnerId = learnerId
                 };
-                _context.LearnerSettings.Add(settings);
+                _context.Add(settings);
             }
 
             settings.DailyReminders = updated.DailyReminders;

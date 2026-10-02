@@ -1,6 +1,7 @@
 
 
 // IFA.API/Endpoints/LearnerEndpoints.cs
+using System.Text.Json;
 using IFA.API.Contracts;
 using IFA.Application.Common.Interfaces;
 using IFA.Domain.Entities;
@@ -42,17 +43,18 @@ namespace IFA.API.Endpoints
             var profile = new LearnerProfile
             {
                 LearnerId = learnerId,
-                Goal = request.Goal,
-                SubjectTopic = request.SubjectTopic,
-                CurrentLevel = request.CurrentLevel,
-                TargetOutcome = request.TargetOutcome,
-                AvailableStudyHoursPerWeek = request.AvailableStudyHoursPerWeek,
-                PreferredLanguage = request.PreferredLanguage,
-                PreferredLearningStyle = request.PreferredLearningStyle,
-                Constraints = request.Constraints ?? new List<string>(),
-                PreferredYouTubeChannels = request.PreferredYouTubeChannels ?? new List<string>(),
-                KnownStrengths = request.KnownStrengths ?? new List<string>(),
-                KnownWeaknesses = request.KnownWeaknesses ?? new List<string>()
+                LearningGoal = request.Goal,
+                Subject = request.SubjectTopic ?? "General",
+                CurrentLevel = request.CurrentLevel ?? "Beginner",
+                TargetOutcome = request.TargetOutcome ?? string.Empty,
+                WeeklyStudyHours = request.AvailableStudyHoursPerWeek ?? 5,
+                PreferredLanguage = request.PreferredLanguage ?? "en",
+                LearningStyle = request.PreferredLearningStyle ?? "Hands-on",
+                Constraints = request.Constraints is null ? string.Empty : JsonSerializer.Serialize(request.Constraints),
+                PreferredYouTubeChannelsJson = JsonSerializer.Serialize(request.PreferredYouTubeChannels ?? new List<string>()),
+                KnownStrengthsJson = JsonSerializer.Serialize(request.KnownStrengths ?? new List<string>()),
+                KnownWeaknessesJson = JsonSerializer.Serialize(request.KnownWeaknesses ?? new List<string>()),
+                UpdatedAt = DateTime.UtcNow
             };
 
             db.Add(profile);
@@ -67,21 +69,19 @@ namespace IFA.API.Endpoints
             IResearchService researchService,
             CancellationToken cancellationToken)
         {
-            // Latest profile by CreatedAt - a learner can have multiple
-            // profiles over time (see LearnerProfileConfiguration notes),
-            // research always runs against the most recent one.
+            // Latest profile by UpdatedAt - a learner can have multiple
+            // profiles over time, research always runs against the most recent.
             var profile = await db.LearnerProfiles
                 .Where(p => p.LearnerId == learnerId)
-                .OrderByDescending(p => p.CreatedAt)
+                .OrderByDescending(p => p.UpdatedAt)
                 .FirstOrDefaultAsync(cancellationToken);
 
             if (profile is null)
                 return Results.NotFound($"No profile found for learner {learnerId}. Create one first.");
 
-            var package = await researchService.BuildResearchPackageAsync(profile, cancellationToken);
-
-            db.Add(package);
-            await db.SaveChangesAsync(cancellationToken);
+            // ConductResearchAsync persists the package itself.
+            var package = await researchService.ConductResearchAsync(
+                profile.LearningGoal, learnerId, null, cancellationToken);
 
             return Results.Ok(package);
         }
@@ -92,11 +92,9 @@ namespace IFA.API.Endpoints
             CancellationToken cancellationToken)
         {
             var package = await db.ResearchPackages
-                .Where(r => r.LearnerProfile!.LearnerId == learnerId)
+                .Where(r => r.LearnerId == learnerId)
                 .OrderByDescending(r => r.CreatedAt)
-                .Include(r => r.AcademicSources)
-                .Include(r => r.PracticalResources)
-                .Include(r => r.VideoResources)
+                .Include(r => r.Sources)
                 .FirstOrDefaultAsync(cancellationToken);
 
             return package is null

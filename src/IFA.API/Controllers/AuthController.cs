@@ -62,7 +62,7 @@ namespace IFA.API.Controllers
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.Learners.Add(learner);
+            _context.Add(learner);
 
             // Initialize learner profile & state
             var profile = new LearnerProfile
@@ -76,7 +76,7 @@ namespace IFA.API.Controllers
                 WeeklyStudyHours = 6,
                 UpdatedAt = DateTime.UtcNow
             };
-            _context.LearnerProfiles.Add(profile);
+            _context.Add(profile);
 
             var state = new LearnerState
             {
@@ -85,7 +85,7 @@ namespace IFA.API.Controllers
                 ActiveStreakDays = 1,
                 UpdatedAt = DateTime.UtcNow
             };
-            _context.LearnerStates.Add(state);
+            _context.Add(state);
 
             await _context.SaveChangesAsync();
 

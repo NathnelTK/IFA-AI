@@ -33,7 +33,7 @@ namespace IFA.API.Controllers
                     OverallProgress = 42,
                     CreatedAt = DateTime.UtcNow
                 };
-                context.Learners.Add(demo);
+                context.Add(demo);
                 await context.SaveChangesAsync();
             }
 

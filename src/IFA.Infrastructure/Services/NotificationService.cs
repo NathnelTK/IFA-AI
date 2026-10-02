@@ -32,7 +32,7 @@ namespace IFA.Infrastructure.Services
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.Notifications.Add(notification);
+            _context.Add(notification);
             await _context.SaveChangesAsync(ct);
         }
 
