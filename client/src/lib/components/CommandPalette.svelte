@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
+  import { goto } from '$app/navigation';
   import { Search, BookOpen, Video, Layout, Users, Settings, X, ArrowRight } from 'lucide-svelte';
 
   export let isOpen = false;
@@ -7,18 +8,28 @@
 
   const dispatch = createEventDispatcher();
 
-  const searchResults = [
-    { type: 'course', title: 'C# Backend Development', subtitle: '4 modules • 12 lessons', icon: BookOpen },
-    { type: 'course', title: 'Python Fundamentals', subtitle: '3 modules • 8 lessons', icon: BookOpen },
-    { type: 'lesson', title: 'Introduction to REST APIs', subtitle: 'C# Backend Development • Module 2', icon: Video },
-    { type: 'lesson', title: 'Database Design Patterns', subtitle: 'SQL for Developers • Module 1', icon: Video },
-    { type: 'page', title: 'My Learning', subtitle: 'Dashboard', icon: Layout },
-    { type: 'page', title: 'Courses', subtitle: 'Library', icon: BookOpen },
-    { type: 'page', title: 'Skills', subtitle: 'Profile', icon: Users },
-    { type: 'page', title: 'Settings', subtitle: 'Preferences', icon: Settings }
+  const commands = [
+    { type: 'course', title: 'C# Backend Development', subtitle: '4 modules • 8 lessons', icon: BookOpen, href: '/courses/csharp-backend' },
+    { type: 'course', title: 'Python Fundamentals', subtitle: '2 modules • 3 lessons', icon: BookOpen, href: '/courses/python-fundamentals' },
+    { type: 'lesson', title: 'Working with REST APIs', subtitle: 'C# Backend Development • Module 3', icon: Video, href: '/courses/csharp-backend' },
+    { type: 'lesson', title: 'Joining Tables', subtitle: 'SQL for Developers • Module 1', icon: Video, href: '/courses/sql-developers' },
+    { type: 'page', title: 'My Learning', subtitle: 'Dashboard', icon: Layout, href: '/my-learning' },
+    { type: 'page', title: 'Courses', subtitle: 'Library', icon: BookOpen, href: '/courses' },
+    { type: 'page', title: 'My Skills', subtitle: 'Profile', icon: Users, href: '/my-skills' },
+    { type: 'page', title: 'Settings', subtitle: 'Preferences', icon: Settings, href: '/settings' }
   ];
 
+  // Filter live as the user types.
+  $: searchResults = query.trim()
+    ? commands.filter(
+        (c) =>
+          c.title.toLowerCase().includes(query.toLowerCase()) ||
+          c.subtitle.toLowerCase().includes(query.toLowerCase())
+      )
+    : commands;
+
   let selectedIndex = 0;
+  $: if (selectedIndex >= searchResults.length) selectedIndex = 0;
 
   function handleClose() {
     isOpen = false;
@@ -28,11 +39,12 @@
   }
 
   function handleSelect(result: any) {
-    console.log('Selected:', result);
+    if (result?.href) goto(result.href);
     handleClose();
   }
 
   function handleKeyDown(e: KeyboardEvent) {
+    if (!isOpen) return;
     if (e.key === 'Escape') {
       handleClose();
     } else if (e.key === 'ArrowDown') {

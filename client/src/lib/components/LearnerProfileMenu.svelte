@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { User, Settings, LogOut, ChevronDown, Layout, BookOpen, Trophy, Star } from 'lucide-svelte';
+  import { goto } from '$app/navigation';
+  import { User, Settings, LogOut, ChevronDown, Layout, BookOpen, Trophy, Target } from 'lucide-svelte';
 
   export let isOpen = false;
 
@@ -16,7 +17,7 @@
   const menuItems = [
     { label: 'My Learning', icon: Layout, href: '/my-learning' },
     { label: 'Courses', icon: BookOpen, href: '/courses' },
-    { label: 'Skills', icon: Star, href: '/my-skills' },
+    { label: 'Skills', icon: Target, href: '/my-skills' },
     { label: 'Progress', icon: Trophy, href: '/progress' },
     { divider: true },
     { label: 'Settings', icon: Settings, href: '/settings' },
@@ -30,9 +31,9 @@
 
   function handleItemClick(item: any) {
     if (item.action === 'signout') {
-      console.log('Sign out');
+      dispatch('signout');
     } else if (item.href) {
-      console.log('Navigate to:', item.href);
+      goto(item.href);
     }
     handleClose();
   }
@@ -83,8 +84,8 @@
                 <Layout class="w-4 h-4 text-ifa-text-muted" />
               {:else if item.icon === BookOpen}
                 <BookOpen class="w-4 h-4 text-ifa-text-muted" />
-              {:else if item.icon === Star}
-                <Star class="w-4 h-4 text-ifa-text-muted" />
+              {:else if item.icon === Target}
+                <Target class="w-4 h-4 text-ifa-text-muted" />
               {:else if item.icon === Trophy}
                 <Trophy class="w-4 h-4 text-ifa-text-muted" />
               {:else if item.icon === Settings}

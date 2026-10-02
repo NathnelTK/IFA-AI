@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { Sparkles, Lightbulb, TrendingUp, ArrowRight, Target } from 'lucide-svelte';
+  import { Lightbulb, TrendingUp, ArrowRight, Target } from 'lucide-svelte';
+  import { goto } from '$app/navigation';
 
   const recommendations = [
     {
@@ -11,7 +12,8 @@
       category: 'Data Science',
       bgColor: '#E07A5F15',
       textColor: '#E07A5F',
-      icon: Lightbulb
+      icon: Lightbulb,
+      href: '/courses/sql-developers'
     },
     {
       id: 'rec-2',
@@ -22,7 +24,8 @@
       category: 'Backend',
       bgColor: '#2A9D6815',
       textColor: '#2A9D68',
-      icon: Target
+      icon: Target,
+      href: '/courses/csharp-backend'
     },
     {
       id: 'rec-3',
@@ -33,19 +36,20 @@
       category: 'Backend',
       bgColor: '#2A9D6815',
       textColor: '#2A9D68',
-      icon: TrendingUp
+      icon: TrendingUp,
+      href: '/courses/csharp-backend'
     }
   ];
 
   function handleAction(recommendation: any) {
-    console.log('Acting on recommendation:', recommendation);
+    if (recommendation?.href) goto(recommendation.href);
   }
 </script>
 
 <div class="bg-gradient-to-r from-ifa-pine/10 to-emerald-50 rounded-2xl border border-ifa-pine/20 p-6">
   <div class="flex items-center gap-2 mb-4">
     <div class="w-8 h-8 rounded-lg bg-ifa-pine/20 flex items-center justify-center text-ifa-pine">
-      <Sparkles class="w-4 h-4" />
+      <Lightbulb class="w-4 h-4" />
     </div>
     <h3 class="text-sm font-bold text-ifa-pine">IFA Recommendations</h3>
   </div>
@@ -65,7 +69,7 @@
             {:else if rec.icon === TrendingUp}
               <TrendingUp class="w-5 h-5" />
             {:else}
-              <Sparkles class="w-5 h-5" />
+              <Lightbulb class="w-5 h-5" />
             {/if}
           </div>
 
@@ -97,9 +101,10 @@
   <div class="mt-4 text-center">
     <button
       type="button"
+      on:click={() => goto('/courses')}
       class="text-xs font-semibold text-ifa-pine hover:text-emerald-700 transition"
     >
-      View all recommendations →
+      Browse all courses →
     </button>
   </div>
 </div>

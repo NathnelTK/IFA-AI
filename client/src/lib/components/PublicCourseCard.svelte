@@ -4,6 +4,7 @@
   export let course: any;
   export let onEnroll = () => {};
   export let onBookmark = () => {};
+  export let isEnrolled = false;
 
   let bookmarked = false;
 </script>
@@ -79,7 +80,7 @@
       on:click={onEnroll}
       class="w-full py-2.5 bg-ifa-pine text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-emerald-800 transition"
     >
-      <span>Enroll Now</span>
+      <span>{isEnrolled ? 'Continue' : 'Enroll Now'}</span>
       <ArrowRight class="w-3 h-3" />
     </button>
   </div>

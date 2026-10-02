@@ -112,7 +112,7 @@
           bind:value={goalInput}
           on:keydown={(e) => e.key === 'Enter' && handleStartScoping()}
           placeholder="Type or speak your goal..."
-          class="w-full pl-13 pr-14 py-3.5 text-xs rounded-full bg-white/95 backdrop-blur-sm border border-ifa-border text-ifa-text-primary placeholder-ifa-text-muted focus:outline-none focus:ring-2 focus:ring-ifa-pine/30 shadow-soft"
+          class="w-full pl-13 pr-14 py-3.5 text-xs rounded-full bg-ifa-card/95 backdrop-blur-sm border border-ifa-border text-ifa-text-primary placeholder-ifa-text-muted focus:outline-none focus:ring-2 focus:ring-ifa-pine/30 shadow-soft"
         />
 
         <button
@@ -129,28 +129,28 @@
         <button
           type="button"
           on:click={() => handleStartScoping('Prepare for my exit exam')}
-          class="px-3.5 py-1.5 rounded-full text-xs font-medium bg-white/80 hover:bg-white text-ifa-text-primary border border-ifa-border transition shadow-soft"
+          class="px-3.5 py-1.5 rounded-full text-xs font-medium bg-ifa-card/80 hover:bg-ifa-card text-ifa-text-primary border border-ifa-border transition shadow-soft"
         >
           Prepare for my exit exam
         </button>
         <button
           type="button"
           on:click={() => handleStartScoping('Learn C# from scratch')}
-          class="px-3.5 py-1.5 rounded-full text-xs font-medium bg-white/80 hover:bg-white text-ifa-text-primary border border-ifa-border transition shadow-soft"
+          class="px-3.5 py-1.5 rounded-full text-xs font-medium bg-ifa-card/80 hover:bg-ifa-card text-ifa-text-primary border border-ifa-border transition shadow-soft"
         >
           Learn C# from scratch
         </button>
         <button
           type="button"
           on:click={() => handleStartScoping('Improve my math skills')}
-          class="px-3.5 py-1.5 rounded-full text-xs font-medium bg-white/80 hover:bg-white text-ifa-text-primary border border-ifa-border transition shadow-soft"
+          class="px-3.5 py-1.5 rounded-full text-xs font-medium bg-ifa-card/80 hover:bg-ifa-card text-ifa-text-primary border border-ifa-border transition shadow-soft"
         >
           Improve my math skills
         </button>
         <button
           type="button"
           on:click={() => handleStartScoping('Explore public courses')}
-          class="px-3.5 py-1.5 rounded-full text-xs font-medium bg-white/80 hover:bg-white text-ifa-text-primary border border-ifa-border transition shadow-soft"
+          class="px-3.5 py-1.5 rounded-full text-xs font-medium bg-ifa-card/80 hover:bg-ifa-card text-ifa-text-primary border border-ifa-border transition shadow-soft"
         >
           Explore public courses
         </button>
@@ -158,7 +158,7 @@
 
     <!-- State 2: Conversational Scoper Modal (User Requested Feature) -->
     {:else if conversationState === 'scoping'}
-      <div class="bg-white/95 backdrop-blur-md rounded-2xl p-5 border border-ifa-border shadow-elevated space-y-4">
+      <div class="bg-ifa-card/95 backdrop-blur-md rounded-2xl p-5 border border-ifa-border shadow-elevated space-y-4">
         <div class="flex items-center justify-between border-b border-ifa-border-light pb-2.5">
           <div class="flex items-center gap-2 text-xs font-bold text-ifa-pine">
             <Sparkles class="w-4 h-4 text-emerald-600" />
@@ -213,7 +213,7 @@
 
     <!-- State 3: Interactive Pipeline Card (User Requested JIT feature) -->
     {:else if conversationState === 'pipeline_ready'}
-      <div class="bg-white/95 backdrop-blur-md rounded-2xl p-5 border border-ifa-border shadow-elevated space-y-3">
+      <div class="bg-ifa-card/95 backdrop-blur-md rounded-2xl p-5 border border-ifa-border shadow-elevated space-y-3">
         <div class="flex items-center justify-between border-b border-ifa-border-light pb-2">
           <span class="text-xs font-bold text-ifa-pine flex items-center gap-1.5">
             <BookOpen class="w-3.5 h-3.5 text-emerald-600" /> Proposed Course Pipeline (JIT Generation)
@@ -233,7 +233,7 @@
                 <p class="text-[11px] text-ifa-text-secondary line-clamp-1">{mod.summary}</p>
                 <div class="flex gap-1.5 mt-1">
                   {#each mod.topics as topic}
-                    <span class="text-[9px] px-1.5 py-0.5 bg-white rounded border border-ifa-border text-ifa-text-muted">
+                    <span class="text-[9px] px-1.5 py-0.5 bg-ifa-card rounded border border-ifa-border text-ifa-text-muted">
                       {topic}
                     </span>
                   {/each}
@@ -265,7 +265,7 @@
 
     <!-- State 4: Generating JIT Module -->
     {:else if conversationState === 'generating'}
-      <div class="bg-white/95 backdrop-blur-md rounded-2xl p-6 border border-ifa-border shadow-elevated text-center space-y-3">
+      <div class="bg-ifa-card/95 backdrop-blur-md rounded-2xl p-6 border border-ifa-border shadow-elevated text-center space-y-3">
         <div class="w-10 h-10 mx-auto rounded-full bg-ifa-pine/10 flex items-center justify-center text-ifa-pine animate-spin">
           <Sparkles class="w-5 h-5" />
         </div>

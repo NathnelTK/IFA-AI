@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { Bell, X, Check, BookOpen, Award, Zap, Clock } from 'lucide-svelte';
+  import { goto } from '$app/navigation';
+  import { Bell, X, BookOpen, Award, Zap, Clock } from 'lucide-svelte';
 
   export let isOpen = false;
 
@@ -14,7 +15,8 @@
       message: 'Module 2: REST API Design is now available in C# Backend Development',
       time: '2 hours ago',
       read: false,
-      icon: BookOpen
+      icon: BookOpen,
+      href: '/courses/csharp-backend'
     },
     {
       id: 'notif-2',
@@ -23,7 +25,8 @@
       message: 'You completed C# Fundamentals with a score of 85%',
       time: '5 hours ago',
       read: false,
-      icon: Award
+      icon: Award,
+      href: '/progress'
     },
     {
       id: 'notif-3',
@@ -32,7 +35,8 @@
       message: 'Based on your progress, we recommend learning Database Optimization',
       time: '1 day ago',
       read: true,
-      icon: Zap
+      icon: Zap,
+      href: '/recommendations'
     },
     {
       id: 'notif-4',
@@ -41,7 +45,8 @@
       message: 'Time to continue your learning journey! You have 2 courses in progress.',
       time: '2 days ago',
       read: true,
-      icon: Clock
+      icon: Clock,
+      href: '/my-learning'
     }
   ];
 
@@ -67,7 +72,7 @@
 
   function handleNotificationClick(notification: any) {
     markAsRead(notification.id);
-    console.log('Navigate to:', notification);
+    if (notification.href) goto(notification.href);
     handleClose();
   }
 
@@ -176,12 +181,14 @@
       <div class="px-4 py-3 border-t border-ifa-border flex items-center justify-between">
         <button
           type="button"
+          on:click={markAllAsRead}
           class="text-xs font-semibold text-ifa-pine hover:text-emerald-700 transition"
         >
-          View all notifications
+          Mark all as read
         </button>
         <button
           type="button"
+          on:click={() => { goto('/settings'); handleClose(); }}
           class="text-xs text-ifa-text-muted hover:text-ifa-text-primary transition"
         >
           Settings

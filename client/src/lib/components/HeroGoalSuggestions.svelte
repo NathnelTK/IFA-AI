@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { Target, Sparkles, ArrowRight, Zap, BookOpen, Code2, Database } from 'lucide-svelte';
+  import { Target, ArrowRight, Zap, BookOpen, Code2, Database } from 'lucide-svelte';
+
+  export let onSelectGoal: (goal: string) => void = () => {};
 
   const suggestedGoals = [
     {
@@ -31,8 +33,8 @@
     }
   ];
 
-  function handleSelectGoal(goal: any) {
-    console.log('Selected goal:', goal);
+  function handleSelectGoal(goal: { title: string }) {
+    onSelectGoal(goal.title);
   }
 
   function getDifficultyColor(difficulty: string) {
@@ -49,17 +51,17 @@
   }
 </script>
 
-<div class="bg-gradient-to-r from-ifa-pine/10 to-emerald-50 rounded-2xl border border-ifa-pine/20 p-6">
+<div class="bg-ifa-bg-warm rounded-2xl border border-ifa-pine/20 p-6">
   <div class="flex items-center gap-2 mb-4">
     <div class="w-8 h-8 rounded-lg bg-ifa-pine/20 flex items-center justify-center text-ifa-pine">
-      <Sparkles class="w-4 h-4" />
+      <Target class="w-4 h-4" />
     </div>
     <h3 class="text-sm font-bold text-ifa-pine">IFA Recommended Goals</h3>
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
     {#each suggestedGoals as goal}
-      <div class="bg-white rounded-xl border border-ifa-border p-4 hover:shadow-elevated transition cursor-pointer" on:click={() => handleSelectGoal(goal)}>
+      <button type="button" class="text-left bg-ifa-card rounded-xl border border-ifa-border p-4 hover:shadow-elevated transition cursor-pointer" on:click={() => handleSelectGoal(goal)}>
         <div class="flex items-start justify-between mb-3">
           <div
             class="w-10 h-10 rounded-lg flex items-center justify-center"
@@ -90,14 +92,15 @@
           </div>
           <ArrowRight class="w-4 h-4 text-ifa-pine" />
         </div>
-      </div>
+      </button>
     {/each}
   </div>
 
   <div class="mt-4 text-center">
     <button
       type="button"
-      class="text-xs font-semibold text-ifa-pine hover:text-emerald-700 transition"
+      on:click={() => onSelectGoal('Explore all recommended goals')}
+      class="text-xs font-semibold text-ifa-pine hover:text-ifa-pine-dark transition"
     >
       View all goal suggestions →
     </button>

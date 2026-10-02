@@ -1,102 +1,54 @@
 <script lang="ts">
-  import { Search, Filter, Grid, List, Bookmark, Clock, TrendingUp } from 'lucide-svelte';
+  import { Search, Grid, List } from 'lucide-svelte';
+  import { goto } from '$app/navigation';
   import CourseLibrary from '$lib/components/CourseLibrary.svelte';
   import CourseFilterBar from '$lib/components/CourseFilterBar.svelte';
+  import { courses, courseProgress, moduleInfo, toggleBookmark } from '$lib/stores/coursesStore';
 
   let viewMode = 'grid'; // 'grid' | 'list'
   let searchQuery = '';
   let activeFilter = 'all'; // 'all' | 'inProgress' | 'completed' | 'bookmarked'
   let sortBy = 'recent'; // 'recent' | 'progress' | 'name' | 'duration'
 
-  const enrolledCourses = [
-    {
-      id: 'csharp-backend',
-      title: 'C# Backend Development',
-      provider: 'IFA Generated',
-      moduleInfo: 'Module 3 of 6',
-      progressPercent: 78,
-      status: 'inProgress',
-      enrolledDate: '2 weeks ago',
-      lastAccessed: '2 hours ago',
-      duration: '6 weeks',
-      thumbnail: 'C#',
-      isBookmarked: true
-    },
-    {
-      id: 'python-fundamentals',
-      title: 'Python Fundamentals',
-      provider: 'By Google',
-      moduleInfo: 'Module 2 of 8',
-      progressPercent: 32,
-      status: 'inProgress',
-      enrolledDate: '1 week ago',
-      lastAccessed: '1 day ago',
-      duration: '8 weeks',
-      thumbnail: 'Python',
-      isBookmarked: false
-    },
-    {
-      id: 'sql-developers',
-      title: 'SQL for Developers',
-      provider: 'IFA Generated',
-      moduleInfo: 'Module 1 of 4',
-      progressPercent: 12,
-      status: 'inProgress',
-      enrolledDate: '3 days ago',
-      lastAccessed: '3 days ago',
-      duration: '4 weeks',
-      thumbnail: 'SQL',
-      isBookmarked: false
-    },
-    {
-      id: 'aspnet-fundamentals',
-      title: 'ASP.NET Core Fundamentals',
-      provider: 'By Microsoft',
-      moduleInfo: 'Completed',
-      progressPercent: 100,
-      status: 'completed',
-      enrolledDate: '1 month ago',
-      lastAccessed: '2 weeks ago',
-      duration: '5 weeks',
-      thumbnail: 'ASP.NET',
-      isBookmarked: true
-    }
-  ];
+  // Enrich each store course with the display fields CourseLibrary expects.
+  $: enrolledCourses = $courses.map((c) => ({
+    ...c,
+    progressPercent: courseProgress(c),
+    moduleInfo: c.status === 'completed' ? 'Completed' : moduleInfo(c)
+  }));
 
-  $: filteredCourses = enrolledCourses.filter(course => {
-    const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         course.provider.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = activeFilter === 'all' ||
-                          (activeFilter === 'inProgress' && course.status === 'in-progress') ||
-                          (activeFilter === 'completed' && course.status === 'completed') ||
-                          (activeFilter === 'bookmarked' && course.isBookmarked);
+  $: filteredCourses = enrolledCourses.filter((course) => {
+    const matchesSearch =
+      course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      course.provider.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter =
+      activeFilter === 'all' ||
+      (activeFilter === 'inProgress' && course.status === 'inProgress') ||
+      (activeFilter === 'completed' && course.status === 'completed') ||
+      (activeFilter === 'bookmarked' && course.isBookmarked);
     return matchesSearch && matchesFilter;
   });
 
   $: sortedCourses = [...filteredCourses].sort((a, b) => {
     switch (sortBy) {
-      case 'recent':
-        return new Date(b.lastAccessed).getTime() - new Date(a.lastAccessed).getTime();
       case 'progress':
         return b.progressPercent - a.progressPercent;
       case 'name':
         return a.title.localeCompare(b.title);
       case 'duration':
         return a.duration.localeCompare(b.duration);
+      case 'recent':
       default:
-        return 0;
+        return 0; // preserve store order (lastAccessed is a relative label, not a date)
     }
   });
 
   function handleToggleBookmark(courseId: string) {
-    const course = enrolledCourses.find(c => c.id === courseId);
-    if (course) {
-      course.isBookmarked = !course.isBookmarked;
-    }
+    toggleBookmark(courseId);
   }
 
   function handleContinueCourse(courseId: string) {
-    console.log('Continuing course:', courseId);
+    goto(`/courses/${courseId}`);
   }
 </script>
 

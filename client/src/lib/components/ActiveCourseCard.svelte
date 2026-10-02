@@ -3,14 +3,8 @@
 
   export let course: any;
   export let onContinue = () => {};
-
-  function handleShare() {
-    console.log('Sharing course:', course.id);
-  }
-
-  function handleCompare() {
-    console.log('Comparing progress for:', course.id);
-  }
+  export let onShare = () => {};
+  export let onCompare = () => {};
 </script>
 
 <div class="bg-gradient-to-br from-ifa-pine to-emerald-700 rounded-3xl p-6 text-white shadow-elevated">
@@ -63,7 +57,7 @@
     </button>
     <button
       type="button"
-      on:click={handleShare}
+      on:click={onShare}
       class="px-4 py-3 bg-white/10 rounded-xl hover:bg-white/20 transition"
       title="Share Course"
     >
@@ -71,7 +65,7 @@
     </button>
     <button
       type="button"
-      on:click={handleCompare}
+      on:click={onCompare}
       class="px-4 py-3 bg-white/10 rounded-xl hover:bg-white/20 transition"
       title="Compare Progress"
     >

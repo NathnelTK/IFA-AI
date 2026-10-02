@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { ArrowRight, ChevronRight, ShieldAlert, Code2, Database, Sparkles } from 'lucide-svelte';
+  import { ArrowRight, ChevronRight, Lightbulb } from 'lucide-svelte';
   import { recommendations } from '../stores/dashboardStore';
+  import { getRecommendationIcon } from '$lib/icons';
 
-  export let onSelectRecommendation = (id: string) => {};
+  export let onSelectRecommendation = (actionUrl: string) => {};
 </script>
 
 <div class="bg-ifa-card rounded-3xl border border-ifa-border p-5 shadow-card space-y-3">
@@ -10,7 +11,7 @@
   <div class="flex items-center justify-between">
     <div class="flex items-center gap-2">
       <div class="w-6 h-6 rounded-lg bg-ifa-pine/10 flex items-center justify-center text-ifa-pine">
-        <Sparkles class="w-3.5 h-3.5 text-emerald-700" />
+        <Lightbulb class="w-3.5 h-3.5 text-emerald-700" />
       </div>
       <h3 class="text-xs font-bold text-ifa-text-primary tracking-tight">IFA Recommends</h3>
     </div>
@@ -23,9 +24,10 @@
   <!-- Recommendation Items -->
   <div class="space-y-2">
     {#each $recommendations as rec}
+      {@const Icon = getRecommendationIcon(rec.type)}
       <button
         type="button"
-        on:click={() => onSelectRecommendation(rec.id)}
+        on:click={() => onSelectRecommendation(rec.actionUrl)}
         class="w-full text-left p-2.5 rounded-2xl border border-ifa-border hover:border-ifa-pine/30 bg-ifa-card-muted/50 hover:bg-white transition flex items-center justify-between group shadow-soft"
       >
         <div class="flex items-center gap-3">
@@ -34,13 +36,7 @@
             class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
             style="background-color: {rec.color}15; color: {rec.color};"
           >
-            {#if rec.type === 'review'}
-              <ShieldAlert class="w-4 h-4" />
-            {:else if rec.type === 'continue'}
-              <Code2 class="w-4 h-4" />
-            {:else}
-              <Database class="w-4 h-4" />
-            {/if}
+            <svelte:component this={Icon} class="w-4 h-4" />
           </div>
 
           <div>

@@ -1,13 +1,10 @@
 <script lang="ts">
-  import { ArrowRight, Pause, Play } from 'lucide-svelte';
+  import { ArrowRight, Play } from 'lucide-svelte';
 
   export let course: any;
   export let onContinue = () => {};
+  export let onShare = () => {};
   export let isPaused = false;
-
-  function handleShare() {
-    console.log('Sharing course:', course.id);
-  }
 </script>
 
 <div class="bg-ifa-card rounded-2xl border border-ifa-border p-5 shadow-card hover:shadow-elevated transition">
@@ -51,7 +48,7 @@
     </button>
     <button
       type="button"
-      on:click={handleShare}
+      on:click={onShare}
       class="px-3 py-2 border border-ifa-border rounded-lg text-xs font-semibold text-ifa-text-secondary hover:bg-ifa-card-muted transition"
     >
       Share

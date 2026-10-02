@@ -1,5 +1,6 @@
 import { writable } from 'svelte/store';
-import type { SkillProgress, Recommendation, RecentActivity, CourseCard, CurrentLearningModule } from '../types';
+import type { SkillProgress, Recommendation, RecentActivity, CourseCard } from '../types';
+import { activeCourse as activeCourseFromCourses, overallProgress as overallProgressFromCourses } from './coursesStore';
 
 export const userProfile = writable({
   name: 'Nathnel',
@@ -9,7 +10,9 @@ export const userProfile = writable({
   tagline: 'Small steps today, big goals tomorrow.'
 });
 
-export const overallProgress = writable(72);
+// Re-export from coursesStore for convenience
+export const activeCourse = activeCourseFromCourses;
+export const overallProgress = overallProgressFromCourses;
 
 export const skillsList = writable<SkillProgress[]>([
   { name: 'C#', percentage: 84, color: '#2A9D68', iconName: 'Terminal' },
@@ -19,16 +22,6 @@ export const skillsList = writable<SkillProgress[]>([
   { name: 'Testing', percentage: 32, color: '#EF4444', iconName: 'CheckCircle2', isWeakArea: true }
 ]);
 
-export const activeCourse = writable<CurrentLearningModule>({
-  courseTitle: 'C# Backend Development',
-  moduleInfo: 'Module 3 of 6 • REST APIs',
-  progressPercent: 78,
-  nextLessonTitle: 'Working with REST APIs',
-  nextLessonSummary: 'Learn how to build and consume REST APIs in ASP.NET Core.',
-  nextLessonDuration: '12 min',
-  courseThumbnail: 'C#'
-});
-
 export const recommendations = writable<Recommendation[]>([
   {
     id: 'rec-1',
@@ -36,7 +29,7 @@ export const recommendations = writable<Recommendation[]>([
     subtitle: 'You struggled in your last quiz.',
     type: 'review',
     color: '#E07A5F',
-    actionUrl: '/courses/csharp/jwt-review'
+    actionUrl: '/courses/csharp-backend'
   },
   {
     id: 'rec-2',
@@ -44,7 +37,7 @@ export const recommendations = writable<Recommendation[]>([
     subtitle: 'Based on your current progress.',
     type: 'continue',
     color: '#2A9D68',
-    actionUrl: '/courses/csharp/rest-apis'
+    actionUrl: '/courses/csharp-backend'
   },
   {
     id: 'rec-3',
@@ -52,7 +45,7 @@ export const recommendations = writable<Recommendation[]>([
     subtitle: 'This is a weak area for you.',
     type: 'practice',
     color: '#7C5CFC',
-    actionUrl: '/courses/databases/sql-joins'
+    actionUrl: '/courses/sql-developers'
   }
 ]);
 
