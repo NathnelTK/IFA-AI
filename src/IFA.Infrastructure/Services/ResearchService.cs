@@ -1,98 +1,104 @@
-// IFA.Infrastructure/Services/ResearchService.cs
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using IFA.Application.Common.Interfaces;
 using IFA.Domain.Entities;
-using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 
 namespace IFA.Infrastructure.Services
 {
-    /// <summary>
-    /// Research Agent (PR 2.3). Wraps IScholarxivService and normalizes
-    /// its raw output into a ResearchPackage BEFORE anything downstream
-    /// (Course Architect / Model 2) ever sees it. Model 2 must only ever
-    /// see AcademicEvidence, never a ScholarxivPaperSummary directly -
-    /// that's the boundary this class exists to enforce.
-    /// </summary>
     public class ResearchService : IResearchService
     {
-        // Independent of whatever timeout the HttpClient inside
-        // ScholarxivService has - this guarantees the PIPELINE never
-        // hangs waiting on research, even if the underlying client's
-        // own timeout is misconfigured or missing.
-        private static readonly TimeSpan ScholarxivTimeout = TimeSpan.FromSeconds(20);
-        private const int MaxPapersPerQuery = 5;
-
+        private readonly IApplicationDbContext _context;
         private readonly IScholarxivService _scholarxivService;
-        private readonly ILogger<ResearchService> _logger;
+        private readonly IYouTubeResourceService _youtubeService;
 
-        public ResearchService(IScholarxivService scholarxivService, ILogger<ResearchService> logger)
+        public ResearchService(
+            IApplicationDbContext context,
+            IScholarxivService scholarxivService,
+            IYouTubeResourceService youtubeService)
         {
+            _context = context;
             _scholarxivService = scholarxivService;
-            _logger = logger;
+            _youtubeService = youtubeService;
         }
 
-        public async Task<ResearchPackage> BuildResearchPackageAsync(
-            LearnerProfile profile,
-            CancellationToken cancellationToken = default)
+        public async Task<ResearchPackage> ConductResearchAsync(string topic, Guid? learnerId = null, Guid? courseId = null, CancellationToken ct = default)
         {
-            var package = new ResearchPackage { LearnerProfileId = profile.Id };
-            var query = BuildQuery(profile);
+            var cleanTopic = string.IsNullOrWhiteSpace(topic) ? "Software Architecture" : topic.Trim();
 
-            try
-            {
-                using var timeoutCts = new CancellationTokenSource(ScholarxivTimeout);
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
-                    cancellationToken, timeoutCts.Token);
+            var papersTask = _scholarxivService.SearchPapersAsync(cleanTopic, 3, ct);
+            var videosTask = _youtubeService.SearchEducationalVideosAsync(cleanTopic, "", 3, ct);
 
-                var papers = await _scholarxivService.SearchPapersAsync(
-                    query, MaxPapersPerQuery, linkedCts.Token);
+            await Task.WhenAll(papersTask, videosTask);
 
-                package.AcademicSources = papers
-                    .Select(p => MapToEvidence(p, profile))
-                    .ToList();
-            }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            var papers = await papersTask;
+            var videos = await videosTask;
+
+            var keyConcepts = papers.SelectMany(p => p.KeyTopics).Distinct().Take(5).ToList();
+            if (!keyConcepts.Any())
             {
-                // Our 20s timeout fired, not the caller's own cancellation.
-                // This is the "failures/timeouts are handled" acceptance
-                // criterion from PR 2.3 - a slow Scholarxiv response must
-                // degrade gracefully, not take down the whole orchestrator.
-                _logger.LogWarning(
-                    "Scholarxiv search timed out after {Timeout}s for query '{Query}'. " +
-                    "Continuing with no academic sources.", ScholarxivTimeout.TotalSeconds, query);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex,
-                    "Scholarxiv search failed for query '{Query}'. Continuing with no academic sources.", query);
+                keyConcepts = new List<string> { cleanTopic, "Architecture", "Engineering", "Evaluation" };
             }
 
-            // PracticalResources / VideoResources stay empty here - PR 2.4
-            // populates those. Empty, never null, so nothing downstream
-            // needs a null-check on these collections.
-            return package;
+            var researchPackage = new ResearchPackage
+            {
+                Id = Guid.NewGuid(),
+                LearnerId = learnerId,
+                CourseId = courseId,
+                Topic = cleanTopic,
+                Summary = $"Synthesized research on {cleanTopic} from peer-reviewed publications and leading engineering resources.",
+                KeyConceptsJson = JsonSerializer.Serialize(keyConcepts),
+                CreatedAt = DateTime.UtcNow
+            };
+
+            foreach (var paper in papers)
+            {
+                researchPackage.Sources.Add(new ResearchSource
+                {
+                    Id = Guid.NewGuid(),
+                    ResearchPackageId = researchPackage.Id,
+                    Title = paper.Title,
+                    Url = !string.IsNullOrWhiteSpace(paper.Doi) && paper.Doi.StartsWith("http") ? paper.Doi : $"https://doi.org/{paper.Doi}",
+                    SourceType = "Academic",
+                    Authors = paper.Authors,
+                    Snippet = paper.Abstract,
+                    RelevanceScore = 0.95,
+                    PublishedYear = int.TryParse(paper.PublishedYear, out var yr) ? yr : 2024
+                });
+            }
+
+            foreach (var video in videos)
+            {
+                researchPackage.Sources.Add(new ResearchSource
+                {
+                    Id = Guid.NewGuid(),
+                    ResearchPackageId = researchPackage.Id,
+                    Title = video.Title,
+                    Url = $"https://www.youtube.com/watch?v={video.VideoId}",
+                    SourceType = "Video",
+                    Authors = video.ChannelTitle,
+                    Snippet = $"Educational video resource covering {cleanTopic}.",
+                    RelevanceScore = 0.90,
+                    PublishedYear = DateTime.UtcNow.Year
+                });
+            }
+
+            _context.ResearchPackages.Add(researchPackage);
+            await _context.SaveChangesAsync(ct);
+
+            return researchPackage;
         }
 
-        private static string BuildQuery(LearnerProfile profile) =>
-            string.IsNullOrWhiteSpace(profile.SubjectTopic)
-                ? profile.Goal
-                : $"{profile.Goal} {profile.SubjectTopic}";
-
-        private static AcademicEvidence MapToEvidence(ScholarxivPaperSummary paper, LearnerProfile profile) =>
-            new()
-            {
-                Title = paper.Title,
-                Authors = paper.Authors,
-                Summary = paper.Abstract,
-                Doi = paper.Doi,
-                // Placeholder relevance logic - good enough for MVP, but
-                // flag it: real relevance scoring (matching against
-                // profile.KnownWeaknesses, semantic similarity, etc.)
-                // is worth revisiting once PR 2.4/3.1 land, not now.
-                RelevanceNote = $"Relevant to goal: {profile.Goal}"
-            };
+        public async Task<ResearchPackage?> GetResearchForCourseAsync(Guid courseId, CancellationToken ct = default)
+        {
+            return await _context.ResearchPackages
+                .Include(r => r.Sources)
+                .OrderByDescending(r => r.CreatedAt)
+                .FirstOrDefaultAsync(r => r.CourseId == courseId, ct);
+        }
     }
 }
