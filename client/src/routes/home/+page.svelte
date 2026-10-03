@@ -67,7 +67,7 @@
       <HeroSection onGoalSubmit={handleGoalSubmit} />
 
       <!-- Goal Suggestions -->
-      <HeroGoalSuggestions onGoalSubmit={handleGoalSubmit} />
+      <HeroGoalSuggestions onSelectGoal={handleGoalSubmit} />
 
       <!-- Continue Your Learning Card -->
       <ContinueLearningCard
@@ -104,8 +104,8 @@
   <!-- Course Share Dialog -->
   {#if shareOpen}
     <CourseShareDialog
-      open={shareOpen}
-      onClose={() => shareOpen = false}
+      isOpen={shareOpen}
+      on:close={() => (shareOpen = false)}
       courseTitle={$activeCourse?.title || 'C# Backend Development'}
     />
   {/if}

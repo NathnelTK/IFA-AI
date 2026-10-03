@@ -1,13 +1,32 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { Search, Filter, Grid, List, BookOpen, Star, Users, Clock, TrendingUp } from 'lucide-svelte';
   import PublicCourseCard from '$lib/components/PublicCourseCard.svelte';
   import MarketplaceFilters from '$lib/components/MarketplaceFilters.svelte';
+  import { coursesApi, type MarketplaceCourseDto } from '$lib/api';
+
+  interface MarketplaceCard {
+    id: string;
+    title: string;
+    instructor: string;
+    rating: number;
+    reviews: number;
+    enrolled: number;
+    modules: number;
+    duration: string;
+    level: string;
+    category: string;
+    tags: string[];
+    thumbnail: string;
+    isPublished: boolean;
+    shareCode?: string;
+  }
 
   let searchQuery = '';
   let viewMode = 'grid';
   let activeFilter = 'all';
 
-  const publicCourses = [
+  const demoMarketplace: MarketplaceCard[] = [
     {
       id: 'pub-1',
       title: 'React for Beginners',
@@ -111,13 +130,71 @@
     { id: 'security', name: 'Security' }
   ];
 
-  function handleEnroll(courseId: string) {
-    console.log('Enrolling in course:', courseId);
+  function handleEnroll(course: MarketplaceCard) {
+    if (!course.shareCode) {
+      console.info(`No share code for "${course.title}"; open it from your courses to enroll.`);
+      return;
+    }
+    void coursesApi.join(course.shareCode).catch((error) => {
+      console.error('Enrollment failed:', error);
+    });
   }
 
   function handleBookmark(courseId: string) {
     console.log('Bookmarking course:', courseId);
   }
+
+  let publicCourses: MarketplaceCard[] = demoMarketplace;
+
+  function parseCount(value: string | undefined): number {
+    if (!value) return 0;
+    const match = value.trim().toLowerCase().match(/^([\d.]+)\s*([km]?)/);
+    if (!match) return 0;
+    const amount = parseFloat(match[1]);
+    if (Number.isNaN(amount)) return 0;
+    if (match[2] === 'k') return Math.round(amount * 1000);
+    if (match[2] === 'm') return Math.round(amount * 1_000_000);
+    return Math.round(amount);
+  }
+
+  function placeholderThumbnail(title: string): string {
+    const label =
+      title
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((word) => word[0])
+        .join('')
+        .toUpperCase() || 'IFA';
+    return `https://via.placeholder.com/400x225/1B3D2F/FFFFFF?text=${encodeURIComponent(label)}`;
+  }
+
+  function toCard(course: MarketplaceCourseDto): MarketplaceCard {
+    return {
+      id: course.id,
+      title: course.title,
+      instructor: course.providerName || 'IFA AI',
+      rating: course.rating,
+      reviews: parseCount(course.reviewCount),
+      enrolled: 0,
+      modules: course.moduleCount,
+      duration: course.estimatedDuration,
+      level: course.targetAudience || 'All levels',
+      category: course.category,
+      tags: [course.category],
+      thumbnail: course.thumbnailUrl || placeholderThumbnail(course.title),
+      isPublished: true,
+      shareCode: course.shareCode
+    };
+  }
+
+  onMount(async () => {
+    try {
+      const list = await coursesApi.marketplace();
+      if (list && list.length > 0) publicCourses = list.map(toCard);
+    } catch {
+      /* keep the demo marketplace when the API is unavailable */
+    }
+  });
 
   $: filteredCourses = publicCourses.filter(course => {
     const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -193,7 +270,7 @@
       {#each filteredCourses as course}
         <PublicCourseCard
           course={course}
-          onEnroll={() => handleEnroll(course.id)}
+          onEnroll={() => handleEnroll(course)}
           onBookmark={() => handleBookmark(course.id)}
         />
       {/each}

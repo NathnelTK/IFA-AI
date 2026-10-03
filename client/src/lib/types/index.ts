@@ -97,6 +97,13 @@ export interface Course {
   enrolledDate: string;
   lastAccessed: string;
   modules: Module[];
+  /**
+   * Progress reported by the API enrollment. When present it is authoritative,
+   * because the backend tracks completion per learner rather than on the lesson.
+   */
+  progressPercent?: number;
+  /** API-provided "Module N of M" label, used when modules are not loaded yet. */
+  moduleInfoLabel?: string;
 }
 
 export interface PipelineModuleProposal {

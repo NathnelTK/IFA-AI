@@ -49,10 +49,12 @@
         <span class="font-semibold text-ifa-text-primary">{course.rating}</span>
         <span>({course.reviews})</span>
       </div>
-      <div class="flex items-center gap-1">
-        <Users class="w-3 h-3" />
-        <span>{course.enrolled.toLocaleString()}</span>
-      </div>
+      {#if course.enrolled > 0}
+        <div class="flex items-center gap-1">
+          <Users class="w-3 h-3" />
+          <span>{course.enrolled.toLocaleString()}</span>
+        </div>
+      {/if}
     </div>
 
     <!-- Meta -->

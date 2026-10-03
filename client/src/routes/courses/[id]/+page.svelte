@@ -21,7 +21,8 @@
     courseProgress,
     markLessonComplete,
     recordQuizScore,
-    toggleBookmark
+    toggleBookmark,
+    loadCourseDetail
   } from '$lib/stores/coursesStore';
   import type { Lesson, Module, Quiz } from '$lib/types';
 
@@ -29,6 +30,12 @@
   // Reactively resolve the course from the store so progress updates live.
   $: course = $courses.find((c) => c.id === courseId) ?? null;
   $: progress = course ? courseProgress(course) : 0;
+
+  // Ensure the full module/lesson outline is loaded (the list endpoint returns
+  // summaries only, so this fills in modules on a direct page load).
+  $: if (courseId && course && course.modules.length === 0) {
+    void loadCourseDetail(courseId);
+  }
 
   // View state: course outline, a specific lesson, or a module quiz.
   type View =
@@ -39,12 +46,18 @@
 
   let shareOpen = false;
 
-  $: activeModule =
-    view.kind !== 'outline' ? course?.modules.find((m) => m.id === view.moduleId) ?? null : null;
-  $: activeLesson =
-    view.kind === 'lesson' && activeModule
-      ? activeModule.lessons.find((l) => l.id === view.lessonId) ?? null
-      : null;
+  // Capture the narrowed view fields before the .find callbacks so TypeScript
+  // keeps the discriminated-union narrowing inside the closures.
+  $: activeModule = (() => {
+    if (view.kind === 'outline' || !course) return null;
+    const moduleId = view.moduleId;
+    return course.modules.find((m) => m.id === moduleId) ?? null;
+  })();
+  $: activeLesson = (() => {
+    if (view.kind !== 'lesson' || !activeModule) return null;
+    const lessonId = view.lessonId;
+    return activeModule.lessons.find((l) => l.id === lessonId) ?? null;
+  })();
 
   // Flatten lessons for "next lesson" navigation.
   $: flatLessons = course

@@ -3,10 +3,27 @@
   import Sidebar from '$lib/components/Sidebar.svelte';
   import Header from '$lib/components/Header.svelte';
   import { page } from '$app/stores';
+  import { browser } from '$app/environment';
+  import { initSession } from '$lib/stores/sessionStore';
+  import { loadCourses } from '$lib/stores/coursesStore';
+  import { loadDashboard } from '$lib/stores/dashboardStore';
 
   $: currentPath = $page.url.pathname;
   $: activeTab = currentPath === '/home' ? 'home' : currentPath.replace('/', '');
   $: isLandingPage = currentPath === '/';
+
+  // Bootstrap the API session and hydrate stores once we are inside the app
+  // shell. Runs client-side only; every loader falls back to demo data if the
+  // backend is unreachable, so this can never block rendering.
+  let bootstrapped = false;
+  $: if (browser && !isLandingPage && !bootstrapped) {
+    bootstrapped = true;
+    void (async () => {
+      await initSession();
+      await loadCourses();
+      await loadDashboard();
+    })();
+  }
 </script>
 
 {#if isLandingPage}

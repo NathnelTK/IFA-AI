@@ -1,10 +1,42 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { ArrowRight, TrendingUp, Award, Target, Flame, BookOpen } from 'lucide-svelte';
   import SkillRadar from '$lib/components/SkillRadar.svelte';
   import SkillBreakdown from '$lib/components/SkillBreakdown.svelte';
   import WeakSkillCard from '$lib/components/WeakSkillCard.svelte';
+  import { coursesApi, skillsApi, type LearnerSkillsResultDto } from '$lib/api';
+  import { initSession, getLearnerId } from '$lib/stores/sessionStore';
 
-  const skillCategories = [
+  interface UiSkill {
+    name: string;
+    percentage: number;
+    color: string;
+    improvement: string;
+  }
+  interface UiCategory {
+    name: string;
+    skills: UiSkill[];
+  }
+  interface UiWeakArea {
+    skill: string;
+    currentLevel: number;
+    targetLevel: number;
+    recommendedAction: string;
+    reason: string;
+    priority: string;
+  }
+  interface UiImprovement {
+    skill: string;
+    improvement: string;
+    timeAgo: string;
+  }
+  interface UiRelatedCourse {
+    title: string;
+    progress: number;
+  }
+
+  // Demo fallback — replaced by API data on mount when the backend is reachable.
+  const demoSkillCategories: UiCategory[] = [
     {
       name: 'Backend Development',
       skills: [
@@ -25,7 +57,7 @@
     }
   ];
 
-  const weakAreas = [
+  const demoWeakAreas: UiWeakArea[] = [
     {
       skill: 'Testing',
       currentLevel: 32,
@@ -44,16 +76,87 @@
     }
   ];
 
-  const recentImprovements = [
+  const demoRecentImprovements: UiImprovement[] = [
     { skill: 'C#', improvement: '+12%', timeAgo: 'This week' },
     { skill: 'Testing', improvement: '+15%', timeAgo: 'This week' },
     { skill: 'APIs', improvement: '+5%', timeAgo: 'Last week' }
   ];
 
-  const relatedCourses = [
+  const demoRelatedCourses: UiRelatedCourse[] = [
     { title: 'Advanced C# Patterns', progress: 45 },
     { title: 'Unit Testing Best Practices', progress: 20 }
   ];
+
+  let skillCategories: UiCategory[] = demoSkillCategories;
+  let weakAreas: UiWeakArea[] = demoWeakAreas;
+  let recentImprovements: UiImprovement[] = demoRecentImprovements;
+  let relatedCourses: UiRelatedCourse[] = demoRelatedCourses;
+
+  function mapCategories(result: LearnerSkillsResultDto): UiCategory[] {
+    return result.categories.map((category) => ({
+      name: category.name,
+      skills: category.skills.map((skill) => ({
+        name: skill.name,
+        percentage: skill.percentage,
+        color: skill.color,
+        improvement: skill.improvement
+      }))
+    }));
+  }
+
+  function deriveWeakAreas(categories: UiCategory[]): UiWeakArea[] {
+    return categories
+      .flatMap((category) => category.skills)
+      .filter((skill) => skill.percentage < 50)
+      .map((skill) => ({
+        skill: skill.name,
+        currentLevel: skill.percentage,
+        targetLevel: Math.min(100, skill.percentage + 30),
+        recommendedAction: `Practice ${skill.name}`,
+        reason: 'Below the 50% mastery threshold in recent assessments',
+        priority: skill.percentage < 35 ? 'HIGH' : 'MEDIUM'
+      }));
+  }
+
+  function deriveImprovements(categories: UiCategory[]): UiImprovement[] {
+    return categories
+      .flatMap((category) => category.skills)
+      .filter((skill) => parseFloat(skill.improvement) > 0)
+      .sort((a, b) => parseFloat(b.improvement) - parseFloat(a.improvement))
+      .slice(0, 3)
+      .map((skill) => ({ skill: skill.name, improvement: skill.improvement, timeAgo: 'This week' }));
+  }
+
+  onMount(async () => {
+    try {
+      await initSession();
+      const learnerId = getLearnerId();
+
+      const [skills, courses] = await Promise.all([
+        learnerId ? skillsApi.forLearner(learnerId) : Promise.resolve(null),
+        coursesApi.listMine().catch(() => [])
+      ]);
+
+      if (skills) {
+        const mapped = mapCategories(skills);
+        if (mapped.length > 0) {
+          skillCategories = mapped;
+          const weak = deriveWeakAreas(mapped);
+          if (weak.length > 0) weakAreas = weak;
+          const improvements = deriveImprovements(mapped);
+          if (improvements.length > 0) recentImprovements = improvements;
+        }
+      }
+
+      if (courses.length > 0) {
+        relatedCourses = courses
+          .slice(0, 4)
+          .map((course) => ({ title: course.title, progress: course.progressPercentage }));
+      }
+    } catch {
+      /* keep demo data */
+    }
+  });
 
   function handlePracticeSkill(skill: string) {
     console.log('Starting practice for:', skill);
