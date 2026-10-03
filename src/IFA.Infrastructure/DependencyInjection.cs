@@ -100,7 +100,12 @@ namespace IFA.Infrastructure
             });
 
             // Additional Services
-            services.AddScoped<ICourseGenerationService, CourseGenerationService>();
+            // Registered as both the interface and the concrete type: several
+            // controllers (Courses, Modules) depend on the concrete
+            // CourseGenerationService for JIT module generation.
+            services.AddScoped<CourseGenerationService>();
+            services.AddScoped<ICourseGenerationService>(provider =>
+                provider.GetRequiredService<CourseGenerationService>());
             services.AddScoped<IIntakeService, IntakeService>();
             services.AddScoped<IAiTutorService, AiTutorService>();
             services.AddScoped<IAdaptiveEngine, AdaptiveEngine>();

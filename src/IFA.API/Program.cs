@@ -7,6 +7,7 @@ using Microsoft.OpenApi;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Text.Json.Serialization;
 
 // Load local secrets (see .env.example) before configuration is built so the
 // PostgreSQL password never has to be committed. Missing file is a no-op.
@@ -19,7 +20,13 @@ const string ClientCorsPolicy = "SvelteKitClient";
 // -------------------------------------------------------------------------
 // Service registration
 // -------------------------------------------------------------------------
-builder.Services.AddControllers();
+// IgnoreCycles keeps entity navigation back-references (Course <-> Module <->
+// Lesson) from throwing "object cycle detected" when entities are returned
+// directly from controllers. The back-reference is emitted as null instead.
+builder.Services.AddControllers().AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
