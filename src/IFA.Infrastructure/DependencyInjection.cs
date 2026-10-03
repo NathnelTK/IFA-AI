@@ -75,8 +75,9 @@ namespace IFA.Infrastructure
             services.AddScoped<ICourseArchitectService, CourseArchitectService>();
             services.AddScoped<ICourseOrchestrationService, CourseOrchestrationService>();
             services.AddScoped<IContentBuilderService, ContentBuilderService>();
-
-
+            services.AddSingleton<IGenerationJobQueue, InMemoryGenerationJobQueue>();
+            services.AddScoped<ICourseGenerationOrchestrator, CourseGenerationOrchestrator>();
+            services.AddHostedService<GenerationJobWorker>();
             return services;
 
         }

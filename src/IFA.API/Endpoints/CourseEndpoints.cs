@@ -1,6 +1,7 @@
 
 
 // IFA.API/Endpoints/CourseEndpoints.cs
+using IFA.Application.Common.Helpers;
 using IFA.Application.Common.Interfaces;
 using IFA.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -38,39 +39,7 @@ namespace IFA.API.Endpoints
             if (proposal is null)
                 return Results.Problem("The course designer could not produce a valid outline. Please try again.",
                     statusCode: StatusCodes.Status502BadGateway);
-
-            var hoursPerWeek = Math.Max(1, profile.AvailableStudyHoursPerWeek ?? 5);
-            var weeks = Math.Max(1, (int)Math.Ceiling(proposal.TotalEstimatedHours / (double)hoursPerWeek));
-
-            var course = new Course
-            {
-                Title = proposal.CourseTitle,
-                Description = proposal.Description,
-                Category = profile.SubjectTopic ?? "General",
-                TargetAudience = profile.CurrentLevel ?? "General",
-                EstimatedDuration = $"{weeks} week{(weeks == 1 ? "" : "s")}",
-                CreatorLearnerId = learnerId,
-                SourceLearnerProfileId = profile.Id,
-                SourceResearchPackageId = persisted?.Id,
-                // Explicit zero-state so a new AI-generated course never shows the fake default rating.
-                Rating = 0,
-                ReviewCount = "0",
-                // Generated here so an empty ShareCode can never collide with a unique index.
-                ShareCode = Guid.NewGuid().ToString("N")[..8]
-            };
-
-            foreach (var m in proposal.Modules)
-            {
-                course.Modules.Add(new Module
-                {
-                    ModuleNumber = m.ModuleNumber,
-                    Title = m.Title,
-                    Summary = m.Summary,
-                    EstimatedHours = m.EstimatedHours,
-                    KeyTopics = m.KeyTopics,
-                    GenerationStatus = ModuleGenerationStatus.Blueprint
-                });
-            }
+            var course = CourseGenerationHelpers.BuildCourseFromProposal(proposal, profile, persisted?.Id, learnerId);
 
             db.Add(course);
             db.Add(new CourseEnrollment { CourseId = course.Id, LearnerId = learnerId });

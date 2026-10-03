@@ -23,6 +23,7 @@ namespace IFA.Application.Common.Interfaces
         IQueryable<ResearchPackage> ResearchPackages { get; }
         IQueryable<ChatSession> ChatSessions { get; }
         IQueryable<ChatMessage> ChatMessages { get; }
+        IQueryable<GenerationJob> GenerationJobs { get; }
 
         void Add<TEntity>(TEntity entity) where TEntity : class;
         void Remove<TEntity>(TEntity entity) where TEntity : class;

@@ -34,6 +34,7 @@ namespace IFA.Infrastructure.Data
         public DbSet<ResearchPackage> ResearchPackages => Set<ResearchPackage>();
         public DbSet<ChatSession> ChatSessions => Set<ChatSession>();
         public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+        public DbSet<GenerationJob> GenerationJobs => Set<GenerationJob>();
 
         // IApplicationDbContext now declares IQueryable<T>, and DbSet<T>
         // already IS an IQueryable<T> natively — so these explicit
@@ -55,6 +56,7 @@ namespace IFA.Infrastructure.Data
         IQueryable<ResearchPackage> IApplicationDbContext.ResearchPackages => ResearchPackages;
         IQueryable<ChatSession> IApplicationDbContext.ChatSessions => ChatSessions;
         IQueryable<ChatMessage> IApplicationDbContext.ChatMessages => ChatMessages;
+        IQueryable<GenerationJob> IApplicationDbContext.GenerationJobs => GenerationJobs;
 
 
         public void Add<TEntity>(TEntity entity) where TEntity : class => Set<TEntity>().Add(entity);
