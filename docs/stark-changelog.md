@@ -214,3 +214,10 @@ whole file with `npm run changelog:verify`.
 - **Type:** CHORE
 - **Summary:** Content Builder: LLM-generated modules and quizzes
 - **Verification:** Build and type-check pass locally.
+
+## [2026-10-03] FEATURE: Async Course Generation: Background Job Orchestrator
+- **Author:** Team XOR
+- **Phase:** PR 3.4
+- **Type:** FEATURE
+- **Summary:** Async Course Generation: Background Job Orchestrator
+- **Verification:** Build and type-check pass locally.
