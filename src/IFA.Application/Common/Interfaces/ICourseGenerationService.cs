@@ -30,6 +30,7 @@ namespace IFA.Application.Common.Interfaces
         public string TargetGoal { get; set; } = string.Empty;
         public string? PreferredVideoCreator { get; set; }
         public List<string>? PriorQuizWeakAreas { get; set; }
+        public string ResearchContext { get; set; } = string.Empty;
     }
 
     public class GeneratedModuleResult

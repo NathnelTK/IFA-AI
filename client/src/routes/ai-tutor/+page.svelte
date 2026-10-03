@@ -1,34 +1,42 @@
 <script lang="ts">
   import { Bot, Send, Sparkles, BookOpen, Clock, CheckCircle2 } from 'lucide-svelte';
+  import { aiApi } from '$lib/api';
 
   let message = '';
-  let messages = [
+  let sending = false;
+  let error = '';
+  let messages: Array<{ role: 'user' | 'assistant'; content: string }> = [
     {
       role: 'assistant',
-      content: 'Hello! I\'m your AI Tutor. I can help you with C# backend development, explain concepts, answer questions, and guide you through your learning journey. What would you like to learn today?'
+      content: 'Hello! I can help you prepare for the Ethiopian Grade 12 Natural Science entrance exam. Which subject or question should we work on?'
     }
   ];
 
-  function sendMessage() {
-    if (!message.trim()) return;
+  async function sendMessage() {
+    const question = message.trim();
+    if (!question || sending) return;
 
-    messages = [...messages, { role: 'user', content: message }];
+    const history = [...messages];
+    messages = [...messages, { role: 'user', content: question }];
     message = '';
+    error = '';
+    sending = true;
 
-    // Simulate AI response
-    setTimeout(() => {
-      messages = [...messages, {
-        role: 'assistant',
-        content: 'Great question! Based on your current progress in C# Backend Development, I can help you understand REST APIs, database design with EF Core, or authentication with JWT. Which topic interests you most?'
-      }];
-    }, 1000);
+    try {
+      const response = await aiApi.tutorChat({ message: question, history });
+      messages = [...messages, { role: 'assistant', content: response.replyMarkdown }];
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : 'The tutor request failed.';
+    } finally {
+      sending = false;
+    }
   }
 
   const quickTopics = [
-    { icon: BookOpen, label: 'REST APIs', color: 'ifa-accent-blue' },
-    { icon: Sparkles, label: 'LINQ Queries', color: 'ifa-accent-purple' },
-    { icon: Clock, label: 'Async Programming', color: 'ifa-accent-green' },
-    { icon: CheckCircle2, label: 'Unit Testing', color: 'ifa-accent-orange' }
+    { icon: BookOpen, label: 'Mathematics', color: 'ifa-accent-blue' },
+    { icon: Sparkles, label: 'Physics', color: 'ifa-accent-purple' },
+    { icon: Clock, label: 'Chemistry', color: 'ifa-accent-green' },
+    { icon: CheckCircle2, label: 'Biology', color: 'ifa-accent-orange' }
   ];
 </script>
 
@@ -41,12 +49,12 @@
       </div>
       <div>
         <h1 class="text-2xl font-bold text-ifa-text-primary">AI Tutor</h1>
-        <p class="text-sm text-ifa-text-secondary">Your personal learning assistant</p>
+        <p class="text-sm text-ifa-text-secondary">Live exam-prep tutor powered by the backend AI service</p>
       </div>
     </div>
     <div class="flex items-center gap-2">
-      <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-      <span class="text-xs text-ifa-text-secondary font-medium">Online</span>
+      <span class="w-2 h-2 rounded-full {sending ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}"></span>
+      <span class="text-xs text-ifa-text-secondary font-medium">{sending ? 'Thinking…' : 'Ready'}</span>
     </div>
   </div>
 
@@ -63,6 +71,9 @@
           </div>
         </div>
       {/each}
+      {#if sending}
+        <p class="text-sm text-ifa-text-muted">IFA is preparing an answer…</p>
+      {/if}
     </div>
 
     <!-- Quick Topics -->
@@ -83,16 +94,21 @@
 
     <!-- Input Area -->
     <div class="p-4 border-t border-ifa-border bg-ifa-bg-warm">
+      {#if error}
+        <p role="alert" class="text-sm text-red-700 mb-3">{error}</p>
+      {/if}
       <div class="flex gap-3">
         <input
           type="text"
           bind:value={message}
           placeholder="Ask me anything about your courses..."
           class="flex-1 px-4 py-3 rounded-xl border border-ifa-border bg-white text-ifa-text-primary placeholder:text-ifa-text-muted focus:outline-none focus:ring-2 focus:ring-ifa-pine/20 focus:border-ifa-pine transition-all"
+          disabled={sending}
           on:keydown={(e) => e.key === 'Enter' && sendMessage()}
         />
         <button
           on:click={sendMessage}
+          disabled={sending || !message.trim()}
           class="px-5 py-3 rounded-xl bg-ifa-pine text-white font-medium hover:bg-ifa-pine-dark transition-colors flex items-center gap-2"
         >
           <Send class="w-4 h-4" />

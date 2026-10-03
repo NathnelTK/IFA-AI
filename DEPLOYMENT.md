@@ -32,10 +32,10 @@ IFA (Intelligent Future Academy) is an AI-powered adaptive learning companion bu
 - **PostgreSQL 12+** database server
 - **Docker** and Docker Compose (optional)
 
-### Required API Keys
-- **Gemini API Key** (Google AI)
-- **Groq API Key** (Groq LLM)
-- **YouTube API Key** (Google Cloud)
+### API Keys
+- **Groq API Key** and **ScholarXiv API Key** are used for the Ethiopian entrance-exam tutor, research, and module generation.
+- **YouTube API Key** is optional; no video results are returned when it is not configured.
+- **Gemini API Key** is optional for the other AI pipelines.
 
 ## Environment Configuration
 
@@ -53,13 +53,14 @@ DB_USER=your_db_user
 DB_PASSWORD=your_secure_password
 
 # JWT Security
-JWT_SECRET=your-super-secure-jwt-secret-key-minimum-32-characters
+JWT_SECRET=replace_with_a_unique_random_secret_of_at_least_32_characters
 
 # AI Providers
 GEMINI_API_KEY=your_gemini_api_key
 GROQ_API_KEY=your_groq_api_key
+SCHOLARXIV_API_KEY=your_scholarxiv_api_key
 OLLAMA_BASE_URL=http://localhost:11434
-AI_DEFAULT_PROVIDER=Gemini
+AI_DEFAULT_PROVIDER=Groq
 
 # External Services
 YOUTUBE_API_KEY=your_youtube_api_key
@@ -71,6 +72,8 @@ CORS_ALLOWED_ORIGINS=https://yourapp.com,https://www.yourapp.com
 ASPNETCORE_ENVIRONMENT=Production
 ASPNETCORE_URLS=https://+:443;http://+:80
 ```
+
+The API seeds a public 12-week Ethiopian Grade 12 Natural Science preparation outline at startup. Lessons and quizzes are created on demand and require working Groq and ScholarXiv credentials. The outline is an independent study plan, not an official Ministry of Education syllabus or exam paper.
 
 ### 2. Database Setup
 

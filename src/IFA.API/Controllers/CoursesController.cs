@@ -18,13 +18,13 @@ namespace IFA.API.Controllers
     {
         private readonly IApplicationDbContext _context;
         private readonly CourseGenerationService _generationService;
-        private readonly CourseSharingService _sharingService;
+        private readonly ICourseSharingService _sharingService;
         private readonly IActivityService _activityService;
 
         public CoursesController(
             IApplicationDbContext context,
             CourseGenerationService generationService,
-            CourseSharingService sharingService,
+            ICourseSharingService sharingService,
             IActivityService activityService)
         {
             _context = context;
@@ -55,12 +55,26 @@ namespace IFA.API.Controllers
 
             if (!enrollments.Any())
             {
-                // Auto seed a default active course for instant gratification
-                var defaultCourse = await _generationService.CreateFullCourseAsync(
-                    learnerId,
-                    "C# Backend Development & Exit Exam Prep",
-                    6,
-                    "freeCodeCamp");
+                var publicEntranceCourse = await _context.Courses
+                    .FirstOrDefaultAsync(c => c.IsPublic && c.Category == "Entrance Exam");
+
+                if (publicEntranceCourse is not null)
+                {
+                    _context.Add(new CourseEnrollment
+                    {
+                        CourseId = publicEntranceCourse.Id,
+                        LearnerId = learnerId
+                    });
+                    await _context.SaveChangesAsync();
+                }
+                else
+                {
+                    await _generationService.CreateFullCourseAsync(
+                        learnerId,
+                        "C# Backend Development & Exit Exam Prep",
+                        6,
+                        "freeCodeCamp");
+                }
 
                 enrollments = await _context.CourseEnrollments
                     .Include(e => e.Course)
@@ -236,7 +250,9 @@ namespace IFA.API.Controllers
                 var invite = await _context.CourseShareInvites
                     .Include(i => i.Course)
                     .ThenInclude(c => c!.Modules)
-                    .FirstOrDefaultAsync(i => i.ShareCode == code);
+                    .FirstOrDefaultAsync(i => i.ShareCode == code
+                        && !i.IsAccepted
+                        && i.CreatedAt >= DateTime.UtcNow.AddDays(-7));
 
                 course = invite?.Course;
             }
@@ -262,7 +278,12 @@ namespace IFA.API.Controllers
             var success = await _sharingService.EnrollViaShareCodeAsync(code, learnerId);
             if (!success) return BadRequest(new { message = "Invalid or expired share code." });
 
-            var course = await _context.Courses.FirstOrDefaultAsync(c => c.ShareCode == code);
+            var course = await _context.Courses
+                .FirstOrDefaultAsync(item => item.ShareCode == code && item.IsPublic);
+            course ??= await _context.CourseShareInvites
+                .Where(invite => invite.ShareCode == code)
+                .Select(invite => invite.Course)
+                .FirstOrDefaultAsync();
             return Ok(new { success = true, courseId = course?.Id });
         }
 

@@ -18,22 +18,19 @@ namespace IFA.Infrastructure.Data
 
         public static async Task SeedAsync(ApplicationDbContext db, ILogger logger)
         {
-            if (await db.Learners.AnyAsync(l => l.Id == DemoLearnerId))
+            if (!await db.Learners.AnyAsync(l => l.Id == DemoLearnerId))
             {
-                logger.LogInformation("Dev seed learner already present, skipping.");
-                return;
+                db.Learners.Add(new Learner
+                {
+                    Id = DemoLearnerId,
+                    Name = "Nathnel Demo",
+                    Email = "demo@ifa.local",
+                    OverallProgress = 0
+                });
+
+                await db.SaveChangesAsync();
+                logger.LogInformation("Seeded dev learner {LearnerId}", DemoLearnerId);
             }
-
-            db.Learners.Add(new Learner
-            {
-                Id = DemoLearnerId,
-                Name = "Nathnel Demo",
-                Email = "demo@ifa.local",
-                OverallProgress = 0
-            });
-
-            await db.SaveChangesAsync();
-            logger.LogInformation("Seeded dev learner {LearnerId}", DemoLearnerId);
         }
     }
 }

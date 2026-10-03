@@ -57,7 +57,7 @@ namespace IFA.Infrastructure
 
             // Domain Services
             services.AddScoped<SkillProfileService>();
-            services.AddScoped<CourseSharingService>();
+            services.AddScoped<ICourseSharingService, CourseSharingService>();
             services.AddScoped<IResearchService, ResearchService>();
             services.AddScoped<IUnderstandingAgentService, UnderstandingAgentService>();
 
@@ -68,7 +68,7 @@ namespace IFA.Infrastructure
             services.AddScoped<ILlmGateway, LlmGateway>();
 
             // External Research Services
-            var useMockScholarxiv = configuration.GetValue<bool>("Scholarxiv:UseMockData", true);
+            var useMockScholarxiv = configuration.GetValue<bool>("Scholarxiv:UseMockData");
             if (useMockScholarxiv)
             {
                 services.AddSingleton<IScholarxivService, MockScholarxivService>();
@@ -79,9 +79,12 @@ namespace IFA.Infrastructure
                 {
                     client.BaseAddress = new Uri("https://scholarxiv.com");
                     client.Timeout = TimeSpan.FromSeconds(30);
-                    var apiKey = configuration["SCHOLARXIV_API_KEY_IFA"];
+                    var apiKey = configuration["SCHOLARXIV_API_KEY"]
+                        ?? configuration["SCHOLARXIV_API_KEY_IFA"];
 
-                    if (!string.IsNullOrWhiteSpace(apiKey))
+                    if (!string.IsNullOrWhiteSpace(apiKey)
+                        && apiKey != "change_me"
+                        && !apiKey.StartsWith("your_", StringComparison.OrdinalIgnoreCase))
                     {
                         client.DefaultRequestHeaders.Add("x-api-key", apiKey);
                     }
@@ -118,8 +121,5 @@ namespace IFA.Infrastructure
         }
     }
 }
-
-
-
 
 

@@ -18,9 +18,20 @@ namespace IFA.Infrastructure.Services
             _configuration = configuration;
         }
 
-        private string SecretKey => _configuration["JWT_SECRET"] 
-            ?? _configuration["Jwt:Key"] 
-            ?? "IFA_SUPER_SECRET_SECURITY_KEY_FOR_HACKATHON_DEMO_2026_LONG_ENOUGH";
+        private string SecretKey
+        {
+            get
+            {
+                var secretKey = _configuration["JWT_SECRET"];
+                if (string.IsNullOrWhiteSpace(secretKey) || secretKey.Length < 32)
+                {
+                    throw new InvalidOperationException(
+                        "JWT_SECRET must be configured with a random value of at least 32 characters.");
+                }
+
+                return secretKey;
+            }
+        }
 
         private string Issuer => _configuration["Jwt:Issuer"] ?? "IFA.API";
         private string Audience => _configuration["Jwt:Audience"] ?? "IFA.Client";

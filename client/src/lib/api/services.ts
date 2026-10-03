@@ -117,14 +117,44 @@ export const aiApi = {
 		api.post<unknown>('/api/ai/intake/message', { message, history }),
 	proposeCourse: (body: { goal: string; hoursPerWeek?: number; preferredCreator?: string }) =>
 		api.post<unknown>('/api/ai/course/propose', body),
-	tutorChat: (body: { message: string; history?: unknown[] }) =>
-		api.post<unknown>('/api/ai/tutor/chat', body)
+	tutorChat: (body: {
+		message: string;
+		history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+		courseId?: string;
+		moduleId?: string;
+		lessonId?: string;
+	}) =>
+		api.post<{
+		  replyMarkdown: string;
+		  suggestedFollowUps: string[];
+		  codeSnippet: string | null;
+		  language: string | null;
+		}>('/api/ai/tutor/chat', body)
 };
 
 export const researchApi = {
-	conduct: (topic: string, courseId?: string) => api.get<unknown>('/api/research', { topic, courseId }),
-	forCourse: (courseId: string) => api.get<unknown>(`/api/research/course/${courseId}`)
+	conduct: (topic: string, courseId?: string) =>
+		api.get<ResearchPackageDto>('/api/research', { topic, courseId }),
+	forCourse: (courseId: string) =>
+		api.get<ResearchPackageDto>(`/api/research/course/${courseId}`)
 };
+
+export interface ResearchPackageDto {
+	id: string;
+	topic: string;
+	summary: string;
+	keyConceptsJson: string;
+	createdAt: string;
+	sources: Array<{
+		id: string;
+		title: string;
+		url: string;
+		sourceType: string;
+		authors: string;
+		snippet: string;
+		publishedYear: number | null;
+	}>;
+}
 
 export const healthApi = {
 	check: () => api.get<{ status: string; service: string; version: string }>('/api/health')

@@ -343,7 +343,6 @@ export async function loadCourses(): Promise<void> {
 
 /** Fetch a single course's full detail and merge it into the store. */
 export async function loadCourseDetail(courseId: string): Promise<void> {
-  try {
     const detail = await coursesApi.getById(courseId);
     courses.update(($c) => {
       const existing = $c.find((c) => c.id === courseId);
@@ -369,7 +368,4 @@ export async function loadCourseDetail(courseId: string): Promise<void> {
       );
       return [...$c, mapped];
     });
-  } catch {
-    /* keep whatever the store already has */
-  }
 }

@@ -37,6 +37,18 @@ namespace IFA.Infrastructure.AI
         public async Task<string> CompleteAsync(string systemPrompt, string userPrompt, LlmRole role = LlmRole.General, CancellationToken ct = default)
         {
             var preferredProvider = GetProviderForRole(role);
+            if (preferredProvider.Equals("Groq", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!_groq.IsConfigured)
+                {
+                    throw new InvalidOperationException("Groq is selected for this AI task, but GROQ_API_KEY is not configured.");
+                }
+
+                var model = _config[$"Ai:Pipelines:{GetRoleKey(role)}:Model"] ?? _config["Ai:Groq:Model"];
+                _logger.LogInformation("Invoking Groq LLM for role {Role}", role);
+                return await _groq.GenerateAsync(systemPrompt, userPrompt, model, ct);
+            }
+
             var providersToTry = GetProviderOrder(preferredProvider);
 
             foreach (var providerName in providersToTry)
@@ -80,9 +92,7 @@ namespace IFA.Infrastructure.AI
 
             if (string.IsNullOrWhiteSpace(json))
             {
-                _logger.LogWarning("No JSON found in LLM response for role {Role}. Attempting fallback.", role);
-                var fallbackRaw = await _fallback.CompleteAsync(systemPrompt, userPrompt, role, ct);
-                json = ExtractJson(fallbackRaw);
+                throw new InvalidOperationException($"The selected AI provider returned no JSON for role {role}.");
             }
 
             try
@@ -93,10 +103,10 @@ namespace IFA.Infrastructure.AI
                 };
                 return JsonSerializer.Deserialize<T>(json, options);
             }
-            catch (Exception ex)
+            catch (JsonException ex)
             {
-                _logger.LogError(ex, "Failed to deserialize LLM JSON response: {Json}", json);
-                return default;
+                _logger.LogError(ex, "Failed to deserialize AI JSON response for role {Role}", role);
+                throw new InvalidOperationException($"The selected AI provider returned invalid JSON for role {role}.", ex);
             }
         }
 
@@ -124,20 +134,22 @@ namespace IFA.Infrastructure.AI
 
         private string GetProviderForRole(LlmRole role)
         {
-            var roleKey = role switch
-            {
-                LlmRole.Model1_Intake => "Model1",
-                LlmRole.Model2_Architect => "Model2",
-                LlmRole.Model3_Builder => "Model3",
-                LlmRole.Tutor => "Tutor",
-                _ => "General"
-            };
+            var roleKey = GetRoleKey(role);
 
             return _config[$"Ai:Pipelines:{roleKey}:Provider"] 
                 ?? _config["AI_DEFAULT_PROVIDER"] 
                 ?? _config["Ai:DefaultProvider"] 
                 ?? "Gemini";
         }
+
+        private static string GetRoleKey(LlmRole role) => role switch
+        {
+            LlmRole.Model1_Intake => "Model1",
+            LlmRole.Model2_Architect => "Model2",
+            LlmRole.Model3_Builder => "Model3",
+            LlmRole.Tutor => "Tutor",
+            _ => "General"
+        };
 
         private string[] GetProviderOrder(string preferred)
         {

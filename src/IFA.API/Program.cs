@@ -39,8 +39,15 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 // JWT Authentication Configuration
-var jwtKey = builder.Configuration["JWT_SECRET"] 
-    ?? "IFA_SUPER_SECRET_SECURITY_KEY_FOR_HACKATHON_DEMO_2026_LONG_ENOUGH";
+var jwtKey = builder.Configuration["JWT_SECRET"];
+if (string.IsNullOrWhiteSpace(jwtKey)
+    || jwtKey.Length < 32
+    || jwtKey.StartsWith("replace_", StringComparison.OrdinalIgnoreCase)
+    || jwtKey.StartsWith("IFA_SUPER_SECRET", StringComparison.Ordinal))
+{
+    throw new InvalidOperationException(
+        "Set JWT_SECRET to a unique random value of at least 32 characters before starting the API.");
+}
 
 builder.Services.AddAuthentication(options =>
 {
@@ -114,7 +121,12 @@ using (var scope = app.Services.CreateScope())
             logger.LogInformation("Seeding development data...");
             await DevSeeder.SeedAsync(db, logger);
         }
-        
+
+        await EntranceExamCourseSeeder.SeedAsync(
+            db,
+            logger,
+            enrollDemoLearner: app.Environment.IsDevelopment());
+
         logger.LogInformation("Database initialization completed successfully.");
     }
     catch (Exception ex)
@@ -173,4 +185,3 @@ app.MapGet("/api/health", () => Results.Ok(new
     .WithTags("Health");
 
 app.Run();
-

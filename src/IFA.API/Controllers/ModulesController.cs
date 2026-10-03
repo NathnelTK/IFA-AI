@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using IFA.Application.Common.Interfaces;
 using IFA.Domain.Entities;
@@ -15,19 +17,22 @@ namespace IFA.API.Controllers
         private readonly IApplicationDbContext _context;
         private readonly CourseGenerationService _generationService;
         private readonly IAdaptiveEngine _adaptiveEngine;
+        private readonly IResearchService _researchService;
 
         public ModulesController(
             IApplicationDbContext context,
             CourseGenerationService generationService,
-            IAdaptiveEngine adaptiveEngine)
+            IAdaptiveEngine adaptiveEngine,
+            IResearchService researchService)
         {
             _context = context;
             _generationService = generationService;
             _adaptiveEngine = adaptiveEngine;
+            _researchService = researchService;
         }
 
         [HttpPost("{id}/generate")]
-        public async Task<IActionResult> GenerateModule(Guid id)
+        public async Task<IActionResult> GenerateModule(Guid id, CancellationToken cancellationToken)
         {
             var module = await _context.Modules
                 .Include(m => m.Course)
@@ -42,32 +47,68 @@ namespace IFA.API.Controllers
                 return Ok(module);
             }
 
-            var learnerId = await GetCurrentLearnerIdAsync(_context);
-            var weakAreas = await _adaptiveEngine.GetAdaptiveConstraintsForNextModuleAsync(learnerId, module.CourseId);
-
-            var jitRequest = new JitModuleGenerationRequest
+            if (module.GenerationStatus == ModuleGenerationStatus.Generating)
             {
-                CourseTitle = module.Course?.Title ?? "Software Engineering",
-                ModuleNumber = module.ModuleNumber,
-                ModuleTitle = module.Title,
-                TargetGoal = module.Summary,
-                PriorQuizWeakAreas = weakAreas
-            };
+                return Conflict(new { message = "This module is already being generated." });
+            }
 
-            var generated = await _generationService.GenerateJitModuleAsync(jitRequest);
+            module.GenerationStatus = ModuleGenerationStatus.Generating;
+            await _context.SaveChangesAsync(cancellationToken);
 
-            module.GenerationStatus = ModuleGenerationStatus.Ready;
-            module.GeneratedAt = DateTime.UtcNow;
+            try
+            {
+                var learnerId = await GetCurrentLearnerIdAsync(_context);
+                var research = await _researchService.ConductResearchAsync(
+                    $"{module.Course?.Title} — {module.Title}",
+                    learnerId,
+                    module.CourseId,
+                    cancellationToken);
 
-            generated.Lesson.ModuleId = module.Id;
-            _context.Add(generated.Lesson);
+                var academicSources = research.Sources
+                    .Where(source => source.SourceType == "Academic")
+                    .ToList();
+                if (academicSources.Count == 0)
+                {
+                    throw new InvalidOperationException(
+                        "ScholarXiv returned no academic sources for this module. No lesson was generated.");
+                }
 
-            generated.Quiz.ModuleId = module.Id;
-            _context.Add(generated.Quiz);
+                var researchContext = string.Join(
+                    "\n\n",
+                    academicSources.Select(source =>
+                        $"Title: {source.Title}\nAuthors: {source.Authors}\nYear: {source.PublishedYear?.ToString() ?? "unknown"}\nURL: {source.Url}\nAbstract: {source.Snippet}"));
+                var weakAreas = await _adaptiveEngine.GetAdaptiveConstraintsForNextModuleAsync(
+                    learnerId,
+                    module.CourseId);
 
-            await _context.SaveChangesAsync();
+                var jitRequest = new JitModuleGenerationRequest
+                {
+                    CourseTitle = module.Course?.Title ?? "Ethiopian Grade 12 Natural Science Entrance Exam",
+                    ModuleNumber = module.ModuleNumber,
+                    ModuleTitle = module.Title,
+                    TargetGoal = module.Summary,
+                    PriorQuizWeakAreas = weakAreas,
+                    ResearchContext = researchContext
+                };
 
-            return Ok(module);
+                var generated = await _generationService.GenerateJitModuleAsync(jitRequest, cancellationToken);
+                generated.Lesson.ModuleId = module.Id;
+                generated.Quiz.ModuleId = module.Id;
+                module.GenerationStatus = ModuleGenerationStatus.Ready;
+                module.GeneratedAt = DateTime.UtcNow;
+
+                _context.Add(generated.Lesson);
+                _context.Add(generated.Quiz);
+                await _context.SaveChangesAsync(cancellationToken);
+
+                return Ok(module);
+            }
+            catch
+            {
+                module.GenerationStatus = ModuleGenerationStatus.Failed;
+                await _context.SaveChangesAsync(CancellationToken.None);
+                throw;
+            }
         }
     }
 }

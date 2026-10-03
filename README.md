@@ -105,10 +105,25 @@ IFA is an intelligent learning companion that uses AI to provide personalized co
    ```bash
    cd client
    npm install
+   cp .env.example .env   # sets VITE_API_URL (defaults to http://localhost:5011)
    npm run dev
    ```
 
-4. **Docker (optional)**
+4. **Free / local AI (Ollama)** — optional, no API key required
+
+   The LLM gateway supports Ollama as a zero-cost provider. If no provider is
+   reachable it falls back to a deterministic template provider, so course
+   creation still works offline.
+
+   ```powershell
+   # from the repository root
+   powershell -ExecutionPolicy Bypass -File scripts/setup-ollama.ps1
+   ```
+
+   Then set `AI_DEFAULT_PROVIDER=Ollama` in the root `.env` and restart the API.
+   (Prefer a hosted key? Set `GEMINI_API_KEY` or `GROQ_API_KEY` in `.env` instead.)
+
+5. **Docker (optional)**
    ```bash
    docker-compose up
    ```
@@ -133,7 +148,7 @@ IFA is an intelligent learning companion that uses AI to provide personalized co
 
 #### Frontend (client/.env)
 ```env
-VITE_API_URL=http://localhost:5000
+VITE_API_URL=http://localhost:5011
 ```
 
 ## Project Structure
@@ -163,6 +178,15 @@ IFA-AI/
 ```bash
 npm run changelog:add     # Add changelog entry
 npm run changelog:verify  # Verify changelog format
+```
+
+### AI / Maintenance (scripts/)
+```powershell
+scripts/setup-ollama.ps1           # Install/verify a free local model (Ollama)
+```
+```sql
+-- preview + remove duplicate courses (keeps the oldest per title)
+scripts/cleanup-duplicate-courses.sql
 ```
 
 ### Backend

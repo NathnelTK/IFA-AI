@@ -28,16 +28,20 @@ namespace IFA.Infrastructure.AI
             get
             {
                 var key = _configuration["GROQ_API_KEY"] ?? _configuration["Ai:Groq:ApiKey"];
-                return !string.IsNullOrWhiteSpace(key) && key != "change_me";
+                return !string.IsNullOrWhiteSpace(key)
+                    && key != "change_me"
+                    && !key.StartsWith("your_", StringComparison.OrdinalIgnoreCase);
             }
         }
 
         public async Task<string> GenerateAsync(string systemPrompt, string userPrompt, string? modelOverride = null, CancellationToken ct = default)
         {
             var apiKey = _configuration["GROQ_API_KEY"] ?? _configuration["Ai:Groq:ApiKey"];
-            if (string.IsNullOrWhiteSpace(apiKey))
+            if (string.IsNullOrWhiteSpace(apiKey)
+                || apiKey == "change_me"
+                || apiKey.StartsWith("your_", StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException("GROQ_API_KEY is not configured.");
+                throw new InvalidOperationException("GROQ_API_KEY is not configured with a real provider key.");
             }
 
             var model = modelOverride 

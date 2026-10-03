@@ -8,9 +8,9 @@ namespace IFA.API.Controllers
     [Route("api/[controller]")]
     public class CourseSharingController : ControllerBase
     {
-        private readonly CourseSharingService _courseSharingService;
+        private readonly ICourseSharingService _courseSharingService;
 
-        public CourseSharingController(CourseSharingService courseSharingService)
+        public CourseSharingController(ICourseSharingService courseSharingService)
         {
             _courseSharingService = courseSharingService;
         }

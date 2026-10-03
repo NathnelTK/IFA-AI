@@ -39,10 +39,6 @@ namespace IFA.Infrastructure.Services
             var videos = await videosTask;
 
             var keyConcepts = papers.SelectMany(p => p.KeyTopics).Distinct().Take(5).ToList();
-            if (!keyConcepts.Any())
-            {
-                keyConcepts = new List<string> { cleanTopic, "Architecture", "Engineering", "Evaluation" };
-            }
 
             var researchPackage = new ResearchPackage
             {
@@ -50,7 +46,9 @@ namespace IFA.Infrastructure.Services
                 LearnerId = learnerId,
                 CourseId = courseId,
                 Topic = cleanTopic,
-                Summary = $"Synthesized research on {cleanTopic} from peer-reviewed publications and leading engineering resources.",
+                Summary = papers.Count == 0
+                    ? $"No academic papers were returned for {cleanTopic}. Try a narrower search or verify the ScholarXiv configuration."
+                    : $"ScholarXiv returned {papers.Count} academic result(s) for {cleanTopic}. Review each paper's abstract and publication details before relying on it.",
                 KeyConceptsJson = JsonSerializer.Serialize(keyConcepts),
                 CreatedAt = DateTime.UtcNow
             };
@@ -62,12 +60,16 @@ namespace IFA.Infrastructure.Services
                     Id = Guid.NewGuid(),
                     ResearchPackageId = researchPackage.Id,
                     Title = paper.Title,
-                    Url = !string.IsNullOrWhiteSpace(paper.Doi) && paper.Doi.StartsWith("http") ? paper.Doi : $"https://doi.org/{paper.Doi}",
+                    Url = string.IsNullOrWhiteSpace(paper.Doi)
+                        ? string.Empty
+                        : paper.Doi.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+                            ? paper.Doi
+                            : $"https://doi.org/{paper.Doi}",
                     SourceType = "Academic",
                     Authors = paper.Authors,
                     Snippet = paper.Abstract,
-                    RelevanceScore = 0.95,
-                    PublishedYear = int.TryParse(paper.PublishedYear, out var yr) ? yr : 2024
+                    RelevanceScore = 0,
+                    PublishedYear = int.TryParse(paper.PublishedYear, out var yr) ? yr : null
                 });
             }
 
@@ -82,7 +84,7 @@ namespace IFA.Infrastructure.Services
                     SourceType = "Video",
                     Authors = video.ChannelTitle,
                     Snippet = $"Educational video resource covering {cleanTopic}.",
-                    RelevanceScore = 0.90,
+                    RelevanceScore = 0,
                     PublishedYear = DateTime.UtcNow.Year
                 });
             }

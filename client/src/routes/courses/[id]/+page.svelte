@@ -16,6 +16,7 @@
   import LessonView from '$lib/components/LessonView.svelte';
   import QuizView from '$lib/components/QuizView.svelte';
   import CourseShareDialog from '$lib/components/CourseShareDialog.svelte';
+  import { modulesApi } from '$lib/api';
   import {
     courses,
     courseProgress,
@@ -31,12 +32,6 @@
   $: course = $courses.find((c) => c.id === courseId) ?? null;
   $: progress = course ? courseProgress(course) : 0;
 
-  // Ensure the full module/lesson outline is loaded (the list endpoint returns
-  // summaries only, so this fills in modules on a direct page load).
-  $: if (courseId && course && course.modules.length === 0) {
-    void loadCourseDetail(courseId);
-  }
-
   // View state: course outline, a specific lesson, or a module quiz.
   type View =
     | { kind: 'outline' }
@@ -45,6 +40,24 @@
   let view: View = { kind: 'outline' };
 
   let shareOpen = false;
+  let requestedCourseId = '';
+  let courseLoading = true;
+  let courseLoadError = '';
+  let generatingModuleId: string | null = null;
+  let moduleGenerationError = '';
+
+  $: if (courseId && requestedCourseId !== courseId) {
+    requestedCourseId = courseId;
+    courseLoading = true;
+    courseLoadError = '';
+    void loadCourseDetail(courseId)
+      .catch((cause) => {
+        courseLoadError = cause instanceof Error ? cause.message : 'Could not load this course.';
+      })
+      .finally(() => {
+        courseLoading = false;
+      });
+  }
 
   // Capture the narrowed view fields before the .find callbacks so TypeScript
   // keeps the discriminated-union narrowing inside the closures.
@@ -103,14 +116,33 @@
       (module.lessons.filter((l) => l.completed).length / module.lessons.length) * 100
     );
   }
+
+  async function generateModule(moduleId: string) {
+    if (generatingModuleId) return;
+    const currentCourseId = courseId;
+    if (!currentCourseId) return;
+    generatingModuleId = moduleId;
+    moduleGenerationError = '';
+    try {
+      await modulesApi.generate(moduleId);
+      await loadCourseDetail(currentCourseId);
+    } catch (cause) {
+      moduleGenerationError = cause instanceof Error ? cause.message : 'Could not generate this module.';
+    } finally {
+      generatingModuleId = null;
+    }
+  }
 </script>
 
 {#if !course}
-  <!-- Unknown course -->
   <div class="p-8 max-w-3xl mx-auto text-center py-20">
     <BookOpen class="w-12 h-12 text-ifa-text-muted mx-auto mb-4" />
-    <h1 class="text-xl font-bold text-ifa-text-primary mb-2">Course not found</h1>
-    <p class="text-ifa-text-secondary mb-6">We couldn't find a course with that id.</p>
+    <h1 class="text-xl font-bold text-ifa-text-primary mb-2">
+      {courseLoading ? 'Loading course…' : courseLoadError ? 'Could not load course' : 'Course not found'}
+    </h1>
+    <p role={courseLoadError ? 'alert' : undefined} class="text-ifa-text-secondary mb-6">
+      {courseLoadError || (courseLoading ? 'Fetching the course and its modules from the IFA API.' : "We couldn't find a course with that id.")}
+    </p>
     <a
       href="/courses"
       class="inline-flex items-center gap-2 px-4 py-2 bg-ifa-pine text-white rounded-lg text-sm font-semibold hover:bg-ifa-pine-light transition"
@@ -212,6 +244,11 @@
 
         <!-- Modules -->
         <div class="space-y-4">
+          {#if moduleGenerationError}
+            <p role="alert" class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              {moduleGenerationError}
+            </p>
+          {/if}
           {#each course.modules as module, mi}
             <div class="bg-ifa-card rounded-2xl border border-ifa-border shadow-card overflow-hidden">
               <div class="px-5 py-4 border-b border-ifa-border flex items-center justify-between gap-4">
@@ -252,6 +289,22 @@
                     <PlayCircle class="w-4 h-4 text-ifa-text-muted group-hover:text-ifa-pine transition shrink-0" />
                   </button>
                 {/each}
+
+                {#if module.lessons.length === 0}
+                  <div class="px-5 py-4">
+                    <p class="text-xs text-ifa-text-secondary mb-3">
+                      Generate a lesson grounded in current ScholarXiv search results, with an exam-style quiz.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={generatingModuleId !== null}
+                      on:click={() => generateModule(module.id)}
+                      class="px-4 py-2 bg-ifa-pine text-white rounded-lg text-xs font-semibold disabled:opacity-50"
+                    >
+                      {generatingModuleId === module.id ? 'Researching and building…' : 'Research & build this module'}
+                    </button>
+                  </div>
+                {/if}
 
                 <!-- Quiz row -->
                 {#if module.quiz}
