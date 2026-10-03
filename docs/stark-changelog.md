@@ -221,3 +221,10 @@ whole file with `npm run changelog:verify`.
 - **Type:** FEATURE
 - **Summary:** Async Course Generation: Background Job Orchestrator
 - **Verification:** Build and type-check pass locally.
+
+## [2026-10-03] FEATURE: Learning and Quiz API Endpoints
+- **Author:** Team XOR
+- **Phase:** PR 4.4
+- **Type:** FEATURE
+- **Summary:** Learning and Quiz API Endpoints
+- **Verification:** Build and type-check pass locally.
