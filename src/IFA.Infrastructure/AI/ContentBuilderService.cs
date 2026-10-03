@@ -122,6 +122,7 @@ namespace IFA.Infrastructure.AI
         private static bool IsValidQuestion(QuestionDto q) =>
             LlmOutput.Clean(q.Prompt) is not null &&
             q.Options is { Count: >= 2 and <= 6 } &&
+            q.Options.Select(o => o.Trim().ToLowerInvariant()).Distinct().Count() == q.Options.Count &&
             q.CorrectOptionIndex is not null &&
             q.CorrectOptionIndex >= 0 &&
             q.CorrectOptionIndex < q.Options.Count; // must be a real index into THIS question's options

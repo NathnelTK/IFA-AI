@@ -105,6 +105,8 @@ app.MapIntakeEndpoints();
 app.MapCourseEndpoints();
 app.MapModuleEndpoints();
 app.MapGenerationEndpoints();
+app.MapLearningEndpoints();
+app.MapQuizEndpoints();
 app.MapGet("/api/health", () => Results.Ok(new
 {
     status = "healthy",
