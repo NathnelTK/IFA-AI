@@ -30,10 +30,15 @@ RUN dotnet publish src/IFA.API/IFA.API.csproj \
 # ---------------------------------------------------------------------------
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
 
-# Install necessary packages for PostgreSQL and CA certificates
+# Install the native dependencies the ASP.NET Core runtime needs. The alpine
+# image ships no ICU, and with DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false the
+# runtime calls FailFast at startup when libicu is missing (exits 139).
 RUN apk add --no-cache \
     ca-certificates \
     tzdata \
+    icu-libs \
+    libgcc \
+    libstdc++ \
     && update-ca-certificates
 
 # Create non-root user for security
