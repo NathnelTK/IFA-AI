@@ -1,6 +1,5 @@
 import { writable, derived, get } from 'svelte/store';
 import type { Course, CourseStatus, Lesson, Module, Quiz } from '$lib/types';
-import { demoCourses } from '$lib/data/catalog';
 import { coursesApi, lessonsApi } from '$lib/api';
 import type {
 	BackendLessonDto,
@@ -13,17 +12,14 @@ import type {
 /**
  * Courses store — the single reactive source of truth for enrolled courses.
  *
- * Seeded from the demo catalog so the app renders instantly and offline. When
- * the API is reachable, `loadCourses()` replaces the seed with the learner's real
- * enrollments (and demo data is kept on any failure). Lesson/quiz interactions
- * update the store optimistically and are mirrored to the backend when the ids
- * are real GUIDs.
+ * Starts empty so a brand-new learner sees only the courses they actually create
+ * or enrol in. `loadCourses()` fills it from the learner's real enrollments; an
+ * empty API response leaves it empty (no demo catalog is injected). Lesson/quiz
+ * interactions update the store optimistically and are mirrored to the backend
+ * when the ids are real GUIDs.
  */
 
-// Deep clone so mutations never leak back into the immutable catalog seed.
-const seed: Course[] = JSON.parse(JSON.stringify(demoCourses));
-
-export const courses = writable<Course[]>(seed);
+export const courses = writable<Course[]>([]);
 
 /** True while an API load is in flight (drives optional loading affordances). */
 export const coursesLoading = writable(false);
@@ -330,7 +326,12 @@ export async function loadCourses(): Promise<void> {
   coursesLoading.set(true);
   try {
     const summaries = await coursesApi.listMine();
-    if (!summaries || summaries.length === 0) return; // keep demo seed
+    if (!summaries || summaries.length === 0) {
+      // No enrollments — a new learner's library stays empty.
+      courses.set([]);
+      coursesSource.set('api');
+      return;
+    }
 
     const base = summaries.map(mapSummary);
     const enriched = await Promise.all(

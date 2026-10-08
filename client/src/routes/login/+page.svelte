@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { ArrowRight, Code2, Lock, Mail, Sparkles, Loader2 } from 'lucide-svelte';
+  import { ArrowRight, Code2, Lock, Mail, CheckCircle2, Loader2 } from 'lucide-svelte';
   import { authApi, type DemoAccountDto } from '$lib/api';
   import { signIn, continueAsDemo } from '$lib/stores/sessionStore';
 
@@ -78,9 +78,9 @@
         Sign in to continue your adaptive learning path, generate new modules, and track your progress.
       </p>
       <ul class="space-y-3 text-sm text-ifa-text-secondary">
-        <li class="flex items-center gap-2"><Sparkles class="w-4 h-4 text-ifa-pine" /> Chat with the AI advisor to scope a course</li>
-        <li class="flex gap-2"><Sparkles class="w-4 h-4 text-ifa-pine shrink-0 mt-0.5" /> Research-grounded, just-in-time module generation</li>
-        <li class="flex gap-2"><Sparkles class="w-4 h-4 text-ifa-pine shrink-0 mt-0.5" /> Personal progress, skills and recommendations</li>
+        <li class="flex items-center gap-2"><CheckCircle2 class="w-4 h-4 text-ifa-pine" /> Chat with the AI advisor to scope a course</li>
+        <li class="flex gap-2"><CheckCircle2 class="w-4 h-4 text-ifa-pine shrink-0 mt-0.5" /> Research-grounded, just-in-time module generation</li>
+        <li class="flex gap-2"><CheckCircle2 class="w-4 h-4 text-ifa-pine shrink-0 mt-0.5" /> Personal progress, skills and recommendations</li>
       </ul>
     </div>
 

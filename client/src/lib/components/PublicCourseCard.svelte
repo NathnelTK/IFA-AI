@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Star, Users, Clock, Bookmark, BookmarkCheck, ArrowRight } from 'lucide-svelte';
+  import { resolveCover, courseCover } from '$lib/utils/cover';
 
   export let course: any;
   export let onEnroll = () => {};
@@ -7,14 +8,17 @@
   export let isEnrolled = false;
 
   let bookmarked = false;
+  $: cover = resolveCover(course.thumbnail, course.title);
 </script>
 
 <div class="bg-ifa-card rounded-2xl border border-ifa-border overflow-hidden hover:shadow-elevated transition group">
   <!-- Thumbnail -->
-  <div class="aspect-video bg-gray-200 relative overflow-hidden">
+  <div class="aspect-video bg-ifa-card-muted relative overflow-hidden">
     <img
-      src={course.thumbnail}
+      src={cover}
       alt={course.title}
+      loading="lazy"
+      on:error={(e) => ((e.currentTarget as HTMLImageElement).src = courseCover(course.title))}
       class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
     />
     <div class="absolute top-3 right-3">

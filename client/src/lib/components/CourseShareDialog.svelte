@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { Share2, Copy, X, Calendar, Lock } from 'lucide-svelte';
+  import { Share2, Copy, X, Calendar, Lock, Loader2 } from 'lucide-svelte';
+  import { coursesApi } from '$lib/api';
 
   export let isOpen = false;
   export let courseId = '';
@@ -13,23 +14,45 @@
   let expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   let customMessage = '';
   let copied = false;
+  let generating = false;
+  let error = '';
 
-  function handleGenerateShareLink() {
-    // In real implementation, call API to generate share link
-    shareCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-    shareUrl = `${window.location.origin}/courses/join/${shareCode}`;
+  async function handleGenerateShareLink() {
+    if (!courseId) {
+      error = 'This course cannot be shared yet.';
+      return;
+    }
+    generating = true;
+    error = '';
+    try {
+      // Ask the backend for a real, persisted share code, then build the
+      // sendable URL from the current origin.
+      const result = await coursesApi.share(courseId);
+      shareCode = result.shareCode;
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      shareUrl = `${origin}/courses/join/${shareCode}`;
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : 'Could not create a share link.';
+    } finally {
+      generating = false;
+    }
   }
 
-  function handleCopyLink() {
-    navigator.clipboard.writeText(shareUrl);
+  async function handleCopyLink() {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+    } catch {
+      /* clipboard may be unavailable — the field is selectable as a fallback */
+    }
     copied = true;
-    setTimeout(() => copied = false, 2000);
+    setTimeout(() => (copied = false), 2000);
   }
 
   function handleClose() {
     isOpen = false;
     shareUrl = '';
     shareCode = '';
+    error = '';
     dispatch('close');
   }
 </script>
@@ -61,6 +84,10 @@
           <p class="text-sm text-ifa-text-secondary mb-1">Course</p>
           <p class="text-sm font-semibold text-ifa-text-primary">{courseTitle}</p>
         </div>
+
+        {#if error}
+          <p role="alert" class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>
+        {/if}
 
         {#if shareUrl}
           <div class="bg-ifa-card-muted rounded-lg p-4">
@@ -113,10 +140,16 @@
           <button
             type="button"
             on:click={handleGenerateShareLink}
-            class="w-full py-2.5 bg-ifa-pine text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 hover:bg-emerald-800 transition"
+            disabled={generating}
+            class="w-full py-2.5 bg-ifa-pine text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 hover:bg-emerald-800 transition disabled:opacity-60"
           >
-            <Share2 class="w-4 h-4" />
-            <span>Generate Share Link</span>
+            {#if generating}
+              <Loader2 class="w-4 h-4 animate-spin" />
+              <span>Generating…</span>
+            {:else}
+              <Share2 class="w-4 h-4" />
+              <span>Generate Share Link</span>
+            {/if}
           </button>
         {/if}
 

@@ -90,7 +90,7 @@ namespace IFA.API.Controllers
             {
                 Id = Guid.NewGuid(),
                 LearnerId = learner.Id,
-                ActiveStreakDays = 1,
+                ActiveStreakDays = 0,
                 UpdatedAt = DateTime.UtcNow
             };
             _context.Add(state);

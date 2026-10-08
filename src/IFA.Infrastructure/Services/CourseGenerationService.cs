@@ -450,7 +450,7 @@ namespace IFA.Infrastructure.Services
             return match.Success ? match.Groups[1].Value : null;
         }
 
-        public async Task<Course> CreateFullCourseAsync(Guid learnerId, string goal, int hoursPerWeek = 5, string preferredCreator = "freeCodeCamp", CancellationToken ct = default, IReadOnlyList<string>? externalMaterials = null, string? coverImageUrl = null)
+        public async Task<Course> CreateFullCourseAsync(Guid learnerId, string goal, int hoursPerWeek = 5, string preferredCreator = "freeCodeCamp", CancellationToken ct = default, IReadOnlyList<string>? externalMaterials = null, string? coverImageUrl = null, bool generateFirstModule = true)
         {
             // 1. Model 2 generates the Course Blueprint
             var profile = await _context.LearnerProfiles
@@ -553,6 +553,13 @@ namespace IFA.Infrastructure.Services
                 course.Modules.Add(module);
             }
 
+            // When we only want to persist the blueprint, skip research and the
+            // Module 1 content build so the save returns fast — the heavy work is
+            // then done per module from the course page ("Generate this module").
+            ResearchPackage? researchPackage = null;
+
+            if (generateFirstModule)
+            {
             // 2. Research stage (gather papers, videos, images and diagrams)
             //    BEFORE persisting the course. The research service shares this
             //    scoped DbContext and runs its own SaveChangesAsync; if the course
@@ -565,7 +572,6 @@ namespace IFA.Infrastructure.Services
             var firstModuleDto = proposal.Modules.OrderBy(m => m.ModuleNumber).First();
             var firstModule = course.Modules.OrderBy(m => m.ModuleNumber).First();
 
-            ResearchPackage? researchPackage = null;
             string researchContext = string.Empty;
             try
             {
@@ -616,6 +622,7 @@ namespace IFA.Infrastructure.Services
                 }
                 quiz.ModuleId = firstModule.Id;
                 firstModule.Quizzes.Add(quiz);
+            }
             }
 
             // 4. Persist the whole course atomically: course, blueprint modules,

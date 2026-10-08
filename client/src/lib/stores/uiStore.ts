@@ -17,6 +17,8 @@ import { preferences, updatePreferences, applyPreferences, type ThemeMode } from
 export const commandPaletteOpen = writable(false);
 export const notificationsOpen = writable(false);
 export const profileMenuOpen = writable(false);
+/** Mobile navigation drawer (sidebar) open state. Ignored on md+ screens. */
+export const sidebarOpen = writable(false);
 
 export function openCommandPalette() {
   commandPaletteOpen.set(true);
@@ -26,6 +28,12 @@ export function toggleNotifications() {
 }
 export function toggleProfileMenu() {
   profileMenuOpen.update((v) => !v);
+}
+export function toggleSidebar() {
+  sidebarOpen.update((v) => !v);
+}
+export function closeSidebar() {
+  sidebarOpen.set(false);
 }
 
 export type Theme = 'light' | 'dark';

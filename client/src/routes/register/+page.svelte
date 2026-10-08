@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { ArrowRight, Code2, Lock, Mail, User, Sparkles, Loader2 } from 'lucide-svelte';
+  import { ArrowRight, Code2, Lock, Mail, User, CheckCircle2, Loader2 } from 'lucide-svelte';
   import { register } from '$lib/stores/sessionStore';
 
   let name = '';
@@ -54,9 +54,9 @@
         Create an account and tell the AI advisor what you want to learn. IFA researches your topic and builds a course just for you.
       </p>
       <ul class="space-y-3 text-sm text-ifa-text-secondary">
-        <li class="flex items-center gap-2"><Sparkles class="w-4 h-4 text-ifa-pine" /> Free, adaptive course generation</li>
-        <li class="flex items-center gap-2"><Sparkles class="w-4 h-4 text-ifa-pine" /> Module quizzes and progress tracking</li>
-        <li class="flex items-center gap-2"><Sparkles class="w-4 h-4 text-ifa-pine" /> Study alongside the community</li>
+        <li class="flex items-center gap-2"><CheckCircle2 class="w-4 h-4 text-ifa-pine" /> Free, adaptive course generation</li>
+        <li class="flex items-center gap-2"><CheckCircle2 class="w-4 h-4 text-ifa-pine" /> Module quizzes and progress tracking</li>
+        <li class="flex items-center gap-2"><CheckCircle2 class="w-4 h-4 text-ifa-pine" /> Study alongside the community</li>
       </ul>
     </div>
 

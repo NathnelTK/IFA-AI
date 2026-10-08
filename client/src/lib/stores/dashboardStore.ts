@@ -9,12 +9,13 @@ import type {
 	RecommendationDto
 } from '$lib/api';
 import { getLearnerId } from './sessionStore';
+import { resolveCover } from '$lib/utils/cover';
 
 export const userProfile = writable({
-  name: 'Nathnel',
+  name: 'Learner',
   role: 'Learner',
   avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
-    greeting: 'Good morning, Nathnel',
+  greeting: 'Welcome to IFA',
   tagline: 'Small steps today, big goals tomorrow.'
 });
 
@@ -22,114 +23,13 @@ export const userProfile = writable({
 export const activeCourse = activeCourseFromCourses;
 export const overallProgress = overallProgressFromCourses;
 
-export const skillsList = writable<SkillProgress[]>([
-  { name: 'C#', percentage: 84, color: '#2A9D68', iconName: 'Terminal' },
-  { name: 'Databases', percentage: 61, color: '#E07A5F', iconName: 'Database' },
-  { name: 'APIs', percentage: 55, color: '#7C5CFC', iconName: 'Network' },
-  { name: 'Authentication', percentage: 45, color: '#E11D48', iconName: 'KeyRound', isWeakArea: true },
-  { name: 'Testing', percentage: 32, color: '#EF4444', iconName: 'CheckCircle2', isWeakArea: true }
-]);
+export const skillsList = writable<SkillProgress[]>([]);
 
-export const recommendations = writable<Recommendation[]>([
-  {
-    id: 'rec-1',
-    title: 'Review JWT Authentication',
-    subtitle: 'You struggled in your last quiz.',
-    type: 'review',
-    color: '#E07A5F',
-    actionUrl: '/courses/csharp-backend'
-  },
-  {
-    id: 'rec-2',
-    title: 'Continue REST APIs',
-    subtitle: 'Based on your current progress.',
-    type: 'continue',
-    color: '#2A9D68',
-    actionUrl: '/courses/csharp-backend'
-  },
-  {
-    id: 'rec-3',
-    title: 'Practice SQL joins',
-    subtitle: 'This is a weak area for you.',
-    type: 'practice',
-    color: '#7C5CFC',
-    actionUrl: '/courses/sql-developers'
-  }
-]);
+export const recommendations = writable<Recommendation[]>([]);
 
-export const recentActivities = writable<RecentActivity[]>([
-  {
-    id: 'act-1',
-    title: 'Completed Quiz',
-    detail: 'C# Fundamentals',
-    timeAgo: '2h ago',
-    iconType: 'quiz'
-  },
-  {
-    id: 'act-2',
-    title: 'Started New Module',
-    detail: 'REST APIs',
-    timeAgo: '4h ago',
-    iconType: 'module'
-  },
-  {
-    id: 'act-3',
-    title: 'Research Completed',
-    detail: 'Clean Architecture',
-    timeAgo: '6h ago',
-    iconType: 'research'
-  },
-  {
-    id: 'act-4',
-    title: 'Voice Command',
-    detail: '"Show my weak areas"',
-    timeAgo: '8h ago',
-    iconType: 'voice'
-  }
-]);
+export const recentActivities = writable<RecentActivity[]>([]);
 
-export const publicCourses = writable<CourseCard[]>([
-  {
-    id: 'pub-1',
-    title: 'Python for Beginners',
-    provider: 'By Google',
-    badge: 'Popular',
-    rating: 4.8,
-    reviewCount: '12.5k',
-    duration: '6 weeks',
-    imageUrl: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=400&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 'pub-2',
-    title: 'Full Stack Web Development',
-    provider: 'By Meta',
-    badge: 'Popular',
-    rating: 4.7,
-    reviewCount: '9.2k',
-    duration: '8 weeks',
-    imageUrl: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=400&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 'pub-3',
-    title: 'Data Science Fundamentals',
-    provider: 'By IBM',
-    badge: 'Bestseller',
-    rating: 4.6,
-    reviewCount: '8.7k',
-    duration: '10 weeks',
-    imageUrl: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 'pub-4',
-    title: 'Cybersecurity Essentials',
-    provider: 'By Microsoft',
-    badge: 'Trending',
-    rating: 4.5,
-    reviewCount: '6.3k',
-    duration: '6 weeks',
-    imageUrl: 'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=400&auto=format&fit=crop&q=80'
-  }
-]);
+export const publicCourses = writable<CourseCard[]>([]);
 
 export const peerComparison = writable({
   enabled: false,
@@ -147,8 +47,9 @@ export const peerComparison = writable({
 });
 
 // ---------------------------------------------------------------------------
-// API hydration — each source is independent and falls back to the demo values
-// above when the API is unreachable or returns nothing.
+// API hydration — each source is independent. The stores start empty and are
+// filled from the API, so a new learner with no data sees empty states instead
+// of demo content. A request that errors simply leaves its store untouched.
 // ---------------------------------------------------------------------------
 
 const SKILL_ICONS = ['Terminal', 'Database', 'Network', 'KeyRound', 'CheckCircle2'];
@@ -227,15 +128,16 @@ function mapPublicCourses(list: MarketplaceCourseDto[]): CourseCard[] {
     rating: course.rating,
     reviewCount: course.reviewCount,
     duration: course.estimatedDuration,
-    imageUrl: course.thumbnailUrl || undefined,
+    imageUrl: resolveCover(course.thumbnailUrl, course.title),
     shareCode: course.shareCode
   }));
 }
 
 /**
  * Hydrate the dashboard widgets (profile, skills, recommendations, activity,
- * public courses, peer comparison) from the API. Any source that errors or comes
- * back empty keeps its existing demo value, so the dashboard always renders.
+ * public courses, peer comparison) from the API. Each store reflects exactly what
+ * the API returns (including empty), so a new learner sees empty states rather
+ * than demo data; a request that errors leaves its store untouched.
  */
 export async function loadDashboard(): Promise<void> {
   const learnerId = getLearnerId();
@@ -265,7 +167,7 @@ export async function loadDashboard(): Promise<void> {
         .forLearner(learnerId)
         .then((result) => {
           const mapped = mapSkills(result);
-          if (mapped.length > 0) skillsList.set(mapped);
+          skillsList.set(mapped);
         })
         .catch(() => undefined)
     );
@@ -276,7 +178,7 @@ export async function loadDashboard(): Promise<void> {
       .list()
       .then((list) => {
         const mapped = mapRecommendations(list);
-        if (mapped.length > 0) recommendations.set(mapped);
+        recommendations.set(mapped);
       })
       .catch(() => undefined)
   );
@@ -286,7 +188,7 @@ export async function loadDashboard(): Promise<void> {
       .recent(6)
       .then((list) => {
         const mapped = mapActivities(list);
-        if (mapped.length > 0) recentActivities.set(mapped);
+        recentActivities.set(mapped);
       })
       .catch(() => undefined)
   );
@@ -296,7 +198,7 @@ export async function loadDashboard(): Promise<void> {
       .marketplace()
       .then((list) => {
         const mapped = mapPublicCourses(list);
-        if (mapped.length > 0) publicCourses.set(mapped);
+        publicCourses.set(mapped);
       })
       .catch(() => undefined)
   );

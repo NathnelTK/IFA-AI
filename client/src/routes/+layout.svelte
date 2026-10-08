@@ -11,6 +11,7 @@
   import { loadDashboard } from '$lib/stores/dashboardStore';
   import { initVoxide } from '$lib/voxide';
   import { initPreferences, watchSystemTheme } from '$lib/stores/preferencesStore';
+  import { closeSidebar } from '$lib/stores/uiStore';
 
   // Apply the stored appearance preferences as early as possible on the client,
   // and keep `system` theme in sync with the OS.
@@ -22,6 +23,13 @@
 
   $: currentPath = $page.url.pathname;
   $: activeTab = currentPath === '/home' ? 'home' : currentPath.replace('/', '');
+
+  // Close the mobile navigation drawer whenever the route changes.
+  let lastPath = '';
+  $: if (currentPath !== lastPath) {
+    lastPath = currentPath;
+    closeSidebar();
+  }
   // Pages that render without the authenticated app shell.
   $: isPublicPage =
     currentPath === '/' ||
