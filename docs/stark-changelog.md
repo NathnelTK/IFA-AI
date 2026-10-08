@@ -193,3 +193,12 @@ whole file with `npm run changelog:verify`.
 - **Summary:** Created comprehensive project documentation and pitch deck for STARK Hackathon. Updated README with project overview, features by phase, technology stack, getting started guide, environment setup, project structure, and scripts. Created pitch deck covering problem statement, solution, three-model pipeline, key features, architecture, demo highlights, team information, and next steps. Removed call-to-action sections as project is ongoing.
 - **Files:** `README.md`, `docs/PITCH_DECK.md`
 - **Verification:** Documentation reviewed for completeness and accuracy.
+
+## [2026-10-08] FEATURE: Voice-first Voxide dock, in-course sidebar chatbot, YouTube key
+- **Author:** Team XOR
+- **Phase:** Phase 4 / PR 4.6
+- **Type:** FEATURE
+- **Summary:** Turned the home AI advisor dock into a voice-only Voxide console that navigates and performs common actions instead of running a text course-scoping chat; removed its chat/course-generation UI. Added a persistent AI chatbot to the generated-course page sidebar that answers learner questions using the open course/module/lesson as context and stores its transcript per course in localStorage. Configured the YouTube Data API key so the research pipeline can surface real lesson videos again.
+- **Verification:** svelte-check reports 0 errors; dotnet build IFA.slnx succeeds with 0 errors; the dock no longer sends intake/course-generation requests and the course page renders the chatbot sidebar across outline, lesson and quiz views.
+- **Files:** client/src/lib/components/AiTutorDock.svelte,client/src/lib/components/CourseChatbot.svelte,client/src/routes/courses/[id]/+page.svelte,client/src/lib/voxide.ts,.env
+- **Problem / Solution:** The dock previously mixed a text intake chat with Voxide voice control, and Voxide's publishable-key docs still referenced PUBLIC_VOXIDE_KEY although the client reads VITE_VOXIDE_KEY; the stale key name was corrected. The course chatbot needs history but the backend tutor endpoint is stateless, so history is persisted client-side per course id.

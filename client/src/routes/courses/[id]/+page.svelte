@@ -17,6 +17,7 @@
   } from 'lucide-svelte';
   import LessonView from '$lib/components/LessonView.svelte';
   import QuizView from '$lib/components/QuizView.svelte';
+  import CourseChatbot from '$lib/components/CourseChatbot.svelte';
   import CourseShareDialog from '$lib/components/CourseShareDialog.svelte';
   import { modulesApi } from '$lib/api';
   import {
@@ -73,6 +74,9 @@
     const lessonId = view.lessonId;
     return activeModule.lessons.find((l) => l.id === lessonId) ?? null;
   })();
+  // Module id for the currently open lesson/quiz — passed to the course chatbot
+  // as grounding context so answers relate to what the learner is viewing.
+  $: activeContextModuleId = view.kind === 'outline' ? null : view.moduleId;
   $: activeQuiz = (() => {
     if (view.kind !== 'quiz' || !activeModule) return null;
     const quizId = view.quizId;
@@ -159,7 +163,9 @@
     </a>
   </div>
 {:else}
-  <div class="p-6 md:p-8 max-w-5xl mx-auto">
+  <div class="p-6 md:p-8 max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_22rem] gap-6 items-start">
+    <!-- Main course column -->
+    <div class="min-w-0">
     {#if view.kind === 'lesson' && activeLesson && activeModule}
       <LessonView
         lesson={activeLesson}
@@ -352,6 +358,18 @@
         </div>
       </div>
     {/if}
+    </div>
+
+    <!-- Course chatbot sidebar (persistent across outline, lesson and quiz) -->
+    <aside class="lg:sticky lg:top-6">
+      <CourseChatbot
+        courseId={course.id}
+        courseTitle={course.title}
+        moduleId={activeContextModuleId}
+        lessonId={activeLesson?.id ?? null}
+        lessonTitle={activeLesson?.title ?? null}
+      />
+    </aside>
   </div>
 
   <CourseShareDialog isOpen={shareOpen} courseTitle={course.title} on:close={() => (shareOpen = false)} />

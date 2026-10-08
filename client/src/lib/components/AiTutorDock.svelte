@@ -1,17 +1,18 @@
 <script lang="ts">
-  import { ArrowRight, Sparkles, Send, X, Mic, MicOff, Loader2 } from 'lucide-svelte';
-  import { goto } from '$app/navigation';
-  import { aiApi, coursesApi, type IntakeProfileDto } from '$lib/api';
+  import { ArrowRight, Sparkles, X, Mic, MicOff, Loader2, Navigation, Compass } from 'lucide-svelte';
   import { voxideEnabled, voxideStatus, voxideMessages, toggleVoxide } from '$lib/voxide';
 
-  interface ChatMsg {
-    role: 'user' | 'assistant';
-    content: string;
-  }
+  /**
+   * Voxide voice console — navigation + common actions, not a chat.
+   *
+   * The dock used to run a text intake chat that scoped a course. Chat is gone:
+   * Voxide is voice-only and drives the app through the capabilities registered
+   * in `$lib/voxide` (navigate to a section, open the tutor, create a course).
+   * The live transcript below is read back from the Voxide snapshot — the user
+   * cannot type here. Course *scoping* still lives in the hero on /home.
+   */
 
   let isOpen = false;
-  let chatMessage = '';
-  let isThinking = false;
   let error = '';
 
   // Voice session state (Voxide). "listening/thinking/speaking/executing" mean a
@@ -37,79 +38,27 @@
 
   async function handleMic() {
     if (!voxideEnabled) {
-      error = 'Voice needs a Voxide publishable key. Set PUBLIC_VOXIDE_KEY (vox_pub_…) in client/.env.';
+      error = 'Voice needs a Voxide publishable key. Set VITE_VOXIDE_KEY (vox_pub_…) in client/.env.';
       return;
     }
     error = '';
     await toggleVoxide();
   }
 
-  // Pipeline stage 1 — the learning advisor collects what the learner wants so
-  // the research and generation stages have a profile to work from.
-  let messages: ChatMsg[] = [
+  // What Voxide can do. Rendered as guidance (voice-first — no typed commands
+  // are sent from here); the actual handlers live in `$lib/voxide`.
+  const commands: Array<{ group: string; icon: typeof Navigation; items: string[] }> = [
     {
-      role: 'assistant',
-      content:
-        "Hi! I'm your IFA learning advisor. Tell me what you want to learn or build, and I'll scope a personalized course for you."
+      group: 'Go to',
+      icon: Navigation,
+      items: ['My Courses', 'Marketplace', 'Recommendations', 'My Skills', 'Progress', 'Research', 'Settings']
+    },
+    {
+      group: 'Do',
+      icon: Compass,
+      items: ['Create a course on …', 'Open the tutor for …']
     }
   ];
-
-  let profileReady = false;
-  let profile: IntakeProfileDto | null = null;
-  let suggestedTopics: string[] = [];
-  let generating = false;
-
-  async function sendMessage() {
-    const text = chatMessage.trim();
-    if (!text || isThinking) return;
-
-    const history = messages.map((m) => ({ role: m.role, content: m.content }));
-    messages = [...messages, { role: 'user', content: text }];
-    chatMessage = '';
-    error = '';
-    isThinking = true;
-
-    try {
-      const response = await aiApi.intakeMessage(text, history);
-      const reply = response.reply?.trim() || 'Could you add a little more detail so I can help?';
-      messages = [...messages, { role: 'assistant', content: reply }];
-      if (response.isProfileReady) {
-        profileReady = true;
-        profile = response.profile ?? null;
-        suggestedTopics = response.suggestedResearchTopics ?? [];
-      }
-    } catch (cause) {
-      error = cause instanceof Error ? cause.message : 'The AI advisor is unavailable.';
-      messages = [
-        ...messages,
-        {
-          role: 'assistant',
-          content: "Sorry, I couldn't reach the AI advisor just now. Please try again in a moment."
-        }
-      ];
-    } finally {
-      isThinking = false;
-    }
-  }
-
-  async function generateCourse() {
-    if (!profile || generating) return;
-    generating = true;
-    error = '';
-    try {
-      const preferredCreator = profile.preferredYouTubeChannels?.[0] || 'freeCodeCamp';
-      const course = await coursesApi.create({
-        goal: profile.learningGoal,
-        hoursPerWeek: profile.weeklyStudyHours,
-        preferredCreator
-      });
-      await goto(`/courses/${course.id}`);
-    } catch (cause) {
-      error = cause instanceof Error ? cause.message : 'Could not generate the course.';
-    } finally {
-      generating = false;
-    }
-  }
 </script>
 
 <!-- Docked Widget -->
@@ -126,9 +75,9 @@
       <div>
         <div class="flex items-center gap-1.5 text-xs font-bold text-white tracking-tight">
           <span class="text-cyan-400 font-mono text-[10px]">•||•</span>
-          <span>IFA Learning Advisor</span>
+          <span>IFA Voice Assistant</span>
         </div>
-        <p class="text-[10px] text-gray-300">Tell IFA what you want to learn.</p>
+        <p class="text-[10px] text-gray-300">Navigate &amp; act — just speak.</p>
       </div>
     </div>
 
@@ -137,7 +86,7 @@
       on:click={() => (isOpen = true)}
       class="px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-semibold text-white transition flex items-center gap-1.5 shrink-0 hover:scale-105"
     >
-      <span>Start Chat</span>
+      <span>Speak</span>
       <ArrowRight class="w-3 h-3" />
     </button>
   </div>
@@ -150,9 +99,9 @@
           <Sparkles class="w-4 h-4" />
         </div>
         <div>
-          <h4 class="text-xs font-bold leading-tight">IFA Learning Advisor</h4>
+          <h4 class="text-xs font-bold leading-tight">IFA Voice Assistant</h4>
           <p class="text-[10px] text-cyan-300 font-mono">
-            {voiceActive ? voiceStatusLabel($voxideStatus) : 'Voice + text · ask or type'}
+            {voiceActive ? voiceStatusLabel($voxideStatus) : 'Voice commands · navigate & act'}
           </p>
         </div>
       </div>
@@ -183,7 +132,7 @@
       </div>
     </div>
 
-    <!-- Message List -->
+    <!-- Voice transcript + what Voxide can do -->
     <div class="flex-1 p-4 overflow-y-auto space-y-3 bg-ifa-bg/50 text-xs">
       {#if voiceActive || $voxideMessages.length > 0}
         <div class="rounded-2xl border border-cyan-200 bg-cyan-50/70 p-3 space-y-2">
@@ -191,94 +140,76 @@
             <Mic class="w-3 h-3" /> Voice · {voiceStatusLabel($voxideStatus)}
           </div>
           {#if $voxideMessages.length > 0}
-            {#each $voxideMessages.slice(-4) as vm}
+            {#each $voxideMessages.slice(-6) as vm}
               <p class="text-[11px] {vm.role === 'user' ? 'text-ifa-text-primary font-semibold' : 'text-ifa-text-secondary'}">
                 <span class="opacity-60">{vm.role === 'user' ? 'You' : 'IFA'}:</span> {vm.content}
               </p>
             {/each}
           {:else}
-            <p class="text-[11px] text-cyan-900">Say things like “create a course on React”, “go to my courses”, or “open the tutor for recursion”.</p>
-          {/if}
-        </div>
-      {/if}
-
-      {#each messages as msg}
-        <div class="flex {msg.role === 'user' ? 'justify-end' : 'justify-start'}">
-          <div class="max-w-[85%] p-3 rounded-2xl leading-relaxed whitespace-pre-wrap {msg.role === 'user'
-            ? 'bg-ifa-pine text-white rounded-tr-none'
-            : 'bg-white border border-ifa-border text-ifa-text-primary rounded-tl-none shadow-soft'}">
-            {msg.content}
-          </div>
-        </div>
-      {/each}
-
-      {#if isThinking}
-        <div class="flex justify-start">
-          <div class="p-3 rounded-2xl bg-white border border-ifa-border text-ifa-text-muted flex items-center gap-2 shadow-soft">
-            <span class="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-bounce"></span>
-            <span class="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-bounce [animation-delay:0.2s]"></span>
-            <span class="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-bounce [animation-delay:0.4s]"></span>
-            <span class="text-[11px] font-mono text-cyan-700">Thinking…</span>
-          </div>
-        </div>
-      {/if}
-
-      {#if profileReady}
-        <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 space-y-2">
-          <p class="text-[11px] font-bold text-emerald-800">Your learning profile is ready</p>
-          {#if profile}
-            <p class="text-[11px] text-emerald-900">
-              Goal: <strong>{profile.learningGoal}</strong><br />
-              Level: {profile.currentLevel} · {profile.weeklyStudyHours}h / week
+            <p class="text-[11px] text-cyan-900">
+              Listening for a command — say something like “go to my courses” or “open the tutor for recursion”.
             </p>
           {/if}
-          {#if suggestedTopics.length > 0}
-            <div class="flex flex-wrap gap-1">
-              {#each suggestedTopics.slice(0, 4) as topic}
-                <span class="text-[9px] px-1.5 py-0.5 rounded bg-white border border-emerald-200 text-emerald-800">{topic}</span>
-              {/each}
-            </div>
-          {/if}
-          <button
-            type="button"
-            on:click={generateCourse}
-            disabled={generating}
-            class="w-full py-2 rounded-xl bg-ifa-pine text-white text-[11px] font-bold hover:bg-ifa-pine-light transition flex items-center justify-center gap-1.5 disabled:opacity-60"
-          >
-            {#if generating}
-              <Loader2 class="w-3.5 h-3.5 animate-spin" />
-              <span>Generating your course…</span>
-            {:else}
-              <Sparkles class="w-3.5 h-3.5" />
-              <span>Generate my course</span>
-            {/if}
-          </button>
         </div>
       {/if}
+
+      <!-- Command reference: this dock is for navigating and acting, not chatting. -->
+      <div class="rounded-2xl border border-ifa-border bg-white p-3 space-y-3">
+        <p class="text-[10px] font-bold text-ifa-text-muted uppercase tracking-wide">
+          What I can do by voice
+        </p>
+        {#each commands as cmd}
+          <div class="space-y-1.5">
+            <div class="flex items-center gap-1.5 text-[10px] font-bold text-ifa-text-secondary">
+              <svelte:component this={cmd.icon} class="w-3 h-3 text-cyan-600" />
+              {cmd.group}
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+              {#each cmd.items as item}
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-ifa-card-muted border border-ifa-border text-ifa-text-secondary">
+                  {item}
+                </span>
+              {/each}
+            </div>
+          </div>
+        {/each}
+        <p class="text-[10px] text-ifa-text-muted leading-relaxed">
+          Voxide handles navigation and quick actions. To scope and generate a new
+          course, use the advisor on the home page.
+        </p>
+      </div>
 
       {#if error}
         <p role="alert" class="text-[11px] text-red-600">{error}</p>
       {/if}
     </div>
 
-    <!-- Input Box -->
-    <div class="p-3 bg-white border-t border-ifa-border flex items-center gap-2">
-      <input
-        type="text"
-        bind:value={chatMessage}
-        on:keydown={(e) => e.key === 'Enter' && sendMessage()}
-        placeholder="Type what you want to learn…"
-        disabled={isThinking}
-        class="flex-1 text-xs px-3.5 py-2.5 rounded-xl bg-ifa-card-muted border border-ifa-border text-ifa-text-primary placeholder-ifa-text-muted focus:outline-none focus:ring-1 focus:ring-ifa-pine disabled:opacity-60"
-      />
+    <!-- Voice control footer (no text input — this assistant is voice-only) -->
+    <div class="p-3 bg-white border-t border-ifa-border">
       <button
         type="button"
-        on:click={sendMessage}
-        disabled={isThinking || !chatMessage.trim()}
-        class="w-9 h-9 rounded-xl bg-ifa-pine text-white flex items-center justify-center hover:bg-ifa-pine-light transition disabled:opacity-50"
+        on:click={handleMic}
+        disabled={voiceBusy}
+        class="w-full py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 disabled:opacity-60 {voiceActive
+          ? 'bg-cyan-600 text-white hover:bg-cyan-700'
+          : 'bg-ifa-pine text-white hover:bg-ifa-pine-light'}"
       >
-        <Send class="w-4 h-4" />
+        {#if voiceBusy}
+          <Loader2 class="w-4 h-4 animate-spin" />
+          <span>{voiceStatusLabel($voxideStatus)}</span>
+        {:else if voiceActive}
+          <MicOff class="w-4 h-4" />
+          <span>Stop listening</span>
+        {:else}
+          <Mic class="w-4 h-4" />
+          <span>Talk to IFA</span>
+        {/if}
       </button>
+      {#if !voxideEnabled}
+        <p class="text-[10px] text-ifa-text-muted text-center mt-2">
+          Add a Voxide publishable key to enable voice.
+        </p>
+      {/if}
     </div>
   </div>
 {/if}

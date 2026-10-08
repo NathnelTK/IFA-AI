@@ -6,15 +6,14 @@ import { coursesApi } from '$lib/api';
 /**
  * Voxide voice-assistant integration (capability-first browser SDK).
  *
- * The IFA advisor used to be a second text chatbot. With Voxide the learner can
- * TALK to the app: Voxide maps speech to the capabilities we register below —
- * navigating sections, creating a course, or opening the tutor — and runs the
- * real handlers here.
+ * The home-page advisor is voice-first and does NOT chat: Voxide maps speech to
+ * the capabilities we register below — navigating sections, creating a course,
+ * or opening the tutor — and runs the real handlers here.
  *
  * IMPORTANT: the browser SDK uses the *publishable* key (`vox_pub_...`), which
  * is safe in page source and protected by the domain whitelist in the Voxide
  * dashboard. The secret `vox_sk_...` key is NOT used here. Put your publishable
- * key in `PUBLIC_VOXIDE_KEY` (client/.env) to enable voice.
+ * key in `VITE_VOXIDE_KEY` (client/.env) to enable voice.
  */
 
 export type VoxideStatus =
