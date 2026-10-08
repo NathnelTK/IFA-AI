@@ -1,0 +1,57 @@
+# ---------------------------------------------------------------------------
+# Render Blueprint — IFA API (backend)
+#
+# The web frontend deploys separately to Vercel; this blueprint only covers the
+# ASP.NET Core API, which runs as a Docker web service against the existing
+# Supabase PostgreSQL database.
+#
+# Usage: Render Dashboard -> New -> Blueprint -> pick this repo/branch.
+# Every env var marked `sync: false` is prompted for in the dashboard and is
+# never stored in the repository.
+# ---------------------------------------------------------------------------
+services:
+  - type: web
+    name: ifa-api
+    runtime: docker
+    plan: free
+    # Supabase project lives in eu-central-1 (Frankfurt); keep the API adjacent.
+    region: frankfurt
+    dockerfilePath: ./docker/Dockerfile.backend
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: DB_PROVIDER
+        value: postgres
+      - key: AI_DEFAULT_PROVIDER
+        value: Groq
+
+      # --- Supabase PostgreSQL (copy the values from your local .env) --------
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+
+      # --- Secrets ----------------------------------------------------------
+      - key: JWT_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: SCHOLARXIV_API_KEY
+        sync: false
+      - key: YOUTUBE_API_KEY
+        sync: false
+
+      # --- Set this to the Vercel domain once the frontend is live ----------
+      # Example: https://ifa-ai.vercel.app
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
