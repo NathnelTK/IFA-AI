@@ -1,6 +1,5 @@
 <script lang="ts">
   import { Search, Bell, Sun, Moon, Home } from 'lucide-svelte';
-  import { onMount } from 'svelte';
   import { userProfile } from '../stores/dashboardStore';
   import { goto } from '$app/navigation';
   import NotificationCenter from './NotificationCenter.svelte';
@@ -10,12 +9,8 @@
     notificationsOpen,
     commandPaletteOpen,
     theme,
-    toggleTheme,
-    applyTheme
+    toggleTheme
   } from '$lib/stores/uiStore';
-
-  // Sync the stored theme to <html> on mount (store init already read localStorage).
-  onMount(() => applyTheme($theme));
 
   // Global ⌘K / Ctrl+K opens the command palette from anywhere.
   function handleKeydown(e: KeyboardEvent) {

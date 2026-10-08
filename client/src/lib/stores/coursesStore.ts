@@ -145,11 +145,14 @@ export function recordQuizScore(courseId: string, quizId: string, score: number)
       return {
         ...course,
         lastAccessed: 'Just now',
-        modules: course.modules.map((m) =>
-          m.quiz && m.quiz.id === quizId
-            ? { ...m, quiz: { ...m.quiz, bestScore: Math.max(score, m.quiz.bestScore ?? 0) } }
-            : m
-        )
+        modules: course.modules.map((m) => ({
+          ...m,
+          quizzes: m.quizzes.map((q) =>
+            q.id === quizId
+              ? { ...q, bestScore: Math.max(score, q.bestScore ?? 0) }
+              : q
+          )
+        }))
       };
     })
   );
@@ -248,14 +251,18 @@ function mapSummary(dto: CourseSummaryDto): Course {
 }
 
 function mapLesson(dto: BackendLessonDto, existing?: Lesson): Lesson {
+  const markdown = dto.contentMarkdown ?? '';
   return {
     id: dto.id,
     title: dto.title,
     summary: dto.summary,
-    content: (dto.contentMarkdown ?? '')
+    contentMarkdown: markdown,
+    content: markdown
       .split(/\n{2,}/)
       .map((p) => p.trim())
       .filter(Boolean),
+    youTubeVideoId: dto.youTubeVideoId ?? undefined,
+    youTubeVideoTitle: dto.youTubeVideoTitle ?? undefined,
     duration: `${dto.readingTimeMinutes ?? 10} min`,
     completed: existing?.completed ?? false
   };
@@ -265,6 +272,8 @@ function mapQuiz(dto: BackendQuizDto, existing?: Quiz | null): Quiz {
   return {
     id: dto.id,
     title: dto.title,
+    isExam: (dto.kind ?? 1) === 1,
+    orderIndex: dto.orderIndex ?? 0,
     bestScore: existing?.bestScore ?? null,
     questions: (dto.questions ?? []).map((q) => ({
       id: q.id,
@@ -286,7 +295,10 @@ function mapModule(dto: BackendModuleDto, existing?: Module): Module {
       .slice()
       .sort((a, b) => a.lessonNumber - b.lessonNumber)
       .map((l) => mapLesson(l, existingLessons.find((x) => x.id === l.id))),
-    quiz: dto.moduleQuiz ? mapQuiz(dto.moduleQuiz, existing?.quiz) : undefined
+    quizzes: (dto.quizzes ?? [])
+      .slice()
+      .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
+      .map((q) => mapQuiz(q, existing?.quizzes?.find((x) => x.id === q.id)))
   };
 }
 

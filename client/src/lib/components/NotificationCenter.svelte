@@ -46,7 +46,7 @@
       time: '2 days ago',
       read: true,
       icon: Clock,
-      href: '/my-learning'
+      href: '/courses'
     }
   ];
 

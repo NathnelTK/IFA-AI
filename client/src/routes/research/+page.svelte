@@ -1,24 +1,58 @@
 <script lang="ts">
-  import { BookOpen, Search, Youtube, ExternalLink } from 'lucide-svelte';
-  import { researchApi, type ResearchPackageDto } from '$lib/api';
+  import { onMount } from 'svelte';
+  import { BookOpen, Search, Youtube, ExternalLink, Image as ImageIcon, BarChart3, Loader2 } from 'lucide-svelte';
+  import { researchApi, coursesApi, type ResearchPackageDto, type CourseSummaryDto } from '$lib/api';
+  import { initSession } from '$lib/stores/sessionStore';
+
+  let myCourses: CourseSummaryDto[] = [];
+  let selectedCourseId = '';
+  let results: ResearchPackageDto | null = null;
 
   let searchQuery = '';
-  let results: ResearchPackageDto | null = null;
-  let loading = false;
+  let loading = false;      // ad-hoc "research again"
+  let courseLoading = false; // loading a course's existing research
   let error = '';
 
-  $: academicSources = results?.sources.filter((source) => source.sourceType === 'Academic') ?? [];
-  $: videoSources = results?.sources.filter((source) => source.sourceType === 'Video') ?? [];
+  $: academicSources = results?.sources.filter((s) => s.sourceType === 'Academic') ?? [];
+  $: videoSources = results?.sources.filter((s) => s.sourceType === 'Video') ?? [];
+  $: imageSources = results?.sources.filter((s) => s.sourceType === 'Image' || s.sourceType === 'Graph') ?? [];
+
+  onMount(async () => {
+    try {
+      await initSession();
+      myCourses = await coursesApi.listMine().catch(() => []);
+      if (myCourses.length > 0) {
+        selectedCourseId = myCourses[0].id;
+        await loadCourseResearch();
+      }
+    } catch {
+      /* no-op */
+    }
+  });
+
+  async function loadCourseResearch() {
+    if (!selectedCourseId) return;
+    courseLoading = true;
+    error = '';
+    try {
+      results = await researchApi.forCourse(selectedCourseId);
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : 'Could not load research for this course.';
+    } finally {
+      courseLoading = false;
+    }
+  }
 
   async function searchResearch() {
     const topic = searchQuery.trim();
     if (!topic || loading) return;
-
     loading = true;
     error = '';
-    results = null;
     try {
-      results = await researchApi.conduct(topic);
+      // Attaches to the selected course so it is added to the research the
+      // system uses to (re)generate that course's modules.
+      results = await researchApi.conduct(topic, selectedCourseId || undefined);
+      searchQuery = '';
     } catch (cause) {
       error = cause instanceof Error ? cause.message : 'Research request failed.';
     } finally {
@@ -31,15 +65,37 @@
   <div>
     <h1 class="text-2xl font-bold text-ifa-text-primary">Research</h1>
     <p class="text-sm text-ifa-text-secondary mt-1">
-      Search ScholarXiv for academic sources and YouTube for learning resources. Results come from the configured providers.
+      These are the sources IFA used to build your courses — papers, videos, images and diagrams.
+      You can run more research to add to what powers a course's modules.
     </p>
   </div>
 
+  <!-- Course picker: show the research used for a specific course -->
+  {#if myCourses.length > 0}
+    <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+      <label for="course-select" class="text-sm font-semibold text-ifa-text-primary">Research for</label>
+      <select
+        id="course-select"
+        bind:value={selectedCourseId}
+        on:change={loadCourseResearch}
+        class="flex-1 max-w-md px-4 py-2.5 rounded-lg bg-ifa-card border border-ifa-border text-sm text-ifa-text-primary focus:outline-none focus:ring-1 focus:ring-ifa-pine"
+      >
+        {#each myCourses as course}
+          <option value={course.id}>{course.title}</option>
+        {/each}
+      </select>
+      {#if courseLoading}
+        <span class="flex items-center gap-1 text-xs text-ifa-text-muted"><Loader2 class="w-3.5 h-3.5 animate-spin" /> Loading…</span>
+      {/if}
+    </div>
+  {/if}
+
+  <!-- Run new research (adds to the selected course's sources) -->
   <form class="flex gap-3" on:submit|preventDefault={searchResearch}>
     <input
       type="search"
       bind:value={searchQuery}
-      placeholder="Try: Grade 12 physics mechanics"
+      placeholder="Research again — e.g. clean architecture patterns"
       aria-label="Research topic"
       class="flex-1 px-4 py-3 rounded-xl bg-ifa-card border border-ifa-border text-sm text-ifa-text-primary"
     />
@@ -48,8 +104,8 @@
       disabled={loading || !searchQuery.trim()}
       class="px-5 py-3 bg-ifa-pine text-white rounded-xl text-sm font-semibold flex items-center gap-2 disabled:opacity-50"
     >
-      <Search class="w-4 h-4" />
-      {loading ? 'Searching…' : 'Research'}
+      {#if loading}<Loader2 class="w-4 h-4 animate-spin" />{:else}<Search class="w-4 h-4" />{/if}
+      {loading ? 'Researching…' : 'Research'}
     </button>
   </form>
 
@@ -64,18 +120,51 @@
         <p class="text-sm text-ifa-text-secondary mt-2">{results.summary}</p>
       </div>
 
-      <div class="flex gap-6 text-sm text-ifa-text-secondary">
-        <span>{academicSources.length} academic results</span>
-        <span>{videoSources.length} video results</span>
+      <div class="flex flex-wrap gap-x-6 gap-y-1 text-sm text-ifa-text-secondary">
+        <span>{academicSources.length} papers</span>
+        <span>{videoSources.length} videos</span>
+        <span>{imageSources.length} images &amp; diagrams</span>
       </div>
 
       {#if results.sources.length === 0}
         <p class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          No sources were returned. Check the ScholarXiv API key and try another search phrase.
+          No sources yet. Run a research query above to populate this course's sources.
         </p>
       {:else}
+        <!-- Images & diagrams the system embeds in lessons -->
+        {#if imageSources.length > 0}
+          <div>
+            <h3 class="text-sm font-bold text-ifa-text-primary mb-3 flex items-center gap-2">
+              <ImageIcon class="w-4 h-4 text-ifa-pine" /> Images &amp; Diagrams
+            </h3>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {#each imageSources as source (source.id)}
+                <a
+                  href={source.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="group bg-ifa-card rounded-xl border border-ifa-border overflow-hidden hover:shadow-elevated transition"
+                >
+                  <div class="aspect-video bg-black/5 overflow-hidden">
+                    <img src={source.url} alt={source.title} loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                  </div>
+                  <div class="p-2.5 flex items-center gap-1.5">
+                    {#if source.sourceType === 'Graph'}
+                      <BarChart3 class="w-3.5 h-3.5 text-ifa-accent-purple shrink-0" />
+                    {:else}
+                      <ImageIcon class="w-3.5 h-3.5 text-ifa-pine shrink-0" />
+                    {/if}
+                    <span class="text-[11px] text-ifa-text-secondary line-clamp-1">{source.title}</span>
+                  </div>
+                </a>
+              {/each}
+            </div>
+          </div>
+        {/if}
+
+        <!-- Papers & videos -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {#each results.sources as source (source.id)}
+          {#each [...academicSources, ...videoSources] as source (source.id)}
             <article class="bg-ifa-card rounded-xl border border-ifa-border p-5">
               <div class="flex items-center gap-2 text-xs uppercase font-semibold text-ifa-text-secondary mb-2">
                 {#if source.sourceType === 'Video'}

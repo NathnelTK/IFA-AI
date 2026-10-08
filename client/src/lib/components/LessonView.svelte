@@ -2,10 +2,13 @@
   import { createEventDispatcher } from 'svelte';
   import { ArrowLeft, ArrowRight, CheckCircle2, Clock, Circle } from 'lucide-svelte';
   import type { Lesson } from '$lib/types';
+  import { renderMarkdown } from '$lib/utils/markdown';
 
   export let lesson: Lesson;
   export let moduleTitle: string;
   export let hasNext = false;
+
+  $: bodyHtml = renderMarkdown(lesson.contentMarkdown || (lesson.content ?? []).join('\n\n'));
 
   const dispatch = createEventDispatcher<{
     back: void;
@@ -44,12 +47,27 @@
       </div>
     </div>
 
+    <!-- Embedded lesson video (only when the research pipeline supplied one) -->
+    {#if lesson.youTubeVideoId}
+      <div class="aspect-video w-full overflow-hidden rounded-2xl border border-ifa-border bg-black">
+        <iframe
+          class="w-full h-full"
+          src={`https://www.youtube-nocookie.com/embed/${lesson.youTubeVideoId}`}
+          title={lesson.youTubeVideoTitle ?? 'Lesson video'}
+          loading="lazy"
+          referrerpolicy="strict-origin-when-cross-origin"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowfullscreen
+        ></iframe>
+      </div>
+    {/if}
+
     <!-- Lesson body -->
-    <div class="prose prose-sm max-w-none space-y-4">
-      <p class="text-sm font-medium text-ifa-text-secondary italic">{lesson.summary}</p>
-      {#each lesson.content as paragraph}
-        <p class="text-sm leading-relaxed text-ifa-text-primary">{paragraph}</p>
-      {/each}
+    <div class="prose prose-sm md:prose-base max-w-none dark:prose-invert prose-headings:text-ifa-text-primary prose-headings:font-bold prose-a:text-ifa-pine prose-strong:text-ifa-text-primary prose-code:text-ifa-pine prose-img:rounded-xl prose-img:border prose-img:border-ifa-border">
+      <p class="lead text-sm font-medium text-ifa-text-secondary italic">{lesson.summary}</p>
+      {#if bodyHtml}
+        {@html bodyHtml}
+      {/if}
     </div>
 
     <!-- Actions -->

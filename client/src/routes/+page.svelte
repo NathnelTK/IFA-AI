@@ -2,13 +2,17 @@
   import { goto } from '$app/navigation';
   import { ArrowRight, Play, Check, Star, Code2, Database, BookOpen, Target, Shield, Monitor, Zap } from 'lucide-svelte';
 
-  function handleStartLearning() {
-    goto('/home');
+  function handleSignIn() {
+    goto('/login');
+  }
+
+  function handleGetStarted() {
+    goto('/register');
   }
 
   function handleWatchDemo() {
-    // In a real implementation, this would open a video or demo
-    console.log('Watch demo clicked');
+    // Try the seeded demo learner so visitors can explore without signing up.
+    goto('/login');
   }
 </script>
 
@@ -36,14 +40,14 @@
       <div class="flex items-center gap-3">
         <button
           type="button"
-          on:click={handleStartLearning}
+          on:click={handleSignIn}
           class="text-sm font-semibold text-ifa-text-secondary hover:text-ifa-pine transition"
         >
           Sign In
         </button>
         <button
           type="button"
-          on:click={handleStartLearning}
+          on:click={handleGetStarted}
           class="px-5 py-2.5 rounded-xl bg-ifa-pine text-white text-sm font-semibold hover:bg-ifa-pine-light transition shadow-sm"
         >
           Get Started
@@ -76,7 +80,7 @@
           <div class="flex flex-wrap items-center gap-4">
             <button
               type="button"
-              on:click={handleStartLearning}
+              on:click={handleGetStarted}
               class="px-6 py-3.5 rounded-xl bg-ifa-pine text-white text-sm font-semibold hover:bg-ifa-pine-light transition shadow-sm flex items-center gap-2"
             >
               Start Learning Free
@@ -297,7 +301,7 @@
       </p>
       <button
         type="button"
-        on:click={handleStartLearning}
+        on:click={handleGetStarted}
         class="px-8 py-4 rounded-xl bg-white text-ifa-pine text-base font-semibold hover:bg-emerald-50 transition shadow-lg flex items-center gap-2 mx-auto"
       >
         Start Learning Free

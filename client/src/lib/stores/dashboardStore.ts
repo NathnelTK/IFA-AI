@@ -14,7 +14,7 @@ export const userProfile = writable({
   name: 'Nathnel',
   role: 'Learner',
   avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
-  greeting: 'Good morning, Nathnel ☀️',
+    greeting: 'Good morning, Nathnel',
   tagline: 'Small steps today, big goals tomorrow.'
 });
 
@@ -227,7 +227,8 @@ function mapPublicCourses(list: MarketplaceCourseDto[]): CourseCard[] {
     rating: course.rating,
     reviewCount: course.reviewCount,
     duration: course.estimatedDuration,
-    imageUrl: course.thumbnailUrl || undefined
+    imageUrl: course.thumbnailUrl || undefined,
+    shareCode: course.shareCode
   }));
 }
 
@@ -246,11 +247,13 @@ export async function loadDashboard(): Promise<void> {
     learnerApi
       .me()
       .then((me) => {
+        const name = me.name || 'Learner';
         userProfile.update((profile) => ({
           ...profile,
-          name: me.name || profile.name,
+          name,
           role: me.role || profile.role,
-          avatar: me.avatarUrl || profile.avatar
+          avatar: me.avatarUrl || profile.avatar,
+          greeting: `Good morning, ${name}`
         }));
       })
       .catch(() => undefined)

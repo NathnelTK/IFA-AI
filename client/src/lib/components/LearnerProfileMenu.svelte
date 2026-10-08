@@ -1,22 +1,10 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
   import { goto } from '$app/navigation';
   import { User, Settings, LogOut, ChevronDown, Layout, BookOpen, Trophy, Target } from 'lucide-svelte';
-
-  export let isOpen = false;
-
-  const dispatch = createEventDispatcher();
-
-  const user = {
-    name: 'Nathnel',
-    email: 'nathnel@example.com',
-    avatar: null,
-    role: 'Learner'
-  };
+  import { session, signOut } from '$lib/stores/sessionStore';
 
   const menuItems = [
-    { label: 'My Learning', icon: Layout, href: '/my-learning' },
-    { label: 'Courses', icon: BookOpen, href: '/courses' },
+    { label: 'My Courses', icon: BookOpen, href: '/courses' },
     { label: 'Skills', icon: Target, href: '/my-skills' },
     { label: 'Progress', icon: Trophy, href: '/progress' },
     { divider: true },
@@ -24,18 +12,19 @@
     { label: 'Sign Out', icon: LogOut, action: 'signout' }
   ];
 
-  function handleClose() {
-    isOpen = false;
-    dispatch('close');
-  }
+  let isOpen = false;
+
+  $: displayName = $session.name || $session.email?.split('@')[0] || 'Learner';
+  $: initial = displayName.charAt(0).toUpperCase();
 
   function handleItemClick(item: any) {
+    isOpen = false;
     if (item.action === 'signout') {
-      dispatch('signout');
+      signOut();
+      void goto('/login');
     } else if (item.href) {
-      goto(item.href);
+      void goto(item.href);
     }
-    handleClose();
   }
 </script>
 
@@ -43,13 +32,17 @@
   <!-- Trigger Button -->
   <button
     type="button"
-    on:click={() => isOpen = !isOpen}
-    class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-ifa-card-muted transition"
+    on:click={() => (isOpen = !isOpen)}
+    class="ifa-menu-trigger flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-ifa-card-muted transition"
   >
-    <div class="w-8 h-8 rounded-full bg-ifa-pine flex items-center justify-center text-white font-semibold text-sm">
-      {user.name.charAt(0)}
-    </div>
-    <span class="text-sm font-semibold text-ifa-text-primary hidden md:block">{user.name}</span>
+    {#if $session.avatarUrl}
+      <img src={$session.avatarUrl} alt="" class="w-8 h-8 rounded-full object-cover" />
+    {:else}
+      <div class="w-8 h-8 rounded-full bg-ifa-pine flex items-center justify-center text-white font-semibold text-sm">
+        {initial}
+      </div>
+    {/if}
+    <span class="text-sm font-semibold text-ifa-text-primary hidden md:block">{displayName}</span>
     <ChevronDown class="w-4 h-4 text-ifa-text-muted" />
   </button>
 
@@ -59,12 +52,16 @@
       <!-- User Info -->
       <div class="px-4 py-3 border-b border-ifa-border">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-full bg-ifa-pine flex items-center justify-center text-white font-semibold">
-            {user.name.charAt(0)}
-          </div>
-          <div>
-            <h3 class="text-sm font-bold text-ifa-text-primary">{user.name}</h3>
-            <p class="text-xs text-ifa-text-secondary">{user.email}</p>
+          {#if $session.avatarUrl}
+            <img src={$session.avatarUrl} alt="" class="w-10 h-10 rounded-full object-cover" />
+          {:else}
+            <div class="w-10 h-10 rounded-full bg-ifa-pine flex items-center justify-center text-white font-semibold">
+              {initial}
+            </div>
+          {/if}
+          <div class="min-w-0">
+            <h3 class="text-sm font-bold text-ifa-text-primary truncate">{displayName}</h3>
+            <p class="text-xs text-ifa-text-secondary truncate">{$session.email ?? 'Learner'}</p>
           </div>
         </div>
       </div>
@@ -78,7 +75,7 @@
             <button
               type="button"
               on:click={() => handleItemClick(item)}
-              class="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-ifa-card-muted transition"
+              class="ifa-menu-row w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-ifa-card-muted transition"
             >
               {#if item.icon === Layout}
                 <Layout class="w-4 h-4 text-ifa-text-muted" />
@@ -95,7 +92,7 @@
               {:else}
                 <User class="w-4 h-4 text-ifa-text-muted" />
               {/if}
-              <span class="text-sm text-ifa-text-primary {item.action === 'signout' ? 'text-red-500' : ''}">{item.label}</span>
+              <span class="text-sm {item.action === 'signout' ? 'text-red-600' : 'text-ifa-text-primary'}">{item.label}</span>
             </button>
           {/if}
         {/each}
@@ -104,10 +101,10 @@
   {/if}
 </div>
 
-<svelte:window on:click={(e) => {
-  if (!e.target) return;
-  const target = e.target as HTMLElement;
-  if (!target.closest('.relative')) {
-    isOpen = false;
-  }
-}} />
+<svelte:window
+  on:click={(e) => {
+    if (!e.target) return;
+    const target = e.target as HTMLElement;
+    if (!target.closest('.relative')) isOpen = false;
+  }}
+/>

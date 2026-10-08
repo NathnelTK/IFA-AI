@@ -65,7 +65,9 @@ export const demoCourses: Course[] = [
             ]
           }
         ],
-        quiz: {
+        quizzes: [{
+          isExam: true,
+          orderIndex: 1,
           id: 'csharp-m1-quiz',
           title: 'Fundamentals Check',
           bestScore: null,
@@ -102,7 +104,7 @@ export const demoCourses: Course[] = [
               explanation: 'Properties preserve the API surface, so you can add logic later without a breaking change.'
             }
           ]
-        }
+        }]
       },
       {
         id: 'csharp-m2',
@@ -134,7 +136,9 @@ export const demoCourses: Course[] = [
             ]
           }
         ],
-        quiz: {
+        quizzes: [{
+          isExam: true,
+          orderIndex: 1,
           id: 'csharp-m2-quiz',
           title: 'Databases Check',
           bestScore: null,
@@ -164,7 +168,7 @@ export const demoCourses: Course[] = [
               explanation: 'IQueryable translates to SQL so the database does the filtering, transferring less data.'
             }
           ]
-        }
+        }]
       },
       {
         id: 'csharp-m3',
@@ -196,7 +200,9 @@ export const demoCourses: Course[] = [
             ]
           }
         ],
-        quiz: {
+        quizzes: [{
+          isExam: true,
+          orderIndex: 1,
           id: 'csharp-m3-quiz',
           title: 'REST APIs Check',
           bestScore: null,
@@ -221,7 +227,7 @@ export const demoCourses: Course[] = [
               explanation: 'DTOs decouple the wire contract from your persistence model.'
             }
           ]
-        }
+        }]
       },
       {
         id: 'csharp-m4',
@@ -240,7 +246,8 @@ export const demoCourses: Course[] = [
               'Register authentication before authorization in the middleware pipeline, and protect endpoints with [Authorize] or policy requirements.'
             ]
           }
-        ]
+        ],
+        quizzes: []
       }
     ]
   },
@@ -288,7 +295,9 @@ export const demoCourses: Course[] = [
             ]
           }
         ],
-        quiz: {
+        quizzes: [{
+          isExam: true,
+          orderIndex: 1,
           id: 'py-m1-quiz',
           title: 'Python Basics Check',
           bestScore: null,
@@ -308,7 +317,7 @@ export const demoCourses: Course[] = [
               explanation: 'Python uses indentation to delimit blocks.'
             }
           ]
-        }
+        }]
       },
       {
         id: 'py-m2',
@@ -327,7 +336,8 @@ export const demoCourses: Course[] = [
               'Keep functions focused and give them descriptive names — the name is documentation.'
             ]
           }
-        ]
+        ],
+        quizzes: []
       }
     ]
   },
@@ -374,7 +384,9 @@ export const demoCourses: Course[] = [
             ]
           }
         ],
-        quiz: {
+        quizzes: [{
+          isExam: true,
+          orderIndex: 1,
           id: 'sql-m1-quiz',
           title: 'SQL Query Check',
           bestScore: null,
@@ -387,7 +399,7 @@ export const demoCourses: Course[] = [
               explanation: 'A LEFT JOIN preserves unmatched left-side rows, filling the right side with NULLs.'
             }
           ]
-        }
+        }]
       }
     ]
   },
@@ -422,7 +434,9 @@ export const demoCourses: Course[] = [
             ]
           }
         ],
-        quiz: {
+        quizzes: [{
+          isExam: true,
+          orderIndex: 1,
           id: 'aspnet-m1-quiz',
           title: 'Pipeline Check',
           bestScore: 92,
@@ -435,7 +449,7 @@ export const demoCourses: Course[] = [
               explanation: 'Authentication establishes who the user is before authorization decides what they can do.'
             }
           ]
-        }
+        }]
       }
     ]
   }

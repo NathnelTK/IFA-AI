@@ -31,7 +31,7 @@
       </div>
       <h3 class="text-sm font-bold text-ifa-text-primary tracking-tight">Continue Your Learning</h3>
     </div>
-    <a href="/my-learning" class="text-xs font-semibold text-ifa-text-muted hover:text-ifa-pine transition flex items-center gap-1">
+    <a href="/courses" class="text-xs font-semibold text-ifa-text-muted hover:text-ifa-pine transition flex items-center gap-1">
       <span>View all</span>
       <ArrowRight class="w-3.5 h-3.5" />
     </a>

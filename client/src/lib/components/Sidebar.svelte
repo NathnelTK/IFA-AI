@@ -16,8 +16,7 @@
 
   const navItems = [
     { id: 'home', label: 'Home', icon: Home, href: '/home' },
-    { id: 'my-learning', label: 'My Learning', icon: GraduationCap, href: '/my-learning' },
-    { id: 'courses', label: 'Courses', icon: BookOpen, href: '/courses' },
+    { id: 'courses', label: 'My Courses', icon: BookOpen, href: '/courses' },
     { id: 'marketplace', label: 'Marketplace', icon: Globe2, href: '/marketplace' },
     { id: 'recommendations', label: 'Recommendations', icon: Lightbulb, href: '/recommendations' },
     { id: 'ai-tutor', label: 'AI Tutor', icon: Bot, href: '/ai-tutor' },
@@ -37,7 +36,7 @@
       </div>
       <div>
         <div class="flex items-center gap-1.5 font-bold text-xl tracking-tight text-ifa-pine">
-          <span>✦ IFA</span>
+          <span>IFA</span>
         </div>
         <p class="text-[11px] text-ifa-text-secondary font-medium tracking-wide">Your AI Learning Companion</p>
       </div>

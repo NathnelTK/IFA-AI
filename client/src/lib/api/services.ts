@@ -1,11 +1,16 @@
 import { api } from './client';
 import type {
 	CourseDetailDto,
+	CoursePipelineProposalDto,
 	CourseSummaryDto,
+	DemoAccountDto,
+	IntakeHistoryMessage,
+	IntakeResponseDto,
 	LearnerMeDto,
 	LearnerProfileDto,
 	LearnerSettingsDto,
 	LearnerSkillsResultDto,
+	LearnerProgressDto,
 	LearningActivityDto,
 	MarketplaceCourseDto,
 	NotificationDto,
@@ -26,15 +31,28 @@ export const authApi = {
 		api.post<TokenResult>('/api/auth/login', body),
 	/** No credentials required — issues a token for the seeded demo learner. */
 	demoLogin: () => api.post<TokenResult>('/api/auth/demo-login'),
-	me: () => api.get<LearnerMeDto>('/api/auth/me')
+	/** Seeded demo learners the sign-in screen can offer for one-click access. */
+	demoAccounts: () => api.get<DemoAccountDto[]>('/api/auth/demo-accounts'),
+	me: () => api.get<LearnerMeDto>('/api/auth/me'),
+	/** Update the signed-in learner's editable profile (name, avatar). */
+	updateMe: (body: { name?: string; avatarUrl?: string }) =>
+		api.put<{ id: string; name: string; email: string; role: string; avatarUrl: string; overallProgress: number }>(
+			'/api/auth/me',
+			body
+		)
 };
 
 export const coursesApi = {
 	/** Enrolled courses for the signed-in learner (auto-seeds one if empty). */
 	listMine: () => api.get<CourseSummaryDto[]>('/api/courses'),
 	getById: (id: string) => api.get<CourseDetailDto>(`/api/courses/${id}`),
-	create: (body: { goal: string; hoursPerWeek?: number; preferredCreator?: string }) =>
-		api.post<CourseDetailDto>('/api/courses', body),
+	create: (body: {
+		goal: string;
+		hoursPerWeek?: number;
+		preferredCreator?: string;
+		materials?: string[];
+		coverImageUrl?: string;
+	}) => api.post<CourseDetailDto>('/api/courses', body),
 	marketplace: (params?: { category?: string; search?: string }) =>
 		api.get<MarketplaceCourseDto[]>('/api/courses/marketplace', params),
 	publish: (id: string) => api.post<{ isPublic: boolean }>(`/api/courses/${id}/publish`),
@@ -96,6 +114,11 @@ export const activityApi = {
 	recent: (limit = 20) => api.get<LearningActivityDto[]>('/api/activity', { limit })
 };
 
+export const progressApi = {
+	/** Aggregated real per-learner progress used by the Progress page. */
+	get: () => api.get<LearnerProgressDto>('/api/progress')
+};
+
 export const notificationsApi = {
 	list: (unreadOnly = false) => api.get<NotificationDto[]>('/api/notifications', { unreadOnly }),
 	markRead: (id: string) => api.post<{ success: boolean }>(`/api/notifications/${id}/read`),
@@ -113,10 +136,15 @@ export const searchApi = {
 };
 
 export const aiApi = {
-	intakeMessage: (message: string, history: unknown[] = []) =>
-		api.post<unknown>('/api/ai/intake/message', { message, history }),
-	proposeCourse: (body: { goal: string; hoursPerWeek?: number; preferredCreator?: string }) =>
-		api.post<unknown>('/api/ai/course/propose', body),
+	/** Model 1 (Learning Advisor): one conversational turn of the intake. */
+	intakeMessage: (message: string, history: IntakeHistoryMessage[] = []) =>
+		api.post<IntakeResponseDto>('/api/ai/intake/message', { message, history }),
+	proposeCourse: (body: {
+		goal: string;
+		hoursPerWeek?: number;
+		preferredCreator?: string;
+		materials?: string[];
+	}) => api.post<CoursePipelineProposalDto>('/api/ai/course/propose', body),
 	tutorChat: (body: {
 		message: string;
 		history?: Array<{ role: 'user' | 'assistant'; content: string }>;

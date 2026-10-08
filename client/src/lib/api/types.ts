@@ -100,8 +100,8 @@ export interface BackendLessonDto {
 	summary: string;
 	contentMarkdown: string;
 	readingTimeMinutes: number;
-	youtubeVideoId: string | null;
-	youtubeVideoTitle: string | null;
+	youTubeVideoId: string | null;
+	youTubeVideoTitle: string | null;
 }
 
 export interface BackendQuestionDto {
@@ -119,6 +119,8 @@ export interface BackendQuizDto {
 	moduleId: string;
 	title: string;
 	passingScorePercentage: number;
+	kind: number;
+	orderIndex: number;
 	questions: BackendQuestionDto[];
 }
 
@@ -131,7 +133,7 @@ export interface BackendModuleDto {
 	estimatedHours: number;
 	generationStatus: number | string;
 	lessons: BackendLessonDto[];
-	moduleQuiz: BackendQuizDto | null;
+	quizzes: BackendQuizDto[];
 }
 
 /** GET /api/courses/{id} — full course with modules, lessons, and quizzes. */
@@ -229,4 +231,110 @@ export interface PeerComparisonDto {
 	totalEnrolled: number;
 	rank: number;
 	paceStatus: string;
+}
+
+/** GET /api/progress — real per-learner aggregates for the Progress page. */
+export interface ProgressStatsDto {
+	totalCourses: number;
+	completedCourses: number;
+	inProgressCourses: number;
+	overallProgress: number;
+	totalStudyTime: string;
+	totalHours: number;
+	weeklyStudyTime: string;
+	weeklyStudyHours: number;
+	learningStreak: number;
+}
+
+export interface WeeklyActivityDto {
+	day: string;
+	date: string;
+	hours: number;
+}
+
+export interface ProgressSkillDto {
+	name: string;
+	percentage: number;
+	improvement: string;
+	color: string;
+}
+
+export interface ProgressAssessmentDto {
+	id: string;
+	type: string;
+	title: string;
+	course: string;
+	courseId: string;
+	score: number;
+	passed: boolean;
+	attemptNumber: number;
+	submittedAt: string;
+}
+
+export interface ProgressWeakAreaDto {
+	skill: string;
+	currentLevel: number;
+	targetLevel: number;
+}
+
+export interface LearnerProgressDto {
+	stats: ProgressStatsDto;
+	weeklyActivity: WeeklyActivityDto[];
+	skillProgress: ProgressSkillDto[];
+	assessments: ProgressAssessmentDto[];
+	weakAreas: ProgressWeakAreaDto[];
+	avgQuizScore: number;
+	totalQuestions: number;
+}
+
+/** GET /api/auth/demo-accounts */
+export interface DemoAccountDto {
+	name: string;
+	email: string;
+	role: string;
+	avatarUrl: string;
+}
+
+/** POST /api/ai/intake/message — Model 1 (Learning Advisor / intake). */
+export interface IntakeProfileDto {
+	learningGoal: string;
+	subject: string;
+	currentLevel: string;
+	targetOutcome: string;
+	weeklyStudyHours: number;
+	preferredLanguage: string;
+	learningStyle: string;
+	constraints: string;
+	preferredYouTubeChannels: string[];
+	knownStrengths: string[];
+	knownWeaknesses: string[];
+}
+
+export interface IntakeResponseDto {
+	reply: string;
+	isProfileReady: boolean;
+	profile: IntakeProfileDto | null;
+	suggestedResearchTopics: string[];
+	followUpQuestions: string[];
+}
+
+export interface IntakeHistoryMessage {
+	role: 'user' | 'assistant';
+	content: string;
+}
+
+/** POST /api/ai/course/propose — Model 2 (Course Architect) blueprint. */
+export interface PipelineProposalModuleDto {
+	moduleNumber: number;
+	title: string;
+	summary: string;
+	estimatedHours: number;
+	keyTopics: string[];
+}
+
+export interface CoursePipelineProposalDto {
+	courseTitle: string;
+	targetGoal: string;
+	totalEstimatedHours: number;
+	modules: PipelineProposalModuleDto[];
 }

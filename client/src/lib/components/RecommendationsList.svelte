@@ -4,6 +4,10 @@
   import { getRecommendationIcon } from '$lib/icons';
 
   export let onSelectRecommendation = (actionUrl: string) => {};
+
+  // Home page shows only a preview; the full list lives on /recommendations.
+  const HOME_PREVIEW_COUNT = 3;
+  $: previewRecommendations = $recommendations.slice(0, HOME_PREVIEW_COUNT);
 </script>
 
 <div class="bg-ifa-card rounded-3xl border border-ifa-border p-5 shadow-card space-y-3">
@@ -23,7 +27,7 @@
 
   <!-- Recommendation Items -->
   <div class="space-y-2">
-    {#each $recommendations as rec}
+    {#each previewRecommendations as rec}
       {@const Icon = getRecommendationIcon(rec.type)}
       <button
         type="button"

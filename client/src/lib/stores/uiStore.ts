@@ -1,5 +1,6 @@
-import { writable } from 'svelte/store';
+import { writable, get } from 'svelte/store';
 import { browser } from '$app/environment';
+import { preferences, updatePreferences, applyPreferences, type ThemeMode } from './preferencesStore';
 
 /**
  * UI store — cross-component overlay state and theme.
@@ -8,6 +9,10 @@ import { browser } from '$app/environment';
  * flip the same flags here, and the overlay components (NotificationCenter,
  * CommandPalette, LearnerProfileMenu) read them — so any trigger opens the
  * right panel from anywhere.
+ *
+ * Theme now lives in the preferences store (theme/accent/font/compact/motion);
+ * this module re-exposes a light/dark view of it for the header toggle so the
+ * two never drift apart.
  */
 export const commandPaletteOpen = writable(false);
 export const notificationsOpen = writable(false);
@@ -25,31 +30,31 @@ export function toggleProfileMenu() {
 
 export type Theme = 'light' | 'dark';
 
-function readInitialTheme(): Theme {
-  if (!browser) return 'light';
-  const stored = localStorage.getItem('ifa-theme');
-  if (stored === 'light' || stored === 'dark') return stored;
-  return 'light'; // Default to light mode
-}
+/** The currently *resolved* light/dark value (system collapses to one of them). */
+export const theme = writable<Theme>(
+  browser ? (document.documentElement.classList.contains('dark') ? 'dark' : 'light') : 'light'
+);
 
-export const theme = writable<Theme>(readInitialTheme());
-
-/** Apply the theme to <html> and persist it. Safe to call before hydration. */
-export function applyTheme(value: Theme) {
-  if (!browser) return;
-  document.documentElement.classList.toggle('dark', value === 'dark');
-  localStorage.setItem('ifa-theme', value);
-}
-
-export function toggleTheme() {
-  theme.update((current) => {
-    const next: Theme = current === 'dark' ? 'light' : 'dark';
-    applyTheme(next);
-    return next;
+if (browser) {
+  // Keep the light/dark view in sync with the full preferences store.
+  preferences.subscribe(() => {
+    const resolved: Theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+    theme.set(resolved);
   });
 }
 
-export function setTheme(value: Theme) {
-  theme.set(value);
-  applyTheme(value);
+/** Explicitly set the theme mode (light | dark | system) and re-apply. */
+export function setTheme(value: ThemeMode) {
+  updatePreferences({ theme: value });
+}
+
+/** Flip between light and dark from the header (system resolves first). */
+export function toggleTheme() {
+  const current: Theme = get(theme);
+  updatePreferences({ theme: current === 'dark' ? 'light' : 'dark' });
+}
+
+/** Re-apply the stored preferences (safe to call before hydration). */
+export function applyTheme(_value?: Theme) {
+  applyPreferences();
 }

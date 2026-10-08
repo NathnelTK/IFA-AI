@@ -11,7 +11,9 @@
     PlayCircle,
     Share2,
     Bookmark,
-    BookmarkCheck
+    BookmarkCheck,
+    Loader2,
+    Sparkles
   } from 'lucide-svelte';
   import LessonView from '$lib/components/LessonView.svelte';
   import QuizView from '$lib/components/QuizView.svelte';
@@ -36,7 +38,7 @@
   type View =
     | { kind: 'outline' }
     | { kind: 'lesson'; moduleId: string; lessonId: string }
-    | { kind: 'quiz'; moduleId: string };
+    | { kind: 'quiz'; moduleId: string; quizId: string };
   let view: View = { kind: 'outline' };
 
   let shareOpen = false;
@@ -71,6 +73,11 @@
     const lessonId = view.lessonId;
     return activeModule.lessons.find((l) => l.id === lessonId) ?? null;
   })();
+  $: activeQuiz = (() => {
+    if (view.kind !== 'quiz' || !activeModule) return null;
+    const quizId = view.quizId;
+    return activeModule.quizzes.find((q) => q.id === quizId) ?? null;
+  })();
 
   // Flatten lessons for "next lesson" navigation.
   $: flatLessons = course
@@ -81,8 +88,8 @@
     view = { kind: 'lesson', moduleId, lessonId };
     scrollTop();
   }
-  function openQuiz(moduleId: string) {
-    view = { kind: 'quiz', moduleId };
+  function openQuiz(moduleId: string, quizId: string) {
+    view = { kind: 'quiz', moduleId, quizId };
     scrollTop();
   }
   function backToOutline() {
@@ -162,9 +169,9 @@
         on:complete={(e) => handleComplete(e.detail.lessonId)}
         on:next={() => activeLesson && goNext(activeLesson.id)}
       />
-    {:else if view.kind === 'quiz' && activeModule?.quiz}
+    {:else if view.kind === 'quiz' && activeQuiz && activeModule}
       <QuizView
-        quiz={activeModule.quiz}
+        quiz={activeQuiz}
         moduleTitle={activeModule.title}
         on:back={backToOutline}
         on:scored={(e) => handleScored(e.detail.quizId, e.detail.score)}
@@ -293,39 +300,52 @@
                 {#if module.lessons.length === 0}
                   <div class="px-5 py-4">
                     <p class="text-xs text-ifa-text-secondary mb-3">
-                      Generate a lesson grounded in current ScholarXiv search results, with an exam-style quiz.
+                      Generate this module's lesson and exam-style quiz. Research is already handled in the
+                      pipeline's research stage, so this builds content only.
                     </p>
                     <button
                       type="button"
                       disabled={generatingModuleId !== null}
                       on:click={() => generateModule(module.id)}
-                      class="px-4 py-2 bg-ifa-pine text-white rounded-lg text-xs font-semibold disabled:opacity-50"
+                      class="px-4 py-2 bg-ifa-pine text-white rounded-lg text-xs font-semibold disabled:opacity-50 inline-flex items-center gap-2"
                     >
-                      {generatingModuleId === module.id ? 'Researching and building…' : 'Research & build this module'}
+                      {#if generatingModuleId === module.id}
+                        <Loader2 class="w-3.5 h-3.5 animate-spin" />
+                        <span>Generating module…</span>
+                      {:else}
+                        <Sparkles class="w-3.5 h-3.5" />
+                        <span>Generate this module</span>
+                      {/if}
                     </button>
                   </div>
                 {/if}
 
-                <!-- Quiz row -->
-                {#if module.quiz}
+                <!-- Quiz rows: mini-quizzes then the module exam -->
+                {#each module.quizzes as quiz}
                   <button
                     type="button"
-                    on:click={() => openQuiz(module.id)}
+                    on:click={() => openQuiz(module.id, quiz.id)}
                     class="w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-ifa-card-muted/60 transition group bg-ifa-card-muted/30"
                   >
-                    <ClipboardCheck class="w-4 h-4 text-ifa-accent-purple shrink-0" />
+                    {#if quiz.isExam}
+                      <ClipboardCheck class="w-4 h-4 text-ifa-accent-purple shrink-0" />
+                    {:else}
+                      <ClipboardCheck class="w-4 h-4 text-ifa-pine shrink-0" />
+                    {/if}
                     <div class="flex-1 min-w-0">
                       <p class="text-sm font-semibold text-ifa-text-primary group-hover:text-ifa-pine transition">
-                        {module.quiz.title}
+                        {quiz.title}
                       </p>
                       <p class="text-[11px] text-ifa-text-muted">
-                        {module.quiz.questions.length} questions
-                        {#if module.quiz.bestScore !== null}• best {module.quiz.bestScore}%{/if}
+                        {quiz.isExam ? 'Module exam' : 'Mini-quiz'} • {quiz.questions.length} questions
+                        {#if quiz.bestScore !== null}• best {quiz.bestScore}%{/if}
                       </p>
                     </div>
-                    <span class="text-[11px] font-bold text-ifa-accent-purple shrink-0">Take quiz</span>
+                    <span class="text-[11px] font-bold {quiz.isExam ? 'text-ifa-accent-purple' : 'text-ifa-pine'} shrink-0">
+                      {quiz.isExam ? 'Take exam' : 'Take quiz'}
+                    </span>
                   </button>
-                {/if}
+                {/each}
               </div>
             </div>
           {/each}

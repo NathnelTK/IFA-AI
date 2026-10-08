@@ -34,6 +34,8 @@ export interface CourseCard {
   duration: string;
   imageUrl?: string;
   enrolled?: boolean;
+  /** Optional share code so the card can enroll the learner directly. */
+  shareCode?: string;
 }
 
 export interface CurrentLearningModule {
@@ -52,8 +54,13 @@ export interface Lesson {
   id: string;
   title: string;
   summary: string;
-  /** Reader body, rendered as simple paragraphs/sections in LessonView. */
+  /** Raw markdown body from the AI pipeline, rendered via the typography plugin. */
+  contentMarkdown?: string;
+  /** Legacy plain-text paragraphs (fallback for catalog/demo lessons). */
   content: string[];
+  /** Optional embedded YouTube video surfaced from the research pipeline. */
+  youTubeVideoId?: string | null;
+  youTubeVideoTitle?: string | null;
   duration: string;
   completed: boolean;
 }
@@ -71,6 +78,10 @@ export interface Quiz {
   id: string;
   title: string;
   questions: QuizQuestion[];
+  /** True for the comprehensive module exam; false for mid-module mini-quizzes. */
+  isExam: boolean;
+  /** Sort order within the module (mini-quizzes first, exam last). */
+  orderIndex: number;
   /** Best score the learner has achieved, 0-100, or null if never attempted. */
   bestScore: number | null;
 }
@@ -80,7 +91,7 @@ export interface Module {
   title: string;
   summary: string;
   lessons: Lesson[];
-  quiz?: Quiz;
+  quizzes: Quiz[];
 }
 
 export interface Course {

@@ -28,22 +28,6 @@
 
     <div class="flex items-center justify-between">
       <div>
-        <h3 class="text-sm font-semibold text-ifa-text-primary">New Module Alerts</h3>
-        <p class="text-xs text-ifa-text-secondary">Notify when new modules are ready</p>
-      </div>
-      <button
-        type="button"
-        on:click={() => settings.newModuleAlerts = !settings.newModuleAlerts}
-        class="relative w-12 h-6 rounded-full transition-colors {settings.newModuleAlerts ? 'bg-ifa-pine' : 'bg-gray-300'}"
-      >
-        <span
-          class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform {settings.newModuleAlerts ? 'translate-x-6' : 'translate-x-0'}"
-        ></span>
-      </button>
-    </div>
-
-    <div class="flex items-center justify-between">
-      <div>
         <h3 class="text-sm font-semibold text-ifa-text-primary">Assessment Results</h3>
         <p class="text-xs text-ifa-text-secondary">Get notified when you complete quizzes/tests</p>
       </div>
