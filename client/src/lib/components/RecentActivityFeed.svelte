@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowRight, CheckSquare2, BookMarked, Search, Mic, Sparkles } from 'lucide-svelte';
+  import { ArrowRight, CheckSquare2, BookMarked, Search, Mic, Activity } from 'lucide-svelte';
   import { recentActivities } from '../stores/dashboardStore';
 </script>
 
@@ -8,7 +8,7 @@
   <div class="flex items-center justify-between">
     <div class="flex items-center gap-2">
       <div class="w-6 h-6 rounded-lg bg-ifa-pine/10 flex items-center justify-center text-ifa-pine">
-        <Sparkles class="w-3.5 h-3.5 text-emerald-700" />
+        <Activity class="w-3.5 h-3.5 text-emerald-700" />
       </div>
       <h3 class="text-xs font-bold text-ifa-text-primary tracking-tight">Recent Activity</h3>
     </div>

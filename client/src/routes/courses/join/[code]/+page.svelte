@@ -1,37 +1,57 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
   import { CheckCircle, AlertCircle, Loader2, ArrowRight } from 'lucide-svelte';
+  import { coursesApi } from '$lib/api';
 
   export let code: string;
 
+  interface PreviewCourse {
+    id: string;
+    title: string;
+    description: string;
+    moduleCount: number;
+    estimatedDuration: string;
+  }
+
   let loading = true;
   let error = false;
-  let success = false;
-  let courseInfo: any = null;
+  let errorMessage = '';
+  let courseInfo: PreviewCourse | null = null;
+  let enrolling = false;
 
   onMount(async () => {
-    // Simulate API call to validate share code and get course info
-    setTimeout(() => {
+    try {
+      const course = await coursesApi.previewJoin(code);
+      courseInfo = {
+        id: course.id,
+        title: course.title,
+        description: course.description || 'Join this course and start learning.',
+        moduleCount: course.moduleCount,
+        estimatedDuration: course.estimatedDuration
+      };
+    } catch {
+      error = true;
+    } finally {
       loading = false;
-      // In real implementation, validate share code with backend
-      if (code.length === 8) {
-        success = true;
-        courseInfo = {
-          title: 'C# Backend Development',
-          description: 'Master C# backend development with ASP.NET Core, REST APIs, and database design.',
-          modules: 4,
-          duration: '8 weeks'
-        };
-      } else {
-        error = true;
-      }
-    }, 1000);
+    }
   });
 
-  function handleEnroll() {
-    // In real implementation, call enrollment API
-    console.log('Enrolling in course with code:', code);
-    success = true;
+  async function handleEnroll() {
+    if (enrolling) return;
+    enrolling = true;
+    errorMessage = '';
+    try {
+      const result = await coursesApi.join(code);
+      const targetId = result?.courseId || courseInfo?.id;
+      if (targetId) {
+        await goto(`/courses/${targetId}`);
+      }
+    } catch (cause) {
+      errorMessage = cause instanceof Error ? cause.message : 'Enrollment failed. Please try again.';
+    } finally {
+      enrolling = false;
+    }
   }
 </script>
 
@@ -43,19 +63,19 @@
         <p class="text-ifa-text-secondary">Validating share code...</p>
       </div>
     {:else if error}
-      <div class="bg-ifa-card rounded-2xl border border-red-200 p-8 text-center">
+      <div class="bg-ifa-card rounded-2xl border border-ifa-border p-8 text-center">
         <AlertCircle class="w-12 h-12 text-red-500 mx-auto mb-4" />
         <h2 class="text-xl font-bold text-ifa-text-primary mb-2">Invalid or Expired Link</h2>
         <p class="text-ifa-text-secondary mb-6">This share link is invalid or has expired. Please contact the person who shared it with you.</p>
         <a
-          href="/"
+          href="/home"
           class="inline-flex items-center gap-2 px-4 py-2 bg-ifa-pine text-white rounded-lg text-sm font-semibold hover:bg-emerald-800 transition"
         >
           <span>Go to IFA</span>
           <ArrowRight class="w-4 h-4" />
         </a>
       </div>
-    {:else if success && courseInfo}
+    {:else if courseInfo}
       <div class="bg-ifa-card rounded-2xl border border-ifa-border p-8">
         <div class="text-center mb-6">
           <div class="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
@@ -69,19 +89,29 @@
           <h3 class="text-lg font-bold text-ifa-text-primary mb-2">{courseInfo.title}</h3>
           <p class="text-sm text-ifa-text-secondary mb-4">{courseInfo.description}</p>
           <div class="flex items-center gap-4 text-xs text-ifa-text-muted">
-            <span>{courseInfo.modules} modules</span>
+            <span>{courseInfo.moduleCount} modules</span>
             <span>•</span>
-            <span>{courseInfo.duration}</span>
+            <span>{courseInfo.estimatedDuration}</span>
           </div>
         </div>
+
+        {#if errorMessage}
+          <p role="alert" class="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{errorMessage}</p>
+        {/if}
 
         <button
           type="button"
           on:click={handleEnroll}
-          class="w-full py-3 bg-ifa-pine text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 hover:bg-emerald-800 transition"
+          disabled={enrolling}
+          class="w-full py-3 bg-ifa-pine text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 hover:bg-emerald-800 transition disabled:opacity-60"
         >
-          <span>Enroll Now</span>
-          <ArrowRight class="w-4 h-4" />
+          {#if enrolling}
+            <Loader2 class="w-4 h-4 animate-spin" />
+            <span>Enrolling…</span>
+          {:else}
+            <span>Enroll Now</span>
+            <ArrowRight class="w-4 h-4" />
+          {/if}
         </button>
 
         <p class="text-xs text-ifa-text-muted text-center mt-4">

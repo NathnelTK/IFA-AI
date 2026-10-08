@@ -11,7 +11,7 @@
 
   let goalInput = '';
   let isListening = false;
-  let conversationState: 'idle' | 'chatting' | 'scoping' | 'pipeline_ready' | 'generating' = 'idle';
+  let conversationState: 'idle' | 'chatting' | 'scoping' | 'pipeline_ready' | 'generating' | 'saved' = 'idle';
   let generatingPhase: 'blueprint' | 'module1' = 'blueprint';
   let error = '';
 
@@ -33,6 +33,8 @@
 
   // Pipeline proposal modules (filled by the Course Architect AI)
   let pipelineModules: PipelineModuleProposal[] = [];
+  // Set once the blueprint has been saved to My Courses.
+  let savedCourseId = '';
 
   afterUpdate(() => {
     chatListEl?.scrollTo({ top: chatListEl.scrollHeight });
@@ -166,25 +168,30 @@
     }
   }
 
-  async function handleApprovePipeline() {
+  async function handleSaveCourse() {
     generatingPhase = 'module1';
     conversationState = 'generating';
     error = '';
     try {
+      // Persist the blueprint only — content is generated later, per module,
+      // from the course page. This keeps the save fast (no long synchronous
+      // generation) and lets the learner start from My Courses.
       const course = await coursesApi.create({
         goal: goalInput.trim(),
         hoursPerWeek: Number(hoursPerWeek) || 5,
         preferredCreator: preferredChannel,
         materials: parseMaterials(),
-        coverImageUrl: resolvedCoverUrl()
+        coverImageUrl: resolvedCoverUrl(),
+        generateFirstModule: false
       });
       onGoalSubmit(goalInput.trim());
       // Merge the fresh course into the store so it shows in My Courses
       // immediately (the /courses page reads this store).
       await loadCourseDetail(course.id).catch(() => {});
-      await goto(`/courses/${course.id}`);
+      savedCourseId = course.id;
+      conversationState = 'saved';
     } catch (cause) {
-      error = cause instanceof Error ? cause.message : 'Could not generate the course.';
+      error = cause instanceof Error ? cause.message : 'Could not save the course.';
       conversationState = 'pipeline_ready';
     }
   }
@@ -481,7 +488,7 @@
             <BookOpen class="w-3.5 h-3.5 text-emerald-600" /> Proposed Course Blueprint (JIT Generation)
           </span>
           <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold">
-            Module 1 ready on start
+            Generate content on demand
           </span>
         </div>
 
@@ -509,11 +516,11 @@
         <div class="flex items-center gap-2 pt-1">
           <button
             type="button"
-            on:click={handleApprovePipeline}
+            on:click={handleSaveCourse}
             class="flex-1 py-2.5 rounded-xl bg-ifa-pine hover:bg-ifa-pine-light text-white text-xs font-bold transition flex items-center justify-center gap-1.5"
           >
             <Check class="w-3.5 h-3.5" />
-            <span>Approve &amp; generate course</span>
+            <span>Save to My Courses</span>
           </button>
           <button
             type="button"
@@ -535,9 +542,38 @@
           <p class="text-xs font-bold text-ifa-pine">Designing your course blueprint…</p>
           <p class="text-[11px] text-ifa-text-secondary">The Course Architect is structuring your modules.</p>
         {:else}
-          <p class="text-xs font-bold text-ifa-pine">Generating module 1…</p>
-          <p class="text-[11px] text-ifa-text-secondary">Research is attached and the builder is writing your first lesson.</p>
+          <p class="text-xs font-bold text-ifa-pine">Saving your course…</p>
+          <p class="text-[11px] text-ifa-text-secondary">Persisting your blueprint to My Courses.</p>
         {/if}
+      </div>
+
+    <!-- State 6: Saved to My Courses -->
+    {:else if conversationState === 'saved'}
+      <div class="bg-ifa-card/95 backdrop-blur-md rounded-2xl p-6 border border-ifa-border shadow-elevated text-center space-y-3">
+        <div class="w-10 h-10 mx-auto rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700">
+          <Check class="w-5 h-5" />
+        </div>
+        <p class="text-xs font-bold text-ifa-pine">Saved to My Courses</p>
+        <p class="text-[11px] text-ifa-text-secondary">
+          Your course blueprint is saved. Open it and generate each module whenever you're ready.
+        </p>
+        <div class="flex items-center gap-2 pt-1">
+          <button
+            type="button"
+            on:click={() => goto(`/courses/${savedCourseId}`)}
+            class="flex-1 py-2.5 rounded-xl bg-ifa-pine hover:bg-ifa-pine-light text-white text-xs font-bold transition flex items-center justify-center gap-1.5"
+          >
+            <BookOpen class="w-3.5 h-3.5" />
+            <span>Open course</span>
+          </button>
+          <button
+            type="button"
+            on:click={() => goto('/courses')}
+            class="px-3 py-2.5 rounded-xl bg-ifa-card-muted border border-ifa-border text-ifa-text-secondary hover:text-ifa-text-primary text-xs font-semibold"
+          >
+            My Courses
+          </button>
+        </div>
       </div>
     {/if}
   </div>

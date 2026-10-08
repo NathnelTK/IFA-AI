@@ -40,6 +40,18 @@ namespace IFA.Infrastructure.Services
                     lessonContext = $"Current Lesson: {lesson.Title}\nLesson Summary: {lesson.Summary}\nLesson Content Excerpt:\n{lesson.ContentMarkdown?.Take(1000).ToArray()}";
                 }
             }
+            else if (request.CourseId.HasValue && request.CourseId != Guid.Empty)
+            {
+                // No specific lesson open — scope the tutor to the chosen course
+                // so its subject matches what the learner is studying.
+                var course = await _context.Courses
+                    .FirstOrDefaultAsync(c => c.Id == request.CourseId.Value, ct);
+
+                if (course != null)
+                {
+                    courseContext = $"Course: {course.Title}\nCategory: {course.Category}\nDescription: {course.Description}\n";
+                }
+            }
 
             var weakSkills = await _context.SkillMetrics
                 .Where(s => s.LearnerId == learnerId && s.IsWeakArea)
@@ -56,7 +68,15 @@ namespace IFA.Infrastructure.Services
 
             var userPrompt = $"CONTEXT:\n{courseContext}\n{lessonContext}\n{skillsContext}\n\nCONVERSATION HISTORY:\n{historyText}\n\nLEARNER QUESTION:\n{request.Message}";
 
-            var reply = await _llmGateway.CompleteAsync(PromptRegistry.TutorSystemPrompt, userPrompt, LlmRole.Tutor, ct);
+            // When the learner has picked a specific course, tutor strictly within
+            // that course's subject instead of the fixed exam-prep persona.
+            var systemPrompt = string.IsNullOrWhiteSpace(courseContext)
+                ? PromptRegistry.TutorSystemPrompt
+                : "You are IFA's AI tutor for a specific course the learner is enrolled in. " +
+                  "Teach according to the COURSE CONTEXT below — match that course's subject, level and terminology. " +
+                  "Be concise, well-structured, and give worked examples where useful.";
+
+            var reply = await _llmGateway.CompleteAsync(systemPrompt, userPrompt, LlmRole.Tutor, ct);
 
             // Extract code snippet if present
             string? codeSnippet = null;

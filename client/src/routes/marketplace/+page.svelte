@@ -5,6 +5,7 @@
   import PublicCourseCard from '$lib/components/PublicCourseCard.svelte';
   import MarketplaceFilters from '$lib/components/MarketplaceFilters.svelte';
   import { coursesApi, type MarketplaceCourseDto } from '$lib/api';
+  import { resolveCover } from '$lib/utils/cover';
 
   interface MarketplaceCard {
     id: string;
@@ -71,17 +72,6 @@
     return Math.round(amount);
   }
 
-  function placeholderThumbnail(title: string): string {
-    const label =
-      title
-        .split(/\s+/)
-        .slice(0, 2)
-        .map((word) => word[0])
-        .join('')
-        .toUpperCase() || 'IFA';
-    return `https://via.placeholder.com/400x225/1B3D2F/FFFFFF?text=${encodeURIComponent(label)}`;
-  }
-
   function toCard(course: MarketplaceCourseDto): MarketplaceCard {
     return {
       id: course.id,
@@ -95,7 +85,7 @@
       level: course.targetAudience || 'All levels',
       category: course.category,
       tags: [course.category],
-      thumbnail: course.thumbnailUrl || placeholderThumbnail(course.title),
+      thumbnail: resolveCover(course.thumbnailUrl, course.title),
       isPublished: true,
       shareCode: course.shareCode
     };

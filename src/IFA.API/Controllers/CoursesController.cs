@@ -42,6 +42,8 @@ namespace IFA.API.Controllers
             public List<string>? Materials { get; set; }
             /// <summary>Optional cover image URL; when omitted the default IFA artwork is used.</summary>
             public string? CoverImageUrl { get; set; }
+            /// <summary>When false, only the blueprint is saved (no Module 1 content); content is generated later, per module, from the course page.</summary>
+            public bool GenerateFirstModule { get; set; } = true;
         }
 
         [HttpGet]
@@ -57,36 +59,11 @@ namespace IFA.API.Controllers
                 .OrderByDescending(e => e.LastAccessedAt)
                 .ToListAsync();
 
-            if (!enrollments.Any())
-            {
-                var publicEntranceCourse = await _context.Courses
-                    .FirstOrDefaultAsync(c => c.IsPublic && c.Category == "Entrance Exam");
-
-                if (publicEntranceCourse is not null)
-                {
-                    _context.Add(new CourseEnrollment
-                    {
-                        CourseId = publicEntranceCourse.Id,
-                        LearnerId = learnerId
-                    });
-                    await _context.SaveChangesAsync();
-                }
-                else
-                {
-                    await _generationService.CreateFullCourseAsync(
-                        learnerId,
-                        "C# Backend Development & Exit Exam Prep",
-                        6,
-                        "freeCodeCamp");
-                }
-
-                enrollments = await _context.CourseEnrollments
-                    .Include(e => e.Course)
-                    .ThenInclude(c => c!.Modules)
-                    .ThenInclude(m => m.Lessons)
-                    .Where(e => e.LearnerId == learnerId)
-                    .ToListAsync();
-            }
+            // A new learner's library stays empty until they create or enrol in a
+            // course of their own. (Previously any learner with zero enrollments was
+            // silently auto-enrolled into the seeded "Entrance Exam" course — or had a
+            // course auto-generated — which made brand-new accounts show a course they
+            // never started.)
 
             var completedLessonIds = await _context.LessonProgress
                 .Where(p => p.LearnerId == learnerId && p.IsCompleted)
@@ -156,7 +133,8 @@ namespace IFA.API.Controllers
                     string.IsNullOrWhiteSpace(request.PreferredCreator) ? "freeCodeCamp" : request.PreferredCreator.Trim(),
                     ct: HttpContext.RequestAborted,
                     externalMaterials: request.Materials,
-                    coverImageUrl: request.CoverImageUrl);
+                    coverImageUrl: request.CoverImageUrl,
+                    generateFirstModule: request.GenerateFirstModule);
             }
             catch (InvalidOperationException ex)
             {

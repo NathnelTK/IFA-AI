@@ -9,8 +9,10 @@
     Search,
     TrendingUp,
     Settings,
-    Lightbulb
+    Lightbulb,
+    X
   } from 'lucide-svelte';
+  import { sidebarOpen, closeSidebar } from '$lib/stores/uiStore';
 
   export let activeTab = 'home';
 
@@ -27,19 +29,44 @@
   ];
 </script>
 
-<aside class="w-64 min-h-screen bg-ifa-sidebar border-r border-ifa-border flex flex-col justify-between p-5 select-none shrink-0">
+<!-- Mobile backdrop: tap to close the drawer -->
+{#if $sidebarOpen}
+  <button
+    type="button"
+    aria-label="Close menu"
+    on:click={closeSidebar}
+    class="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
+  ></button>
+{/if}
+
+<aside
+  class="fixed inset-y-0 left-0 z-50 w-64 bg-ifa-sidebar border-r border-ifa-border flex flex-col justify-between p-5 select-none overflow-y-auto transition-transform duration-200 md:static md:z-auto md:translate-x-0 md:shrink-0 md:min-h-screen {$sidebarOpen
+    ? 'translate-x-0'
+    : '-translate-x-full'}"
+>
   <div>
     <!-- Logo & Brand -->
-    <div class="flex items-center gap-3 px-3 py-2 mb-6">
-      <div class="w-8 h-8 rounded-lg bg-ifa-pine flex items-center justify-center text-white shadow-sm">
-        <GraduationCap class="w-4 h-4 text-emerald-300" />
-      </div>
-      <div>
-        <div class="flex items-center gap-1.5 font-bold text-xl tracking-tight text-ifa-pine">
-          <span>IFA</span>
+    <div class="flex items-center justify-between gap-3 px-3 py-2 mb-6">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-ifa-pine flex items-center justify-center text-white shadow-sm">
+          <GraduationCap class="w-4 h-4 text-emerald-300" />
         </div>
-        <p class="text-[11px] text-ifa-text-secondary font-medium tracking-wide">Your AI Learning Companion</p>
+        <div>
+          <div class="flex items-center gap-1.5 font-bold text-xl tracking-tight text-ifa-pine">
+            <span>IFA</span>
+          </div>
+          <p class="text-[11px] text-ifa-text-secondary font-medium tracking-wide">Your AI Learning Companion</p>
+        </div>
       </div>
+      <!-- Close (mobile only) -->
+      <button
+        type="button"
+        aria-label="Close menu"
+        on:click={closeSidebar}
+        class="md:hidden w-8 h-8 rounded-lg flex items-center justify-center text-ifa-text-muted hover:text-ifa-pine hover:bg-black/5 transition shrink-0"
+      >
+        <X class="w-4 h-4" />
+      </button>
     </div>
 
     <!-- Navigation List -->
@@ -48,6 +75,7 @@
         {@const isActive = activeTab === item.id}
         <a
           href={item.href}
+          on:click={closeSidebar}
           class="flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 {isActive
             ? 'bg-ifa-pine text-white shadow-sm font-semibold'
             : 'text-ifa-text-secondary hover:text-ifa-pine hover:bg-black/5'}"
@@ -60,10 +88,10 @@
   </div>
 
   <!-- Bottom Promotional / Inspirational Card -->
-  <div class="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-b from-[#EAE4D9] to-[#DFD8CC] border border-ifa-border shadow-soft">
+  <div class="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-b from-[#EAE4D9] to-[#DFD8CC] border border-ifa-border shadow-soft mt-6">
     <!-- Mountain illustration silhouette -->
     <div class="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(#1B3D2F_1px,transparent_1px)] [background-size:12px_12px]"></div>
-    
+
     <div class="relative z-10">
       <div class="h-10 flex items-center mb-1">
         <svg viewBox="0 0 120 40" class="w-full h-8 text-ifa-pine/30 fill-current">

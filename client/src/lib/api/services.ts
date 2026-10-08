@@ -52,6 +52,8 @@ export const coursesApi = {
 		preferredCreator?: string;
 		materials?: string[];
 		coverImageUrl?: string;
+		/** When false, only the blueprint is saved; content is generated later per module. */
+		generateFirstModule?: boolean;
 	}) => api.post<CourseDetailDto>('/api/courses', body),
 	marketplace: (params?: { category?: string; search?: string }) =>
 		api.get<MarketplaceCourseDto[]>('/api/courses/marketplace', params),

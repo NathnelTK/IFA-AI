@@ -30,12 +30,18 @@ namespace IFA.API.Controllers
                 .Select(s => s.SkillName)
                 .ToListAsync();
 
-            var courses = await _context.Courses
-                .Include(c => c.Modules)
-                .Take(6)
-                .ToListAsync();
+            var hasActivity = await _context.CourseEnrollments
+                .AnyAsync(e => e.LearnerId == learnerId);
 
             var list = new List<object>();
+
+            // A brand-new learner has no weak-skill history and no enrollments, so
+            // there is nothing to base a recommendation on. Return an empty list
+            // instead of handing everyone the seeded course catalog.
+            if (!weakSkills.Any() && !hasActivity)
+            {
+                return Ok(list);
+            }
 
             if (weakSkills.Any())
             {
@@ -54,6 +60,11 @@ namespace IFA.API.Controllers
                     });
                 }
             }
+
+            var courses = await _context.Courses
+                .Include(c => c.Modules)
+                .Take(6)
+                .ToListAsync();
 
             foreach (var course in courses)
             {

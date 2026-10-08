@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { publicCourses } from '../stores/dashboardStore';
   import { coursesApi } from '$lib/api';
+  import { courseCover } from '$lib/utils/cover';
   import type { CourseCard } from '$lib/types';
 
   export let onPublishCourse = () => {};
@@ -86,6 +87,8 @@
           <img
             src={course.imageUrl}
             alt={course.title}
+            loading="lazy"
+            on:error={(e) => ((e.currentTarget as HTMLImageElement).src = courseCover(course.title))}
             class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
           {#if course.badge}

@@ -7,7 +7,8 @@
   import ThemePreferences from '$lib/components/ThemePreferences.svelte';
   import { settingsApi, learnerApi, authApi } from '$lib/api';
   import { initSession } from '$lib/stores/sessionStore';
-  import { hydratePreferences } from '$lib/stores/preferencesStore';
+  import { get } from 'svelte/store';
+  import { preferences } from '$lib/stores/preferencesStore';
 
   let activeTab = 'learning'; // 'learning' | 'resources' | 'notifications' | 'theme' | 'account'
   let saving = false;
@@ -96,22 +97,19 @@
         userSettings.notifications.assessmentResults = settings.assessmentResults;
         userSettings.notifications.recommendations = settings.courseRecommendations;
         userSettings.notifications.emailDigest = settings.weeklyDigest ? 'weekly' : 'never';
-        userSettings.theme.theme = settings.theme ?? 'system';
-        userSettings.theme.accentColor = settings.accentColor ?? 'pine';
-        userSettings.theme.fontSize = settings.fontSize ?? 'medium';
-        userSettings.theme.compactMode = settings.compactMode;
-        userSettings.theme.reducedMotion = settings.reducedMotion;
         userSettings.resources.preferredTopics = parseJsonArray(settings.preferredTopicsJson);
-
-        // Apply the learner's saved appearance preferences to the live app.
-        hydratePreferences({
-          theme: (settings.theme as any) ?? 'system',
-          accentColor: (settings.accentColor as any) ?? 'pine',
-          fontSize: (settings.fontSize as any) ?? 'medium',
-          compactMode: settings.compactMode ?? false,
-          reducedMotion: settings.reducedMotion ?? false
-        });
       }
+
+      // Reflect the appearance that is ACTUALLY applied on this device (the
+      // localStorage-backed preferences store) in the form. Opening Settings must
+      // never re-apply a stored value and flip the live theme — that was the bug
+      // where simply visiting Settings switched the app into night mode on its own.
+      const applied = get(preferences);
+      userSettings.theme.theme = applied.theme;
+      userSettings.theme.accentColor = applied.accentColor;
+      userSettings.theme.fontSize = applied.fontSize;
+      userSettings.theme.compactMode = applied.compactMode;
+      userSettings.theme.reducedMotion = applied.reducedMotion;
     } catch {
       /* keep defaults */
     } finally {
