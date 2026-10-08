@@ -19,6 +19,12 @@ namespace IFA.Domain.Entities
         public string EstimatedDuration { get; set; } = "6 weeks";
         public bool IsPublic { get; set; } = false;
         public string ShareCode { get; set; } = string.Empty;
+        /// <summary>
+        /// Learner-supplied source links (semicolon separated) captured when the
+        /// course was created. Scoped to the course so each course's module
+        /// generation only sees its own materials.
+        /// </summary>
+        public string? ExternalMaterials { get; set; }
         public Guid? CreatorLearnerId { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

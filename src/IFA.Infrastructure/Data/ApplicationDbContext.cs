@@ -68,6 +68,7 @@ namespace IFA.Infrastructure.Data
         IQueryable<ChatMessage> IApplicationDbContext.ChatMessages => ChatMessages;
         IQueryable<Notification> IApplicationDbContext.Notifications => Notifications;
         IQueryable<Assessment> IApplicationDbContext.Assessments => Assessments;
+        IQueryable<AssessmentResponse> IApplicationDbContext.AssessmentResponses => AssessmentResponses;
         IQueryable<LearningActivity> IApplicationDbContext.Activities => Activities;
 
 

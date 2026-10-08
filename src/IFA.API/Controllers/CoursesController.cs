@@ -38,6 +38,10 @@ namespace IFA.API.Controllers
             public string Goal { get; set; } = string.Empty;
             public int HoursPerWeek { get; set; } = 5;
             public string PreferredCreator { get; set; } = "freeCodeCamp";
+            /// <summary>Optional links (slides, repos, papers) the Course Architect should fold into the blueprint.</summary>
+            public List<string>? Materials { get; set; }
+            /// <summary>Optional cover image URL; when omitted the default IFA artwork is used.</summary>
+            public string? CoverImageUrl { get; set; }
         }
 
         [HttpGet]
@@ -123,8 +127,8 @@ namespace IFA.API.Controllers
                 .Include(c => c.Modules.OrderBy(m => m.ModuleNumber))
                 .ThenInclude(m => m.Lessons.OrderBy(l => l.LessonNumber))
                 .Include(c => c.Modules)
-                .ThenInclude(m => m.ModuleQuiz)
-                .ThenInclude(q => q!.Questions)
+                .ThenInclude(m => m.Quizzes)
+                .ThenInclude(q => q.Questions)
                 .FirstOrDefaultAsync(c => c.Id == id);
 
             if (course == null) return NotFound(new { message = "Course not found." });
@@ -141,11 +145,25 @@ namespace IFA.API.Controllers
             }
 
             var learnerId = await GetCurrentLearnerIdAsync(_context);
-            var course = await _generationService.CreateFullCourseAsync(
-                learnerId,
-                request.Goal.Trim(),
-                request.HoursPerWeek > 0 ? request.HoursPerWeek : 5,
-                string.IsNullOrWhiteSpace(request.PreferredCreator) ? "freeCodeCamp" : request.PreferredCreator.Trim());
+
+            Course course;
+            try
+            {
+                course = await _generationService.CreateFullCourseAsync(
+                    learnerId,
+                    request.Goal.Trim(),
+                    request.HoursPerWeek > 0 ? request.HoursPerWeek : 5,
+                    string.IsNullOrWhiteSpace(request.PreferredCreator) ? "freeCodeCamp" : request.PreferredCreator.Trim(),
+                    ct: HttpContext.RequestAborted,
+                    externalMaterials: request.Materials,
+                    coverImageUrl: request.CoverImageUrl);
+            }
+            catch (InvalidOperationException ex)
+            {
+                // The AI provider returned content that failed validation, or no
+                // provider was reachable and the offline fallback also failed.
+                return UnprocessableEntity(new { message = $"Could not generate the course: {ex.Message}" });
+            }
 
             await _activityService.RecordActivityAsync(
                 learnerId,
@@ -197,7 +215,8 @@ namespace IFA.API.Controllers
             }
 
             var results = await query
-                .OrderByDescending(c => c.Rating)
+                .OrderByDescending(c => c.CreatedAt)
+                .ThenByDescending(c => c.Rating)
                 .Select(c => new
                 {
                     c.Id,

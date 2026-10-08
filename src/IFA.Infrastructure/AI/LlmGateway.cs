@@ -36,19 +36,12 @@ namespace IFA.Infrastructure.AI
 
         public async Task<string> CompleteAsync(string systemPrompt, string userPrompt, LlmRole role = LlmRole.General, CancellationToken ct = default)
         {
+            // Every role resolves through the same ordered attempt list. A missing
+            // or invalid key for the preferred provider must never fail the whole
+            // request: we try the remaining hosted providers and finally the
+            // deterministic offline provider. This keeps the AI pipeline working
+            // on a fresh checkout with no keys configured.
             var preferredProvider = GetProviderForRole(role);
-            if (preferredProvider.Equals("Groq", StringComparison.OrdinalIgnoreCase))
-            {
-                if (!_groq.IsConfigured)
-                {
-                    throw new InvalidOperationException("Groq is selected for this AI task, but GROQ_API_KEY is not configured.");
-                }
-
-                var model = _config[$"Ai:Pipelines:{GetRoleKey(role)}:Model"] ?? _config["Ai:Groq:Model"];
-                _logger.LogInformation("Invoking Groq LLM for role {Role}", role);
-                return await _groq.GenerateAsync(systemPrompt, userPrompt, model, ct);
-            }
-
             var providersToTry = GetProviderOrder(preferredProvider);
 
             foreach (var providerName in providersToTry)

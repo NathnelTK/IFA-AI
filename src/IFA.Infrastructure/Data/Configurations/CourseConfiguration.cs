@@ -22,6 +22,7 @@ namespace IFA.Infrastructure.Data.Configurations
             builder.Property(c => c.ReviewCount).HasMaxLength(32);
             builder.Property(c => c.EstimatedDuration).HasMaxLength(64);
             builder.Property(c => c.ShareCode).HasMaxLength(64);
+            builder.Property(c => c.ExternalMaterials).HasMaxLength(4000);
 
             builder.HasIndex(c => c.ShareCode);
             builder.HasIndex(c => c.IsPublic);

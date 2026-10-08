@@ -41,7 +41,7 @@ namespace IFA.Infrastructure.AI
 
             var model = modelOverride 
                 ?? _configuration["Ai:Gemini:Model"] 
-                ?? "gemini-2.0-flash";
+                ?? "gemini-flash-latest";
 
             var endpoint = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
 
@@ -66,17 +66,41 @@ namespace IFA.Infrastructure.AI
                 }
             };
 
-            var jsonContent = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-            var response = await _httpClient.PostAsync(endpoint, jsonContent, ct);
+            var serializedBody = JsonSerializer.Serialize(requestBody);
 
-            if (!response.IsSuccessStatusCode)
+            // Transient 429/503 responses (model overloaded / rate limited) must not
+            // silently drop the whole pipeline to the deterministic fallback. Retry a
+            // few times with a short backoff before giving up on this provider.
+            HttpResponseMessage? response = null;
+            const int maxAttempts = 3;
+            for (var attempt = 1; attempt <= maxAttempts; attempt++)
             {
-                var err = await response.Content.ReadAsStringAsync(ct);
-                _logger.LogError("Gemini API call failed: {StatusCode} - {Error}", response.StatusCode, err);
-                throw new HttpRequestException($"Gemini API error: {response.StatusCode} - {err}");
+                using var content = new StringContent(serializedBody, Encoding.UTF8, "application/json");
+                response = await _httpClient.PostAsync(endpoint, content, ct);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    break;
+                }
+
+                var transient = response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable
+                    || response.StatusCode == System.Net.HttpStatusCode.TooManyRequests
+                    || (int)response.StatusCode >= 500;
+
+                if (!transient || attempt == maxAttempts)
+                {
+                    var err = await response.Content.ReadAsStringAsync(ct);
+                    _logger.LogError("Gemini API call failed: {StatusCode} - {Error}", response.StatusCode, err);
+                    throw new HttpRequestException($"Gemini API error: {response.StatusCode} - {err}");
+                }
+
+                _logger.LogWarning("Gemini API transient error {StatusCode} (attempt {Attempt}/{Max}); retrying.",
+                    response.StatusCode, attempt, maxAttempts);
+                response.Dispose();
+                await Task.Delay(TimeSpan.FromMilliseconds(400 * attempt), ct);
             }
 
-            var responseJson = await response.Content.ReadAsStringAsync(ct);
+            var responseJson = await response!.Content.ReadAsStringAsync(ct);
             using var doc = JsonDocument.Parse(responseJson);
 
             var candidates = doc.RootElement.GetProperty("candidates");

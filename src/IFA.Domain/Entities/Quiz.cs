@@ -3,12 +3,23 @@ using System.Collections.Generic;
 
 namespace IFA.Domain.Entities
 {
+    public enum QuizKind
+    {
+        Mini,   // short, mid-module checkpoint quiz
+        Exam    // comprehensive end-of-module assessment
+    }
+
     public class Quiz
     {
         public Guid Id { get; set; } = Guid.NewGuid();
         public Guid ModuleId { get; set; }
         public string Title { get; set; } = string.Empty;
         public int PassingScorePercentage { get; set; } = 70;
+
+        // A module now has several assessments: two mini checkpoint quizzes and
+        // one comprehensive exam. Kind distinguishes them; OrderIndex sorts them.
+        public QuizKind Kind { get; set; } = QuizKind.Exam;
+        public int OrderIndex { get; set; }
 
         // LastScorePercentage / IsPassed / CompletedAt removed —
         // see QuizAttempt. A quiz can be attempted by many learners

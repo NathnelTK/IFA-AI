@@ -1,9 +1,11 @@
 using System;
-using System.Security.Cryptography;
-using System.Text;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using IFA.Application.Common.Interfaces;
 using IFA.Domain.Entities;
+using IFA.Infrastructure.Data;
+using IFA.Infrastructure.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -35,6 +37,12 @@ namespace IFA.API.Controllers
             public string Password { get; set; } = string.Empty;
         }
 
+        public class UpdateMeRequest
+        {
+            public string? Name { get; set; }
+            public string? AvatarUrl { get; set; }
+        }
+
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
@@ -55,7 +63,7 @@ namespace IFA.API.Controllers
                 Id = Guid.NewGuid(),
                 Name = string.IsNullOrWhiteSpace(request.Name) ? cleanEmail.Split('@')[0] : request.Name.Trim(),
                 Email = cleanEmail,
-                PasswordHash = HashPassword(request.Password),
+                PasswordHash = PasswordHasher.Hash(request.Password),
                 Role = "Learner",
                 AvatarUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces",
                 OverallProgress = 0,
@@ -96,16 +104,38 @@ namespace IFA.API.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-            var cleanEmail = request.Email?.Trim().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+            {
+                return BadRequest(new { message = "Email and password are required." });
+            }
+
+            var cleanEmail = request.Email.Trim().ToLowerInvariant();
             var learner = await _context.Learners.FirstOrDefaultAsync(l => l.Email == cleanEmail);
 
-            if (learner == null || (learner.PasswordHash != null && learner.PasswordHash != HashPassword(request.Password)))
+            // A learner without a stored hash is a legacy/seed row that was never
+            // issued credentials; it must not be sign-in-able with an arbitrary
+            // password.
+            if (learner == null || !PasswordHasher.Verify(learner.PasswordHash, request.Password))
             {
                 return Unauthorized(new { message = "Invalid email or password." });
             }
 
             var token = _tokenService.GenerateToken(learner);
             return Ok(token);
+        }
+
+        /// <summary>
+        /// Read-only list of the seeded demo learners so the sign-in screen can
+        /// offer one-click demo access. Never returns password hashes.
+        /// </summary>
+        [HttpGet("demo-accounts")]
+        public IActionResult GetDemoAccounts()
+        {
+            var accounts = DemoAccounts.All
+                .Select(a => new { a.Name, a.Email, a.Role, a.AvatarUrl })
+                .ToList();
+
+            return Ok(accounts);
         }
 
         [HttpPost("demo-login")]
@@ -144,11 +174,34 @@ namespace IFA.API.Controllers
             });
         }
 
-        private static string HashPassword(string password)
+        /// <summary>Updates the signed-in learner's editable profile fields (name, avatar).</summary>
+        [HttpPut("me")]
+        public async Task<IActionResult> UpdateMe([FromBody] UpdateMeRequest request)
         {
-            using var sha256 = SHA256.Create();
-            var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes("IFA_SALT_" + password));
-            return Convert.ToBase64String(bytes);
+            var learnerId = await GetCurrentLearnerIdAsync(_context);
+            var learner = await _context.Learners.FirstOrDefaultAsync(l => l.Id == learnerId);
+            if (learner == null) return NotFound();
+
+            if (!string.IsNullOrWhiteSpace(request.Name))
+            {
+                learner.Name = request.Name.Trim();
+            }
+            if (request.AvatarUrl is not null)
+            {
+                learner.AvatarUrl = request.AvatarUrl.Trim();
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                learner.Id,
+                learner.Name,
+                learner.Email,
+                learner.Role,
+                learner.AvatarUrl,
+                learner.OverallProgress
+            });
         }
     }
 }

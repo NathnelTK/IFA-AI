@@ -5,6 +5,7 @@ using IFA.Infrastructure.Configuration;
 using IFA.Infrastructure.Data;
 using Microsoft.OpenApi;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -88,7 +89,7 @@ builder.Services.AddInfrastructure(connectionString, builder.Configuration);
 // CORS Configuration with environment-aware origins
 var corsOrigins = builder.Configuration["CORS_ALLOWED_ORIGINS"]?.Split(',')
     ?? builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-    ?? new[] { "http://localhost:5173", "http://localhost:3000", "http://localhost:4173", "http://localhost:5000" };
+    ?? new[] { "http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000", "http://localhost:4173", "http://localhost:5000" };
 
 builder.Services.AddCors(options =>
 {
@@ -111,9 +112,31 @@ using (var scope = app.Services.CreateScope())
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
         
-        // Ensure database is created and migrations are applied
-        logger.LogInformation("Ensuring database is created...");
-        await db.Database.EnsureCreatedAsync();
+        // Ensure the schema exists. EnsureCreatedAsync() considers the whole
+        // database, and on Supabase the auth/storage/realtime schemas always
+        // contain tables — so it would silently skip creating our tables after
+        // a "DROP SCHEMA public CASCADE" reset. Check the public schema only.
+        logger.LogInformation("Ensuring database schema is created...");
+        var dbConnection = db.Database.GetDbConnection();
+        await dbConnection.OpenAsync();
+        long existingPublicTables;
+        await using (var checkCmd = dbConnection.CreateCommand())
+        {
+            checkCmd.CommandText =
+                "SELECT count(*) FROM information_schema.tables " +
+                "WHERE table_schema = 'public' AND table_type = 'BASE TABLE'";
+            existingPublicTables = (long)(await checkCmd.ExecuteScalarAsync())!;
+        }
+
+        if (existingPublicTables == 0)
+        {
+            logger.LogInformation("Public schema is empty; creating application tables...");
+            var createScript = db.Database.GenerateCreateScript();
+            await using var createCmd = dbConnection.CreateCommand();
+            createCmd.CommandText = createScript;
+            await createCmd.ExecuteNonQueryAsync();
+            logger.LogInformation("Application tables created.");
+        }
         
         // Seed development data if in development environment
         if (app.Environment.IsDevelopment())
@@ -126,6 +149,10 @@ using (var scope = app.Services.CreateScope())
             db,
             logger,
             enrollDemoLearner: app.Environment.IsDevelopment());
+
+        // Demo accounts + public course catalog. Idempotent, so safe to run on
+        // every startup; this is what makes the hackathon demo self-contained.
+        await DemoDataSeeder.SeedAsync(db, logger);
 
         logger.LogInformation("Database initialization completed successfully.");
     }

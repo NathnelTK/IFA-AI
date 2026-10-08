@@ -94,6 +94,12 @@ namespace IFA.Infrastructure
             // YouTube Resource Service
             services.AddScoped<IYouTubeResourceService, YouTubeResourceService>();
 
+            // Image/diagram research (Wikimedia, no API key required)
+            services.AddHttpClient<IImageResourceService, WikimediaImageService>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(20);
+            });
+
             // Ollama LLM Provider with HTTP Client
             services.AddHttpClient<OllamaLlmProvider>(client =>
             {

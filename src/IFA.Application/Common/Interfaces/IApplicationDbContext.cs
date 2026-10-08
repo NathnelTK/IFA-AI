@@ -27,6 +27,7 @@ namespace IFA.Application.Common.Interfaces
         IQueryable<ChatMessage> ChatMessages { get; }
         IQueryable<Notification> Notifications { get; }
         IQueryable<Assessment> Assessments { get; }
+        IQueryable<AssessmentResponse> AssessmentResponses { get; }
         IQueryable<LearningActivity> Activities { get; }
 
         void Add<TEntity>(TEntity entity) where TEntity : class;

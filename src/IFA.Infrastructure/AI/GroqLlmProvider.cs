@@ -64,14 +64,37 @@ namespace IFA.Infrastructure.AI
 
             using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-            request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
-            var response = await _httpClient.SendAsync(request, ct);
-            if (!response.IsSuccessStatusCode)
+            // Mirrors the Gemini provider: transient 429/5xx responses (rate
+            // limits happen fast when several lesson calls run in parallel)
+            // retry with a short backoff before falling through to the next
+            // provider in the gateway chain.
+            HttpResponseMessage? response = null;
+            const int maxAttempts = 3;
+            for (var attempt = 1; attempt <= maxAttempts; attempt++)
             {
-                var err = await response.Content.ReadAsStringAsync(ct);
-                _logger.LogError("Groq API call failed: {StatusCode} - {Error}", response.StatusCode, err);
-                throw new HttpRequestException($"Groq API error: {response.StatusCode} - {err}");
+                request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+                response = await _httpClient.SendAsync(request, ct);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    break;
+                }
+
+                var transient = response.StatusCode == System.Net.HttpStatusCode.TooManyRequests
+                    || (int)response.StatusCode >= 500;
+
+                if (!transient || attempt == maxAttempts)
+                {
+                    var err = await response.Content.ReadAsStringAsync(ct);
+                    _logger.LogError("Groq API call failed: {StatusCode} - {Error}", response.StatusCode, err);
+                    throw new HttpRequestException($"Groq API error: {response.StatusCode} - {err}");
+                }
+
+                _logger.LogWarning("Groq API transient error {StatusCode} (attempt {Attempt}/{Max}); retrying.",
+                    response.StatusCode, attempt, maxAttempts);
+                response.Dispose();
+                await Task.Delay(TimeSpan.FromMilliseconds(400 * attempt), ct);
             }
 
             var responseJson = await response.Content.ReadAsStringAsync(ct);
