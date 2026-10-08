@@ -9,16 +9,16 @@
     Search,
     TrendingUp,
     Settings,
-    Sparkles
+    Lightbulb
   } from 'lucide-svelte';
 
   export let activeTab = 'home';
 
   const navItems = [
-    { id: 'home', label: 'Home', icon: Home, href: '/' },
-    { id: 'my-learning', label: 'My Learning', icon: GraduationCap, href: '/my-learning' },
-    { id: 'courses', label: 'Courses', icon: BookOpen, href: '/courses' },
-    { id: 'public-courses', label: 'Public Courses', icon: Globe2, href: '/public-courses' },
+    { id: 'home', label: 'Home', icon: Home, href: '/home' },
+    { id: 'courses', label: 'My Courses', icon: BookOpen, href: '/courses' },
+    { id: 'marketplace', label: 'Marketplace', icon: Globe2, href: '/marketplace' },
+    { id: 'recommendations', label: 'Recommendations', icon: Lightbulb, href: '/recommendations' },
     { id: 'ai-tutor', label: 'AI Tutor', icon: Bot, href: '/ai-tutor' },
     { id: 'my-skills', label: 'My Skills', icon: CheckCircle2, href: '/my-skills' },
     { id: 'research', label: 'Research', icon: Search, href: '/research' },
@@ -32,11 +32,11 @@
     <!-- Logo & Brand -->
     <div class="flex items-center gap-3 px-3 py-2 mb-6">
       <div class="w-8 h-8 rounded-lg bg-ifa-pine flex items-center justify-center text-white shadow-sm">
-        <Sparkles class="w-4 h-4 text-emerald-300" />
+        <GraduationCap class="w-4 h-4 text-emerald-300" />
       </div>
       <div>
         <div class="flex items-center gap-1.5 font-bold text-xl tracking-tight text-ifa-pine">
-          <span>✦ IFA</span>
+          <span>IFA</span>
         </div>
         <p class="text-[11px] text-ifa-text-secondary font-medium tracking-wide">Your AI Learning Companion</p>
       </div>

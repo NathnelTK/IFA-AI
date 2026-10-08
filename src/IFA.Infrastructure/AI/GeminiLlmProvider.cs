@@ -1,0 +1,118 @@
+using System;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+
+namespace IFA.Infrastructure.AI
+{
+    public class GeminiLlmProvider
+    {
+        private readonly HttpClient _httpClient;
+        private readonly IConfiguration _configuration;
+        private readonly ILogger<GeminiLlmProvider> _logger;
+
+        public GeminiLlmProvider(HttpClient httpClient, IConfiguration configuration, ILogger<GeminiLlmProvider> logger)
+        {
+            _httpClient = httpClient;
+            _configuration = configuration;
+            _logger = logger;
+        }
+
+        public bool IsConfigured
+        {
+            get
+            {
+                var key = _configuration["GEMINI_API_KEY"] ?? _configuration["Ai:Gemini:ApiKey"];
+                return !string.IsNullOrWhiteSpace(key) && key != "change_me";
+            }
+        }
+
+        public async Task<string> GenerateAsync(string systemPrompt, string userPrompt, string? modelOverride = null, CancellationToken ct = default)
+        {
+            var apiKey = _configuration["GEMINI_API_KEY"] ?? _configuration["Ai:Gemini:ApiKey"];
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                throw new InvalidOperationException("GEMINI_API_KEY is not configured.");
+            }
+
+            var model = modelOverride 
+                ?? _configuration["Ai:Gemini:Model"] 
+                ?? "gemini-flash-latest";
+
+            var endpoint = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
+
+            var requestBody = new
+            {
+                system_instruction = new
+                {
+                    parts = new[] { new { text = systemPrompt } }
+                },
+                contents = new[]
+                {
+                    new
+                    {
+                        role = "user",
+                        parts = new[] { new { text = userPrompt } }
+                    }
+                },
+                generationConfig = new
+                {
+                    temperature = 0.4,
+                    maxOutputTokens = 4096
+                }
+            };
+
+            var serializedBody = JsonSerializer.Serialize(requestBody);
+
+            // Transient 429/503 responses (model overloaded / rate limited) must not
+            // silently drop the whole pipeline to the deterministic fallback. Retry a
+            // few times with a short backoff before giving up on this provider.
+            HttpResponseMessage? response = null;
+            const int maxAttempts = 3;
+            for (var attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                using var content = new StringContent(serializedBody, Encoding.UTF8, "application/json");
+                response = await _httpClient.PostAsync(endpoint, content, ct);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    break;
+                }
+
+                var transient = response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable
+                    || response.StatusCode == System.Net.HttpStatusCode.TooManyRequests
+                    || (int)response.StatusCode >= 500;
+
+                if (!transient || attempt == maxAttempts)
+                {
+                    var err = await response.Content.ReadAsStringAsync(ct);
+                    _logger.LogError("Gemini API call failed: {StatusCode} - {Error}", response.StatusCode, err);
+                    throw new HttpRequestException($"Gemini API error: {response.StatusCode} - {err}");
+                }
+
+                _logger.LogWarning("Gemini API transient error {StatusCode} (attempt {Attempt}/{Max}); retrying.",
+                    response.StatusCode, attempt, maxAttempts);
+                response.Dispose();
+                await Task.Delay(TimeSpan.FromMilliseconds(400 * attempt), ct);
+            }
+
+            var responseJson = await response!.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(responseJson);
+
+            var candidates = doc.RootElement.GetProperty("candidates");
+            if (candidates.GetArrayLength() == 0)
+            {
+                return string.Empty;
+            }
+
+            var parts = candidates[0].GetProperty("content").GetProperty("parts");
+            var text = parts[0].GetProperty("text").GetString();
+
+            return text ?? string.Empty;
+        }
+    }
+}

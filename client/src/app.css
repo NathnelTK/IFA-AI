@@ -5,12 +5,90 @@
 :root {
   --color-ifa-bg: #F8F6F0;
   --color-ifa-pine: #1B3D2F;
+  /* Appearance preferences (written by preferencesStore.applyPreferences). */
+  --ifa-font-scale: 16px;
+  --ifa-accent: #2A9D68;
+}
+
+.dark {
+  --color-ifa-bg: #0a0a0a;
+  --color-ifa-pine: #22c55e;
+}
+
+html {
+  font-size: var(--ifa-font-scale);
 }
 
 body {
-  background-color: #F8F6F0;
+  background-color: var(--color-ifa-bg);
   color: #1F2923;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.dark body {
+  color: #e5e5e5;
+}
+
+/* ------------------------------------------------------------------ */
+/* Appearance preferences                                             */
+/* ------------------------------------------------------------------ */
+
+/* Accent color: the preference drives the pine buttons and highlights. */
+html[data-accent] .bg-ifa-pine,
+html[data-accent] .bg-emerald-600,
+html[data-accent] .bg-emerald-500 {
+  background-color: var(--ifa-accent) !important;
+}
+
+html[data-accent] .text-ifa-pine,
+html[data-accent] .text-emerald-600,
+html[data-accent] .text-emerald-700 {
+  color: var(--ifa-accent) !important;
+}
+
+html[data-accent] .border-ifa-pine {
+  border-color: var(--ifa-accent) !important;
+}
+
+html[data-accent] .ring-ifa-pine\/20 {
+  --tw-ring-color: color-mix(in srgb, var(--ifa-accent) 20%, transparent) !important;
+}
+
+/* Compact mode: tighten vertical rhythm without touching every component. */
+html[data-density='compact'] .p-6 {
+  padding: calc(1rem * 0.9);
+}
+
+html[data-density='compact'] .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: calc(1rem * 0.85);
+}
+
+html[data-density='compact'] .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: calc(0.75rem * 0.85);
+}
+
+/* Single global switch for the "Reduced Motion" preference. It also honors the
+   OS-level `prefers-reduced-motion: reduce`, so the app stays accessible even
+   when the toggle is off. The on-screen cursor glow is disabled in JS as well. */
+html[data-reduced-motion='true'] *,
+html[data-reduced-motion='true'] *::before,
+html[data-reduced-motion='true'] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-reduced-motion='false']) *,
+  html:not([data-reduced-motion='false']) *::before,
+  html:not([data-reduced-motion='false']) *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Custom scrollbars */
@@ -30,4 +108,349 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #B8B0A0;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #333333;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #444444;
+}
+
+/* Dark mode overrides for IFA colors */
+.dark .bg-ifa-bg {
+  background-color: #0a0a0a !important;
+}
+
+.dark .bg-ifa-bg\/80 {
+  background-color: rgba(10, 10, 10, 0.8) !important;
+}
+
+.dark .bg-ifa-bg-warm {
+  background-color: #1a1a1a !important;
+}
+
+.dark .bg-ifa-sidebar {
+  background-color: #0a0a0a !important;
+}
+
+.dark .bg-ifa-card {
+  background-color: #1a1a1a !important;
+}
+
+.dark .bg-ifa-card-muted {
+  background-color: #262626 !important;
+}
+
+.dark .bg-ifa-card-muted\/40 {
+  background-color: rgba(38, 38, 38, 0.4) !important;
+}
+
+.dark .bg-ifa-card-muted\/50 {
+  background-color: rgba(38, 38, 38, 0.5) !important;
+}
+
+.dark .bg-ifa-card-muted\/60 {
+  background-color: rgba(38, 38, 38, 0.6) !important;
+}
+
+.dark .bg-ifa-card-muted\/70 {
+  background-color: rgba(38, 38, 38, 0.7) !important;
+}
+
+.dark .bg-ifa-card-muted\/30 {
+  background-color: rgba(38, 38, 38, 0.3) !important;
+}
+
+.dark .border-ifa-border {
+  border-color: #333333 !important;
+}
+
+.dark .border-ifa-border-light {
+  border-color: #262626 !important;
+}
+
+.dark .text-ifa-text-primary {
+  color: #e5e5e5 !important;
+}
+
+.dark .text-ifa-text-secondary {
+  color: #a3a3a3 !important;
+}
+
+.dark .text-ifa-text-muted {
+  color: #737373 !important;
+}
+
+.dark .text-ifa-pine {
+  color: #22c55e !important;
+}
+
+.dark .bg-ifa-pine {
+  background-color: #22c55e !important;
+}
+
+.dark .text-ifa-accent-green {
+  color: #22c55e !important;
+}
+
+.dark .text-ifa-accent-orange {
+  color: #f97316 !important;
+}
+
+.dark .text-ifa-accent-amber {
+  color: #eab308 !important;
+}
+
+.dark .text-ifa-accent-purple {
+  color: #a855f7 !important;
+}
+
+.dark .text-ifa-accent-blue {
+  color: #3b82f6 !important;
+}
+
+.dark .text-ifa-accent-pink {
+  color: #ec4899 !important;
+}
+
+/* Override emerald colors for progress bars and active states */
+.dark .bg-emerald-600 {
+  background-color: #22c55e !important;
+}
+
+.dark .bg-emerald-500 {
+  background-color: #22c55e !important;
+}
+
+.dark .text-emerald-600 {
+  color: #22c55e !important;
+}
+
+.dark .text-emerald-700 {
+  color: #16a34a !important;
+}
+
+.dark .text-emerald-300 {
+  color: #4ade80 !important;
+}
+
+.dark .bg-emerald-400 {
+  background-color: #4ade80 !important;
+}
+
+.dark .border-emerald-400 {
+  border-color: #4ade80 !important;
+}
+
+.dark .bg-emerald-500\/20 {
+  background-color: rgba(34, 197, 94, 0.2) !important;
+}
+
+.dark .bg-emerald-500\/10 {
+  background-color: rgba(34, 197, 94, 0.1) !important;
+}
+
+.dark .text-emerald-400 {
+  color: #4ade80 !important;
+}
+
+.dark .text-emerald-500 {
+  color: #22c55e !important;
+}
+
+.dark .ring-ifa-pine\/20 {
+  --tw-ring-color: rgba(34, 197, 94, 0.2) !important;
+}
+
+.dark .border-ifa-pine\/30 {
+  border-color: rgba(34, 197, 94, 0.3) !important;
+}
+
+.dark .hover\:bg-ifa-pine-light:hover {
+  background-color: #16a34a !important;
+}
+
+.dark .bg-black\/40 {
+  background-color: rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Additional dark mode overrides for gradient backgrounds */
+.dark .from-ifa-pine {
+  --tw-gradient-from: #22c55e !important;
+}
+
+.dark .to-emerald-700 {
+  --tw-gradient-to: #16a34a !important;
+}
+
+.dark .bg-gradient-to-br {
+  background: linear-gradient(to bottom right, #22c55e, #16a34a) !important;
+}
+
+/* Override accent colors in dark mode */
+.dark .bg-ifa-accent-orange {
+  background-color: #f97316 !important;
+}
+
+.dark .text-ifa-accent-orange {
+  color: #f97316 !important;
+}
+
+.dark .bg-ifa-accent-amber {
+  background-color: #eab308 !important;
+}
+
+.dark .text-ifa-accent-amber {
+  color: #eab308 !important;
+}
+
+.dark .bg-ifa-accent-purple {
+  background-color: #a855f7 !important;
+}
+
+.dark .text-ifa-accent-purple {
+  color: #a855f7 !important;
+}
+
+.dark .bg-ifa-accent-blue {
+  background-color: #3b82f6 !important;
+}
+
+.dark .text-ifa-accent-blue {
+  color: #3b82f6 !important;
+}
+
+.dark .bg-ifa-accent-pink {
+  background-color: #ec4899 !important;
+}
+
+.dark .text-ifa-accent-pink {
+  color: #ec4899 !important;
+}
+
+/* Override specific component colors */
+.dark .selection\:bg-emerald-100::selection {
+  background-color: rgba(34, 197, 94, 0.2) !important;
+}
+
+.dark .selection\:text-emerald-900::selection {
+  color: #4ade80 !important;
+}
+
+/* Override hardcoded white backgrounds */
+.dark .bg-white {
+  background-color: #1a1a1a !important;
+}
+
+.dark .bg-white\/80 {
+  background-color: rgba(26, 26, 26, 0.8) !important;
+}
+
+.dark .bg-white\/95 {
+  background-color: rgba(26, 26, 26, 0.95) !important;
+}
+
+.dark .bg-white\/90 {
+  background-color: rgba(26, 26, 26, 0.9) !important;
+}
+
+/* Semi-transparent card variants used by the hero chat and scoping panels.
+   Without these, dark mode renders white panels with light text. */
+.dark .bg-ifa-card\/95 {
+  background-color: rgba(26, 26, 26, 0.95) !important;
+}
+
+.dark .bg-ifa-card\/90 {
+  background-color: rgba(26, 26, 26, 0.9) !important;
+}
+
+.dark .bg-ifa-card\/80 {
+  background-color: rgba(26, 26, 26, 0.8) !important;
+}
+
+/* Recommendation rows hover white-on-white: light text over the white hover
+   background. Use the dark card tone instead. */
+.dark .hover\:bg-white:hover {
+  background-color: #262626 !important;
+}
+
+.dark .hover\:bg-ifa-card:hover {
+  background-color: #262626 !important;
+}
+
+/* Dark inputs/selects inside the hero and dialogs */
+.dark input,
+.dark select,
+.dark textarea {
+  color-scheme: dark;
+}
+
+/* Override difficulty badge colors in dark mode */
+.dark .text-blue-600 {
+  color: #3b82f6 !important;
+}
+
+.dark .bg-blue-50 {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+}
+
+.dark .text-orange-600 {
+  color: #f97316 !important;
+}
+
+.dark .bg-orange-50 {
+  background-color: rgba(249, 115, 22, 0.1) !important;
+}
+
+.dark .text-emerald-600 {
+  color: #22c55e !important;
+}
+
+.dark .bg-emerald-50 {
+  background-color: rgba(34, 197, 94, 0.1) !important;
+}
+
+.dark .text-emerald-800 {
+  color: #4ade80 !important;
+}
+
+.dark .bg-emerald-100 {
+  background-color: rgba(34, 197, 94, 0.2) !important;
+}
+
+/* Override gradient backgrounds in dark mode */
+.dark .from-ifa-pine\/10 {
+  --tw-gradient-from: rgba(34, 197, 94, 0.1) !important;
+}
+
+.dark .to-emerald-50 {
+  --tw-gradient-to: rgba(34, 197, 94, 0.05) !important;
+}
+
+.dark .bg-gradient-to-r {
+  background: linear-gradient(to right, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.05)) !important;
+}
+
+/* Light mode gradient container */
+.from-ifa-pine\/10 {
+  --tw-gradient-from: rgba(27, 61, 47, 0.1) !important;
+}
+
+.to-emerald-50 {
+  --tw-gradient-to: rgba(234, 253, 224, 1) !important;
+}
+
+/* Fix typo in dark mode text color */
+.dark .text-fa-text-secondary {
+  color: #a3a3a3 !important;
+}
+
+/* Account/profile dropdown: in dark mode the generic hover (bg-ifa-card-muted)
+   is a near-white tint, which looks wrong on the dark menu. Use the night-mode
+   green accent instead, matching the rest of the dark theme. */
+.dark .ifa-menu-row:hover,
+.dark .ifa-menu-trigger:hover {
+  background-color: rgba(34, 197, 94, 0.14) !important;
 }

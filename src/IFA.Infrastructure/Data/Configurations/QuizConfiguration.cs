@@ -13,11 +13,13 @@ namespace IFA.Infrastructure.Data.Configurations
 
             builder.Property(q => q.Title).IsRequired().HasMaxLength(200);
             builder.Property(q => q.PassingScorePercentage).HasDefaultValue(70);
+            builder.Property(q => q.Kind).HasConversion<int>();
 
-            // Exactly one module test (quiz) per module.
+            // A module has several assessments (two mini-quizzes + one exam), so
+            // this is a one-to-many relationship keyed on ModuleId.
             builder.HasOne(q => q.Module)
-                .WithOne(m => m.ModuleQuiz)
-                .HasForeignKey<Quiz>(q => q.ModuleId)
+                .WithMany(m => m.Quizzes)
+                .HasForeignKey(q => q.ModuleId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }

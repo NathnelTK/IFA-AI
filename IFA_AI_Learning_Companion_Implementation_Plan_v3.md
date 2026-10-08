@@ -1,4 +1,4 @@
-# IFA (AI Learning Companion) - Hackathon-Winning Implementation Plan (v2.0)
+# IFA (AI Learning Companion) - Hackathon-Winning Implementation Plan (v3.0)
 
 > **Hackathon**: STARK Official Hackathon 2026  
 > **Team**: Team XOR (Nathnel Teklemariam — Team Lead, Ermiyas Eshetu, Negede Tekleyes)  
@@ -115,13 +115,13 @@ sequenceDiagram
 
 The new features integrate naturally into the existing visual layout:
 
-| UI Component in `ifa.png` | Standard View | New Social & JIT Capabilities |
-| :--- | :--- | :--- |
-| **Hero Prompt Area** | "What do you want to learn today?" | Conversational scoping with interactive pipeline preview card and inline edit chips. |
-| **Explore Public Courses** | Static grid of 4 courses | **Community Marketplace**: Lists community-published AI courses with tags (`Bestseller`, `Trending`), creator badges, and "Publish My Course" button. |
-| **Continue Your Learning** | C# Backend Dev (Module 3 of 6) | Shows active module with JIT status (`Module 3 Ready • Module 4 queued`), with "Share with Friend" and "Compare Progress" actions. |
-| **Right Sidebar / Donut Chart** | 72% Overall Progress | **Peer Comparison Toggle**: Switch between personal view and "Compare with Ermiyas (78% vs 64%)" with head-to-head skill bars. |
-| **AI Tutor Dock** | Floating Chat & Glowing Orb | Orchestrator modal capable of video recommendations, lesson deep-dives, and real-time voice prompts via Voxide. |
+|| UI Component in `ifa.png` | Standard View | New Social & JIT Capabilities |
+|| :--- | :--- | :--- |
+|| **Hero Prompt Area** | "What do you want to learn today?" | Conversational scoping with interactive pipeline preview card and inline edit chips. |
+|| **Explore Public Courses** | Static grid of 4 courses | **Community Marketplace**: Lists community-published AI courses with tags (`Bestseller`, `Trending`), creator badges, and "Publish My Course" button. |
+|| **Continue Your Learning** | C# Backend Dev (Module 3 of 6) | Shows active module with JIT status (`Module 3 Ready • Module 4 queued`), with "Share with Friend" and "Compare Progress" actions. |
+|| **Right Sidebar / Donut Chart** | 72% Overall Progress | **Peer Comparison Toggle**: Switch between personal view and "Compare with Ermiyas (78% vs 64%)" with head-to-head skill bars. |
+|| **AI Tutor Dock** | Floating Chat & Glowing Orb | Orchestrator modal capable of video recommendations, lesson deep-dives, and real-time voice prompts via Voxide. |
 
 ---
 
@@ -233,22 +233,22 @@ This means compute is spent on content the learner is actually ready to consume.
 
 ### Model Boundaries
 
-| Model | Main responsibility | Explicitly not responsible for |
-| :--- | :--- | :--- |
-| **Model 1** | Understand learner + research evidence/resources | Final course construction |
-| **Model 2** | Design complete learning architecture + current module specification | Learner-facing course formatting |
-| **Model 3** | Construct the final current module | Open-ended learner profiling/research |
-| **Adaptive Engine** | Measure results + update next-generation constraints | Open-ended curriculum research |
+|| Model | Main responsibility | Explicitly not responsible of |
+|| :--- | :--- | :--- |
+|| **Model 1** | Understand learner + research evidence/resources | Final course construction |
+|| **Model 2** | Design complete learning architecture + current module specification | Learner-facing course formatting |
+|| **Model 3** | Construct the final current module | Open-ended learner profiling/research |
+|| **Adaptive Engine** | Measure results + update next-generation constraints | Open-ended curriculum research |
 
 This separation keeps the AI pipeline explainable, testable and resource-efficient.
 
 ## 5. Development Phases & Pull Request Breakdown
 
-The project is structured into **6 logical phases** and **20 actionable Pull Requests**:
+The project is structured into **6 logical phases** and **28 actionable Pull Requests**:
 
 ```mermaid
 gantt
-    title IFA Hackathon Implementation Timeline (v2.0)
+    title IFA Hackathon Implementation Timeline (v3.0)
     dateFormat  X
     axisFormat %d
     section Phase 1: Foundation
@@ -274,11 +274,26 @@ gantt
     PR 4.2 JIT Lesson & Video UI  :10, 11
     PR 4.3 Analytics & Peer Radar :11, 12
     PR 4.4 AI Tutor Floating Dock :12, 13
-    section Phase 5: Social Learning & Loop
+    PR 4.5 My Learning Dashboard  :13, 14
+    PR 4.6 Courses Library        :14, 15
+    PR 4.7 My Skills & Profile   :15, 16
+    PR 4.8 Research Workspace     :16, 17
+    PR 4.9 Progress Dashboard     :17, 18
+    PR 4.10 Settings & Preferences :18, 19
+    PR 4.11 Global Search        :19, 20
+    PR 4.12 Notification Center   :20, 21
+    PR 4.13 User Profile Menu     :21, 22
+    PR 4.14 Theme Toggle         :22, 23
+    PR 4.15 Hero Goal Suggestions :23, 24
+    section Phase 5: Social Learning
     PR 5.1 Course Sharing & Links :13, 14
     PR 5.2 Public Marketplace     :14, 15
     PR 5.3 Peer Progress Compare  :15, 16
     PR 5.4 Closed Adaptation Loop :16, 17
+    PR 5.5 Recommendation Engine  :17, 18
+    PR 5.6 Recent Activity System :18, 19
+    PR 5.7 Course Enrollment      :19, 20
+    PR 5.8 Public Course Discovery :20, 21
     section Phase 6: Demo & Deploy
     PR 6.1 EthioDeploy Containers :17, 18
     PR 6.2 STARK Audit & Logs     :18, 19
@@ -451,6 +466,101 @@ gantt
   - `client/src/lib/components/VoiceCommandOverlay.svelte`: Visual HUD when speaking with Voxide.
 - **Verification**: Clicking "Start Chat" opens the AI Tutor slide-over with streaming LLM responses.
 
+#### `PR 4.5`: My Learning Dashboard
+- **Objective**: Build the dedicated **My Learning** page showing everything the learner is currently studying.
+- **Key Files**:
+  - `client/src/routes/my-learning/+page.svelte`
+  - `client/src/lib/components/ActiveCourseCard.svelte`
+  - `client/src/lib/components/CourseProgressCard.svelte`
+  - `client/src/lib/components/CompletedCourseCard.svelte`
+- **Verification**: My Learning page displays active courses, progress, current module, next lesson, completed courses, and paused courses with JIT generation status.
+
+#### `PR 4.6`: Courses Library
+- **Objective**: Create the learner's personal course library with search, filter, and sort capabilities.
+- **Key Files**:
+  - `client/src/routes/courses/+page.svelte`
+  - `client/src/lib/components/CourseLibrary.svelte`
+  - `client/src/lib/components/CourseFilterBar.svelte`
+- **Verification**: Courses page shows all enrolled courses with search, filter, sort, and course cards for different states (completed, in progress, bookmarked).
+
+#### `PR 4.7`: My Skills & Skill Profile
+- **Objective**: Create a detailed learner skill profile driven by assessments with radar charts and skill breakdowns.
+- **Key Files**:
+  - `src/IFA.Application/Skills/Queries/GetLearnerSkillsQuery.cs`
+  - `src/IFA.Application/Skills/Services/SkillProfileService.cs`
+  - `client/src/routes/my-skills/+page.svelte`
+  - `client/src/lib/components/SkillRadar.svelte`
+  - `client/src/lib/components/SkillBreakdown.svelte`
+  - `client/src/lib/components/WeakSkillCard.svelte`
+- **Verification**: My Skills page displays skill radar chart, skill categories, percentages, strengths, weak areas, skill history, and recommended practice.
+
+#### `PR 4.8`: Research Workspace
+- **Objective**: Give the learner a place to see and interact with research generated by IFA.
+- **Key Files**:
+  - `client/src/routes/research/+page.svelte`
+  - `client/src/lib/components/ResearchResults.svelte`
+  - `client/src/lib/components/ResearchSourceCard.svelte`
+  - `client/src/lib/components/ResearchSummary.svelte`
+- **Verification**: Research page shows research history, current research jobs, Scholarxiv sources, external sources, YouTube resources, research summaries, and allows saving/adding resources to learning path.
+
+#### `PR 4.9`: Full Progress Dashboard
+- **Objective**: Show how the learner is progressing across courses and skills with comprehensive analytics.
+- **Key Files**:
+  - `client/src/routes/progress/+page.svelte`
+  - `client/src/lib/components/ProgressOverview.svelte`
+  - `client/src/lib/components/SkillProgressChart.svelte`
+  - `client/src/lib/components/AssessmentHistory.svelte`
+  - `client/src/lib/components/LearningActivityChart.svelte`
+- **Verification**: Progress page displays overall progress, course progress, module completion, quiz/test performance, study time, skill improvement, learning streak, weak areas, and recent assessment results.
+
+#### `PR 4.10`: Settings & Learning Preferences
+- **Objective**: Allow learners to control the information Model 1 uses for personalization.
+- **Key Files**:
+  - `client/src/routes/settings/+page.svelte`
+  - `client/src/lib/components/LearningPreferences.svelte`
+  - `client/src/lib/components/ResourcePreferences.svelte`
+  - `client/src/lib/components/NotificationPreferences.svelte`
+- **Verification**: Settings page allows configuration of learning preferences (language, style, hours, difficulty), content preferences (YouTube channels, resources), account settings, and notification preferences.
+
+#### `PR 4.11`: Global Search / Command Palette
+- **Objective**: Provide global search across the IFA platform (courses, lessons, research, skills, public courses, resources).
+- **Key Files**:
+  - `client/src/lib/components/CommandPalette.svelte`
+  - `client/src/lib/components/GlobalSearch.svelte`
+  - `src/IFA.Application/Search/Queries/GlobalSearchQuery.cs`
+- **Verification**: Command palette accessible via ⌘K searches across all platform entities and displays categorized results.
+
+#### `PR 4.12`: Notification Center
+- **Objective**: Implement learner notifications for new modules, assessments, recommendations, and course sharing.
+- **Key Files**:
+  - `src/IFA.Domain/Notifications/Notification.cs`
+  - `src/IFA.Application/Notifications/Queries/GetNotificationsQuery.cs`
+  - `src/IFA.Application/Notifications/Commands/MarkNotificationReadCommand.cs`
+  - `client/src/lib/components/NotificationBell.svelte`
+  - `client/src/lib/components/NotificationPanel.svelte`
+- **Verification**: Notification bell shows unread count, notification panel displays categorized notifications with read/unread states and mark-as-read functionality.
+
+#### `PR 4.13`: Learner Profile Menu
+- **Objective**: Implement the learner account menu with profile access and navigation.
+- **Key Files**:
+  - `client/src/lib/components/UserMenu.svelte`
+  - `client/src/routes/profile/+page.svelte`
+- **Verification**: User menu displays learner name, role, and provides navigation to profile, my learning, my skills, settings, and sign out.
+
+#### `PR 4.14`: Theme & Appearance Preferences
+- **Objective**: Implement appearance preferences for light/dark/system theme selection.
+- **Key Files**:
+  - `client/src/lib/components/ThemeToggle.svelte`
+  - `client/src/lib/stores/themeStore.ts`
+- **Verification**: Theme toggle allows switching between light, dark, and system themes with preference persistence.
+
+#### `PR 4.15`: Hero Goal Suggestions
+- **Objective**: Make each hero suggestion start a meaningful workflow (conversation -> profile -> research -> blueprint).
+- **Key Files**:
+  - `client/src/lib/components/HeroSection.svelte` (enhanced)
+  - `client/src/lib/stores/goalWorkflowStore.ts`
+- **Verification**: Clicking hero suggestions ("Learn C# from scratch", "Prepare for my exit exam", etc.) triggers the appropriate Model 1 conversation workflow.
+
 ---
 
 ### Phase 5: Social Learning, Course Sharing & Adaptive Loop
@@ -482,6 +592,42 @@ gantt
   - `src/IFA.Application/Workflows/AdaptiveLearningOrchestrator.cs`: Event handler updating recommendations and skill gaps upon quiz submission.
   - `src/IFA.Infrastructure/Data/GoldenDataSeeder.cs`: Seeds Nathnel's exact profile from `ifa.png`.
 - **Verification**: Resilient mode allows 100% offline demonstration in under 50ms per action.
+
+#### `PR 5.5`: IFA Recommendation Engine
+- **Objective**: Implement recommendation engine that generates personalized recommendations based on quiz results, test results, skill profile, current course, learning progress, and learner preferences.
+- **Key Files**:
+  - `src/IFA.Application/Recommendations/Services/RecommendationEngine.cs`
+  - `src/IFA.Application/Recommendations/Queries/GetRecommendationsQuery.cs`
+  - `src/IFA.Domain/Recommendations/Recommendation.cs`
+- **Verification**: Recommendation engine generates actionable recommendations (practice specific skills, continue modules, review content) based on learner performance data.
+
+#### `PR 5.6`: Recent Activity System
+- **Objective**: Record important learner actions and expose them through the dashboard activity feed.
+- **Key Files**:
+  - `src/IFA.Domain/Activity/ActivityEvent.cs`
+  - `src/IFA.Application/Activity/Services/ActivityTracker.cs`
+  - `src/IFA.Application/Activity/Queries/GetRecentActivityQuery.cs`
+  - `client/src/lib/components/RecentActivity.svelte`
+- **Verification**: Activity system records and displays events like course enrollment, module completion, quiz completion, research completion, voice commands, course sharing, and skill updates.
+
+#### `PR 5.7`: Course Enrollment Lifecycle
+- **Objective**: Implement the normal course enrollment workflow (discover course -> view course -> enroll -> appears in My Learning -> start Module 1 -> progress tracking).
+- **Key Files**:
+  - `src/IFA.Application/Courses/Commands/EnrollInCourseCommand.cs`
+  - `src/IFA.Application/Courses/Commands/UnenrollFromCourseCommand.cs`
+  - `src/IFA.Application/Courses/Queries/GetEnrolledCoursesQuery.cs`
+  - `src/IFA.Domain/Courses/CourseEnrollment.cs`
+- **Verification**: Learners can discover, view, enroll in courses, and see enrolled courses appear in My Learning with proper progress tracking.
+
+#### `PR 5.8`: Public Course Discovery & Filters
+- **Objective**: Implement discovery functionality for the public course marketplace with search and filters.
+- **Key Files**:
+  - `src/IFA.Application/Courses/Queries/SearchPublicCoursesQuery.cs`
+  - `src/IFA.Application/Courses/Queries/GetPublicCourseFiltersQuery.cs`
+  - `client/src/routes/public-courses/+page.svelte`
+  - `client/src/lib/components/PublicCourseFilters.svelte`
+  - `client/src/lib/components/PublicCourseSearch.svelte`
+- **Verification**: Public courses can be searched and filtered by category, difficulty, duration, rating, language, and topic with proper categories (Programming, AI & ML, Mathematics, Business, Cybersecurity, Academic, Career Preparation).
 
 ---
 
@@ -647,816 +793,3 @@ This keeps IFA personalized while controlling token usage, latency and free-tier
 4. **Course Sharing & Public Marketplace**: Share a course via URL -> open in another tab -> enroll -> verify course is listed under "Explore Public Courses".
 5. **Peer Progress Comparison**: Verify two learner profiles display side-by-side progress metrics and skill radar charts.
 6. **Visual Fidelity**: Verify the UI matches `ifa.png` in layout, colors, typography, and card hierarchy.
-Yes. I compared the **actual dashboard in your screenshot** against the updated v3 plan. The important thing is that several things are *mentioned* in the plan, but they don't have an actual implementation PR. Those are the gaps I'd add rather than duplicating your existing PRs.
-
-### Features visible in the demo that are missing or under-specified
-
-| #  | Dashboard feature                                       | Current plan status                                                       | New PR  |
-| -- | ------------------------------------------------------- | ------------------------------------------------------------------------- | ------- |
-| 1  | **My Learning** page                                    | Missing                                                                   | PR 4.5  |
-| 2  | **Courses** page                                        | Missing                                                                   | PR 4.6  |
-| 3  | **My Skills** page                                      | Only represented by dashboard chart                                       | PR 4.7  |
-| 4  | **Research** page                                       | Backend research exists, UI doesn't                                       | PR 4.8  |
-| 5  | **Progress** page                                       | Dashboard analytics exists, full page doesn't                             | PR 4.9  |
-| 6  | **Settings** page                                       | Missing                                                                   | PR 4.10 |
-| 7  | **Global Search / ⌘K search**                           | Header exists visually, functionality not specified                       | PR 4.11 |
-| 8  | **Notifications**                                       | Icon exists, notification system isn't specified                          | PR 4.12 |
-| 9  | **User Profile / learner account menu**                 | Avatar exists, functionality isn't specified                              | PR 4.13 |
-| 10 | **Theme toggle**                                        | Icon exists, functionality isn't specified                                | PR 4.14 |
-| 11 | **IFA Recommendations engine + recommendation history** | UI exists, logic only partially covered by adaptation                     | PR 5.5  |
-| 12 | **Recent Activity feed**                                | UI exists but no dedicated activity system                                | PR 5.6  |
-| 13 | **Quick goal suggestion buttons**                       | Visual part exists in PR 4.1, but behavior isn't defined                  | PR 4.15 |
-| 14 | **Course enrollment lifecycle**                         | Sharing mentions enrollment, but normal enrollment isn't properly defined | PR 5.7  |
-| 15 | **Course discovery filters/search**                     | Marketplace grid exists, discovery functionality is missing               | PR 5.8  |
-
-The biggest architectural gap is actually **not the UI**. Your screenshot makes IFA look like a complete product, but the backend plan doesn't yet define the systems that make things like **Recommendations, Recent Activity, Notifications, Skills, and Enrollment** work.
-
----
-
-# Phase 4 additions — Complete the Dashboard Experience
-
-Your current Phase 4 ends at PR 4.4. I'd add these.
-
-## `PR 4.5`: My Learning Dashboard
-
-**Objective:** Build the dedicated **My Learning** page showing everything the learner is currently studying.
-
-### Features
-
-* Active courses
-* Course progress
-* Current module
-* Next lesson
-* Completed courses
-* Paused courses
-* Recently accessed courses
-* Continue Learning action
-* Course status:
-
-  * In Progress
-  * Completed
-  * Not Started
-* JIT generation status
-
-### Example
-
-```text
-My Learning
-
-Continue Learning
-┌─────────────────────────────────────────┐
-│ C# Backend Development                  │
-│ Module 3 of 6                           │
-│ ███████████████░░░ 78%                  │
-│                                         │
-│ Next: Working with REST APIs            │
-│ [Continue Learning →]                   │
-└─────────────────────────────────────────┘
-
-Your Courses
-
-C# Backend Development      78%
-Python Fundamentals         32%
-SQL for Developers          12%
-
-Completed
-ASP.NET Core Fundamentals   ✓
-```
-
-### Key files
-
-```text
-client/src/routes/my-learning/+page.svelte
-client/src/lib/components/ActiveCourseCard.svelte
-client/src/lib/components/CourseProgressCard.svelte
-client/src/lib/components/CompletedCourseCard.svelte
-```
-
----
-
-# `PR 4.6`: Courses Library
-
-**Objective:** Create the learner's personal course library.
-
-This is different from **Public Courses**.
-
-Public Courses = courses available to discover.
-
-Courses = courses the learner owns/enrolled in.
-
-### Features
-
-* All enrolled courses
-* Search
-* Filter
-* Sort
-* Recently accessed
-* Completed
-* In progress
-* Bookmarked
-* Course cards
-
-### Key files
-
-```text
-client/src/routes/courses/+page.svelte
-client/src/lib/components/CourseLibrary.svelte
-client/src/lib/components/CourseFilterBar.svelte
-```
-
----
-
-# `PR 4.7`: My Skills & Skill Profile
-
-Your screenshot already shows:
-
-```text
-C#             84%
-Databases      61%
-APIs           55%
-Authentication 45%
-Testing        32%
-```
-
-But the plan doesn't have a proper **My Skills system/page**.
-
-**Objective:** Create a detailed learner skill profile driven by assessments.
-
-### Features
-
-* Skill radar/chart
-* Skill categories
-* Skill percentage
-* Strengths
-* Weak areas
-* Recently improved skills
-* Skill history
-* Related courses
-* Recommended practice
-
-Example:
-
-```text
-My Skills
-
-Backend Development
-
-C#                  ████████████████ 84%
-Databases           ████████████     61%
-REST APIs           ███████████      55%
-Authentication      █████████        45%
-Testing             ██████           32%
-
-IFA detected:
-
-↓ Weak area
-Testing
-
-Recommended:
-"Practice Unit Testing"
-
-[Practice Now →]
-```
-
-### Key files
-
-```text
-src/IFA.Application/Skills/Queries/GetLearnerSkillsQuery.cs
-src/IFA.Application/Skills/Services/SkillProfileService.cs
-client/src/routes/my-skills/+page.svelte
-client/src/lib/components/SkillRadar.svelte
-client/src/lib/components/SkillBreakdown.svelte
-client/src/lib/components/WeakSkillCard.svelte
-```
-
----
-
-# `PR 4.8`: Research Workspace
-
-This one is particularly important because **Research is one of your core differentiators**.
-
-The screenshot has a `Research` navigation item, but the plan currently only describes research as an internal backend process.
-
-**Objective:** Give the learner a place to see and interact with research generated by IFA.
-
-### Features
-
-* Research history
-* Current research jobs
-* Scholarxiv sources
-* External sources
-* YouTube resources
-* Research summaries
-* Source credibility/type
-* Research associated with a course
-* Save resource
-* Open source
-* Add resource to learning path
-
-### Example
-
-```text
-Research
-
-C# REST API Research
-━━━━━━━━━━━━━━━━━━━━━━
-
-Scholarxiv
-  12 academic sources
-
-Web
-  8 documentation resources
-
-YouTube
-  6 recommended videos
-
-Research Summary
-"REST APIs are commonly structured around..."
-
-Sources
-○ Academic Paper
-○ Microsoft Documentation
-○ YouTube
-○ Tutorial
-
-[Add to Learning Path]
-```
-
-### Key files
-
-```text
-client/src/routes/research/+page.svelte
-client/src/lib/components/ResearchResults.svelte
-client/src/lib/components/ResearchSourceCard.svelte
-client/src/lib/components/ResearchSummary.svelte
-```
-
----
-
-# `PR 4.9`: Full Progress Dashboard
-
-The screenshot has a small progress overview, but the **Progress** navigation should open a full analytics page.
-
-**Objective:** Show how the learner is progressing across courses and skills.
-
-### Features
-
-* Overall progress
-* Course progress
-* Module completion
-* Quiz performance
-* Test performance
-* Study time
-* Skill improvement
-* Learning streak
-* Weak areas
-* Recent assessment results
-
-### Key files
-
-```text
-client/src/routes/progress/+page.svelte
-client/src/lib/components/ProgressOverview.svelte
-client/src/lib/components/SkillProgressChart.svelte
-client/src/lib/components/AssessmentHistory.svelte
-client/src/lib/components/LearningActivityChart.svelte
-```
-
----
-
-# `PR 4.10`: Settings & Learning Preferences
-
-This is completely missing from the plan.
-
-And it's actually important because **Model 1 needs learner preferences**.
-
-**Objective:** Allow learners to control the information Model 1 uses for personalization.
-
-### Sections
-
-**Learning Preferences**
-
-* Preferred language
-* Learning style
-* Study hours
-* Difficulty preference
-* Video preference
-
-**Content Preferences**
-
-* Preferred YouTube channels
-* Preferred resources
-* Topics of interest
-
-**Account**
-
-* Name
-* Profile
-* Email
-
-**Notifications**
-
-* Course reminders
-* New module
-* Assessment results
-* Recommendations
-
-### Key files
-
-```text
-client/src/routes/settings/+page.svelte
-client/src/lib/components/LearningPreferences.svelte
-client/src/lib/components/ResourcePreferences.svelte
-client/src/lib/components/NotificationPreferences.svelte
-```
-
-This directly feeds back into:
-
-**Settings → Learner Profile → Model 1 → Research → Model 2**
-
----
-
-# `PR 4.11`: Global Search / Command Palette
-
-Your screenshot has:
-
-> `Search anything...  ⌘ K`
-
-But the plan doesn't actually implement it.
-
-**Objective:** Provide global search across the IFA platform.
-
-Search:
-
-```text
-Courses
-Lessons
-Research
-Skills
-Public Courses
-Resources
-```
-
-Example:
-
-```text
-⌘ K
-
-Search anything...
-
-C# REST APIs
-────────────────────
-
-Courses
-  C# Backend Development
-
-Lessons
-  Working with REST APIs
-
-Research
-  REST API Architecture
-
-Public Courses
-  ASP.NET Core REST APIs
-```
-
-### Key files
-
-```text
-client/src/lib/components/CommandPalette.svelte
-client/src/lib/components/GlobalSearch.svelte
-src/IFA.Application/Search/Queries/GlobalSearchQuery.cs
-```
-
----
-
-# `PR 4.12`: Notification Center
-
-The bell icon in the screenshot needs an actual notification system.
-
-**Objective:** Implement learner notifications.
-
-Examples:
-
-```text
-🔔 Notifications
-
-New module ready
-REST APIs Module 4 is ready.
-
-Assessment completed
-You scored 84% on C# Fundamentals.
-
-IFA recommends
-Practice SQL joins based on your recent results.
-
-Course shared
-Ermiyas joined your C# course.
-```
-
-### Key files
-
-```text
-src/IFA.Domain/Notifications/Notification.cs
-src/IFA.Application/Notifications/Queries/GetNotificationsQuery.cs
-src/IFA.Application/Notifications/Commands/MarkNotificationReadCommand.cs
-client/src/lib/components/NotificationBell.svelte
-client/src/lib/components/NotificationPanel.svelte
-```
-
----
-
-# `PR 4.13`: Learner Profile Menu
-
-The avatar/name area currently only looks visual.
-
-**Objective:** Implement the learner account menu.
-
-```text
-Nathan
-Learner
-
-View Profile
-My Learning
-My Skills
-Settings
-Sign Out
-```
-
-### Key files
-
-```text
-client/src/lib/components/UserMenu.svelte
-client/src/routes/profile/+page.svelte
-```
-
----
-
-# `PR 4.14`: Theme & Appearance Preferences
-
-Your screenshot has the sun icon.
-
-**Objective:** Implement appearance preferences.
-
-```text
-Appearance
-
-○ Light
-○ Dark
-○ System
-```
-
-And save the preference.
-
-This is a relatively small PR, so I'd keep it separate from Settings only if you want clean PR history.
-
----
-
-# `PR 4.15`: Hero Goal Suggestions
-
-The screenshot has:
-
-```text
-Prepare for my exit exam
-Learn C# from scratch
-Improve my math skills
-Explore public courses
-```
-
-PR 4.1 creates the UI, but the **actions** aren't defined.
-
-**Objective:** Make each suggestion start a meaningful workflow.
-
-For example:
-
-```text
-Learn C# from scratch
-        ↓
-Model 1 conversation
-        ↓
-"What is your current experience?"
-        ↓
-Learner Profile
-        ↓
-Research
-        ↓
-Course Blueprint
-```
-
-`Explore public courses` should simply navigate to the marketplace.
-
----
-
-# Phase 5 additions — Product functionality
-
-Now the bigger missing pieces.
-
-## `PR 5.5`: IFA Recommendation Engine
-
-This is one of the most important additions.
-
-Your screenshot has:
-
-> **IFA Recommends**
-
-with things like:
-
-* Review JWT Authentication
-* Continue REST APIs
-* Practice SQL joins
-
-But the plan doesn't explicitly define how those recommendations are generated.
-
-### Recommendation inputs
-
-```text
-Quiz results
-       +
-Test results
-       +
-Skill profile
-       +
-Current course
-       +
-Learning progress
-       +
-Learner preferences
-       ↓
-Recommendation Engine
-       ↓
-Recommended actions
-```
-
-Example:
-
-```json
-{
-  "type": "PRACTICE",
-  "skill": "SQL Joins",
-  "reason": "Low quiz performance",
-  "priority": "HIGH",
-  "action": "PRACTICE_SKILL"
-}
-```
-
-### Key files
-
-```text
-src/IFA.Application/Recommendations/Services/RecommendationEngine.cs
-src/IFA.Application/Recommendations/Queries/GetRecommendationsQuery.cs
-src/IFA.Domain/Recommendations/Recommendation.cs
-```
-
-This connects beautifully with your Adaptive Learning Engine.
-
----
-
-# `PR 5.6`: Recent Activity System
-
-The screenshot has:
-
-```text
-Recent Activity
-
-✓ Completed Quiz
-  C# Fundamentals
-
-▣ Started New Module
-  REST APIs
-
-◉ Research Completed
-  Clean Architecture
-
-🎙 Voice Command
-  "Show my weak areas"
-```
-
-But your plan doesn't define an actual activity/event system.
-
-**Objective:** Record important learner actions and expose them through the dashboard.
-
-### Events
-
-```text
-COURSE_ENROLLED
-MODULE_STARTED
-MODULE_COMPLETED
-QUIZ_COMPLETED
-TEST_COMPLETED
-RESEARCH_COMPLETED
-VOICE_COMMAND_USED
-COURSE_SHARED
-COURSE_PUBLISHED
-SKILL_UPDATED
-```
-
-### Key files
-
-```text
-src/IFA.Domain/Activity/ActivityEvent.cs
-src/IFA.Application/Activity/Services/ActivityTracker.cs
-src/IFA.Application/Activity/Queries/GetRecentActivityQuery.cs
-client/src/lib/components/RecentActivity.svelte
-```
-
-This is useful because several other systems can publish activity events.
-
----
-
-# `PR 5.7`: Course Enrollment Lifecycle
-
-You already have enrollment inside the sharing PR, but **normal enrollment** needs to exist independently.
-
-**Objective:** Implement:
-
-```text
-Discover Course
-      ↓
-View Course
-      ↓
-Enroll
-      ↓
-Course appears in My Learning
-      ↓
-Start Module 1
-      ↓
-Progress tracking
-```
-
-### Key files
-
-```text
-src/IFA.Application/Courses/Commands/EnrollInCourseCommand.cs
-src/IFA.Application/Courses/Commands/UnenrollFromCourseCommand.cs
-src/IFA.Application/Courses/Queries/GetEnrolledCoursesQuery.cs
-src/IFA.Domain/Courses/CourseEnrollment.cs
-```
-
----
-
-# `PR 5.8`: Public Course Discovery & Filters
-
-Your screenshot shows four public courses, but a real marketplace needs discovery functionality.
-
-**Objective:**
-
-```text
-Search courses
-
-Category
-Difficulty
-Duration
-Rating
-Language
-Topic
-```
-
-Potential categories:
-
-```text
-Programming
-AI & Machine Learning
-Mathematics
-Business
-Cybersecurity
-Academic
-Career Preparation
-```
-
-### Key files
-
-```text
-src/IFA.Application/Courses/Queries/SearchPublicCoursesQuery.cs
-src/IFA.Application/Courses/Queries/GetPublicCourseFiltersQuery.cs
-client/src/routes/public-courses/+page.svelte
-client/src/lib/components/PublicCourseFilters.svelte
-client/src/lib/components/PublicCourseSearch.svelte
-```
-
----
-
-# One more important thing: connect the pieces
-
-I wouldn't just add these PRs independently.
-
-The final architecture should look like this:
-
-```text
-                         ┌──────────────────────┐
-                         │      LEARNER         │
-                         └──────────┬───────────┘
-                                    │
-                              Chat / Voxide
-                                    │
-                                    ▼
-                     ┌───────────────────────────┐
-                     │ MODEL 1                   │
-                     │ Learning Advisor          │
-                     │ + Research Orchestrator   │
-                     └─────────────┬─────────────┘
-                                   │
-                    ┌──────────────┴──────────────┐
-                    ▼                             ▼
-             Scholarxiv MCP              Web / YouTube
-                    │                             │
-                    └──────────────┬──────────────┘
-                                   ▼
-                          Research Package
-                                   │
-                                   ▼
-                     ┌───────────────────────────┐
-                     │ MODEL 2                   │
-                     │ Course Architect          │
-                     └─────────────┬─────────────┘
-                                   │
-                       Complete Course Blueprint
-                                   │
-                    ┌──────────────┴──────────────┐
-                    │                             │
-             Future Modules                 Current Module
-              BLUEPRINT                       READY
-                                                  │
-                                                  ▼
-                                    ┌────────────────────────┐
-                                    │ MODEL 3                │
-                                    │ Fine-Tuned Course      │
-                                    │ Builder                │
-                                    └────────────┬───────────┘
-                                                 │
-                                                 ▼
-                                         Learning Experience
-                                                 │
-                                  ┌──────────────┼──────────────┐
-                                  ▼              ▼              ▼
-                               Lessons         Quiz           Test
-                                  │              │              │
-                                  └──────────────┼──────────────┘
-                                                 ▼
-                                      Adaptive Learning Engine
-                                                 │
-                    ┌────────────────────────────┼────────────────────┐
-                    ▼                            ▼                    ▼
-              Skill Profile              Recommendations       Progress
-                    │                            │                    │
-                    └────────────────────────────┼────────────────────┘
-                                                 ▼
-                                         Next Module
-                                                 │
-                                                 ▼
-                                           Model 2 again
-```
-
-And around this core learning engine you have:
-
-```text
-                ┌─────────────────────────────┐
-                │       IFA PLATFORM          │
-                │                             │
-                │ My Learning                 │
-                │ Courses                     │
-                │ Public Courses              │
-                │ My Skills                   │
-                │ Research                    │
-                │ Progress                    │
-                │ Notifications               │
-                │ Activity                    │
-                │ Settings                    │
-                │ Search                      │
-                │ AI Tutor                    │
-                │ Sharing / Peer Comparison   │
-                └─────────────────────────────┘
-```
-
-### What I would prioritize now
-
-Since you said you're **almost finished with Phase 1**, I would **not build all these UI pages immediately**.
-
-Your next development order should be:
-
-**Phase 2–3**
-→ three AI models
-→ research
-→ contracts
-→ JIT
-→ adaptive engine
-
-**Then Phase 4**
-→ dashboard
-→ My Learning
-→ Skills
-→ Research
-→ Progress
-→ Search
-→ Notifications
-
-**Then Phase 5**
-→ enrollment
-→ recommendations
-→ activity
-→ sharing
-→ peer comparison
-→ public marketplace
-
-That way the screenshot isn't just a beautiful frontend pretending the backend exists. **Every major thing visible on the dashboard will eventually have a real system behind it.**
-
-And importantly, I would add these PRs to the existing plan rather than changing your three-model architecture again.

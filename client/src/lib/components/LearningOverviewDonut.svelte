@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ArrowRight, Terminal, Database, Network, KeyRound, CheckCircle2, Users } from 'lucide-svelte';
-  import { overallProgress, skillsList, peerComparison } from '../stores/dashboardStore';
+  import { skillsList, peerComparison } from '../stores/dashboardStore';
+  import { overallProgress } from '$lib/stores/coursesStore';
 
   const iconMap: Record<string, any> = {
     Terminal,

@@ -46,7 +46,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 .npm/
-
+.editorconfig
 # -----------------------------------------------------------------------------
 # Environment & local secrets
 # Local DB connection settings and passwords live in `.env` (see .env.example).
@@ -81,10 +81,22 @@ Desktop.ini
 $RECYCLE.BIN/
 
 # -----------------------------------------------------------------------------
-# Kilo / Agent Manager runtime state (worktrees, sessions, local plans)
+# AI agent / IDE tooling runtime state (never part of the product source)
+# Kilo, Claude Code and Devin each keep local config, sessions and scratch
+# worktrees here — they are machine-local, so none of it belongs in the repo.
 # -----------------------------------------------------------------------------
-.kilo/worktrees/
-.kilo/agent-manager.json
-.kilo/kilo.jsonc
-.kilo/state/
-.kilo/tmp/
+.kilo/
+.claude/
+.devin/
+.cursor/
+.aider*
+.continue/
+
+# -----------------------------------------------------------------------------
+# Redundant / generated archives
+# IFA_STARK_Updated_Specification/ is tracked as source; the shipped .zip is a
+# duplicate of it, so it is kept out of version control.
+# -----------------------------------------------------------------------------
+IFA_STARK_Updated_Specification/
+IFA_STARK_Updated_Specification.zip
+*.zip

@@ -1,17 +1,39 @@
 <script lang="ts">
-  import { Star, Clock, ChevronLeft, ChevronRight, ArrowRight, Compass, PlusCircle } from 'lucide-svelte';
+  import { Star, Clock, ArrowRight, Compass, PlusCircle, Loader2 } from 'lucide-svelte';
+  import { goto } from '$app/navigation';
   import { publicCourses } from '../stores/dashboardStore';
+  import { coursesApi } from '$lib/api';
+  import type { CourseCard } from '$lib/types';
 
   export let onPublishCourse = () => {};
 
-  let currentIndex = 0;
+  // The home page shows only a preview of the newest courses; the full catalog
+  // lives on the marketplace page (reachable via "Show all").
+  const HOME_PREVIEW_COUNT = 4;
+  $: previewCourses = $publicCourses.slice(0, HOME_PREVIEW_COUNT);
 
-  function next() {
-    if (currentIndex < $publicCourses.length - 1) currentIndex++;
-  }
+  let enrollingId: string | null = null;
+  let enrollError = '';
 
-  function prev() {
-    if (currentIndex > 0) currentIndex--;
+  async function handleEnroll(course: CourseCard) {
+    if (enrollingId) return;
+    enrollError = '';
+    if (!course.shareCode) {
+      // No share code (offline demo data or a private course) — send the learner
+      // to the marketplace where the real catalog is loaded.
+      await goto('/marketplace');
+      return;
+    }
+    enrollingId = course.id;
+    try {
+      const result = await coursesApi.join(course.shareCode);
+      const targetId = result?.courseId || course.id;
+      await goto(`/courses/${targetId}`);
+    } catch (cause) {
+      enrollError = cause instanceof Error ? cause.message : 'Enrollment failed.';
+    } finally {
+      enrollingId = null;
+    }
   }
 </script>
 
@@ -30,7 +52,7 @@
       </p>
     </div>
 
-    <!-- Carousel Nav Buttons & Publish Button -->
+    <!-- Publish Button & Show all -->
     <div class="flex items-center gap-2">
       <button
         type="button"
@@ -41,30 +63,23 @@
         <span>Publish Course</span>
       </button>
 
-      <div class="flex items-center gap-1">
-        <button
-          type="button"
-          on:click={prev}
-          disabled={currentIndex === 0}
-          class="w-7 h-7 rounded-full bg-ifa-card border border-ifa-border flex items-center justify-center text-ifa-text-secondary hover:text-ifa-pine disabled:opacity-40 transition shadow-soft"
-        >
-          <ChevronLeft class="w-3.5 h-3.5" />
-        </button>
-        <button
-          type="button"
-          on:click={next}
-          disabled={currentIndex >= $publicCourses.length - 1}
-          class="w-7 h-7 rounded-full bg-ifa-card border border-ifa-border flex items-center justify-center text-ifa-text-secondary hover:text-ifa-pine disabled:opacity-40 transition shadow-soft"
-        >
-          <ChevronRight class="w-3.5 h-3.5" />
-        </button>
-      </div>
+      <a
+        href="/marketplace"
+        class="flex items-center gap-1 px-3 py-1.5 rounded-full bg-ifa-pine text-white text-xs font-semibold hover:bg-ifa-pine-light shadow-soft transition"
+      >
+        <span>Show all</span>
+        <ArrowRight class="w-3.5 h-3.5" />
+      </a>
     </div>
   </div>
 
-  <!-- Cards Grid -->
+  {#if enrollError}
+    <p role="alert" class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700">{enrollError}</p>
+  {/if}
+
+  <!-- Cards Grid (preview: newest few) -->
   <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-    {#each $publicCourses as course}
+    {#each previewCourses as course}
       <div class="bg-ifa-card rounded-2xl border border-ifa-border p-3.5 flex flex-col justify-between shadow-card hover:shadow-elevated transition-all group">
         <!-- Thumbnail Container -->
         <div class="relative w-full h-32 rounded-xl overflow-hidden mb-3 bg-black/5">
@@ -108,10 +123,17 @@
         <div class="mt-3 pt-2.5 border-t border-ifa-border-light flex items-center justify-between">
           <button
             type="button"
-            class="text-xs font-bold text-ifa-pine hover:text-ifa-pine-light transition flex items-center gap-1 group/btn"
+            on:click={() => handleEnroll(course)}
+            disabled={enrollingId !== null}
+            class="text-xs font-bold text-ifa-pine hover:text-ifa-pine-light transition flex items-center gap-1 group/btn disabled:opacity-50"
           >
-            <span>Enroll Now</span>
-            <ArrowRight class="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
+            {#if enrollingId === course.id}
+              <Loader2 class="w-3 h-3 animate-spin" />
+              <span>Enrolling…</span>
+            {:else}
+              <span>Enroll Now</span>
+              <ArrowRight class="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
+            {/if}
           </button>
         </div>
       </div>
