@@ -380,6 +380,21 @@ html[data-reduced-motion='true'] *::after {
   background-color: #262626 !important;
 }
 
+/* Same problem for the muted card tone and the text hover states: the light
+   values are invisible on the dark background, so mirror them with the dark
+   palette used by the non-hover variants above. */
+.dark .hover\:bg-ifa-card-muted:hover {
+  background-color: #262626 !important;
+}
+
+.dark .hover\:text-ifa-text-primary:hover {
+  color: #e5e5e5 !important;
+}
+
+.dark .hover\:text-ifa-pine:hover {
+  color: #22c55e !important;
+}
+
 /* Dark inputs/selects inside the hero and dialogs */
 .dark input,
 .dark select,
