@@ -33,6 +33,9 @@ namespace IFA.API.Controllers
             _activityService = activityService;
         }
 
+        /// <summary>Mirrors Course.ThumbnailUrl's column length.</summary>
+        private const int MaxCoverImageUrlLength = 4096;
+
         public class CreateCourseRequest
         {
             public string Goal { get; set; } = string.Empty;
@@ -119,6 +122,17 @@ namespace IFA.API.Controllers
             if (string.IsNullOrWhiteSpace(request.Goal))
             {
                 return BadRequest(new { message = "Goal is required." });
+            }
+
+            // Covers are stored inline (the client generates a data URL when the
+            // learner asks for an auto cover). Reject anything the column cannot
+            // hold instead of letting the insert fail with a 500.
+            if (request.CoverImageUrl is { Length: > MaxCoverImageUrlLength })
+            {
+                return BadRequest(new
+                {
+                    message = $"Cover image is too large (max {MaxCoverImageUrlLength} characters). Use an image URL instead of an inline image."
+                });
             }
 
             var learnerId = await GetCurrentLearnerIdAsync(_context);
