@@ -18,7 +18,12 @@
 
   export let activeTab = 'home';
 
-  const navItems = [
+  // The Educator Studio is only exposed to educators.
+  $: isEducator = $session.role === 'Educator';
+
+  // Educators get their own navigation: studio-first, without the learner
+  // growth features (recommendations, skills, progress, AI tutor dock).
+  const learnerNavItems = [
     { id: 'home', label: 'Home', icon: Home, href: '/home' },
     { id: 'courses', label: 'My Courses', icon: BookOpen, href: '/courses' },
     { id: 'marketplace', label: 'Marketplace', icon: Globe2, href: '/marketplace' },
@@ -30,8 +35,29 @@
     { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
   ];
 
-  // The Educator Studio is only exposed to educators.
-  $: isEducator = $session.role === 'Educator';
+  const educatorNavItems = [
+    { id: 'studio', label: 'Home', icon: Home, href: '/studio' },
+    { id: 'studiodashboard', label: 'Studio Dashboard', icon: TrendingUp, href: '/studio/dashboard' },
+    { id: 'studio-projects', label: 'Projects', icon: FolderOpen, href: '/studio/projects' },
+    { id: 'courses', label: 'My Courses', icon: BookOpen, href: '/courses' },
+    { id: 'marketplace', label: 'Marketplace', icon: Globe2, href: '/marketplace' },
+    { id: 'research', label: 'Research', icon: Search, href: '/research' },
+    { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
+  ];
+
+  $: navItems = isEducator ? educatorNavItems : learnerNavItems;
+
+  /** Map nested studio paths onto the educator nav ids (layout keeps the
+   * inner slash: /studio/dashboard → activeTab 'studio/dashboard'). */
+  $: activeId = !isEducator
+    ? activeTab
+    : activeTab === 'studio'
+      ? 'studio'
+      : activeTab === 'studio/dashboard'
+        ? 'studiodashboard'
+        : activeTab.startsWith('studio/')
+          ? 'studio-projects'
+          : activeTab;
 </script>
 
 <!-- Mobile backdrop: tap to close the drawer -->
@@ -77,7 +103,7 @@
     <!-- Navigation List -->
     <nav class="space-y-1">
       {#each navItems as item}
-        {@const isActive = activeTab === item.id}
+        {@const isActive = activeId === item.id}
         <a
           href={item.href}
           on:click={closeSidebar}
@@ -89,19 +115,6 @@
           <span>{item.label}</span>
         </a>
       {/each}
-
-      {#if isEducator}
-        <a
-          href="/studio"
-          on:click={closeSidebar}
-          class="flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 {activeTab.startsWith('studio')
-            ? 'bg-ifa-pine text-white shadow-sm font-semibold'
-            : 'text-ifa-text-secondary hover:text-ifa-pine hover:bg-black/5'}"
-        >
-          <FolderOpen class="w-4 h-4 {activeTab.startsWith('studio') ? 'text-emerald-300' : 'text-ifa-text-muted'}" />
-          <span>Studio</span>
-        </a>
-      {/if}
     </nav>
   </div>
 

@@ -11,6 +11,10 @@
   import HeroGoalSuggestions from '$lib/components/HeroGoalSuggestions.svelte';
   import CourseShareDialog from '$lib/components/CourseShareDialog.svelte';
   import { activeCourse } from '$lib/stores/dashboardStore';
+  import { session } from '$lib/stores/sessionStore';
+
+  // Educators live in the Studio — they never see the learner dashboard.
+  $: if ($session.role === 'Educator') goto('/studio', { replaceState: true });
 
   let notificationToast: string | null = null;
   let showPeerComparison = false;

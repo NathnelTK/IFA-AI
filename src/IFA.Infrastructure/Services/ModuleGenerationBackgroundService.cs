@@ -27,6 +27,7 @@ namespace IFA.Infrastructure.Services
 
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<ModuleGenerationBackgroundService> _logger;
+        private bool _schemaMissingLogged;
 
         public ModuleGenerationBackgroundService(
             IServiceScopeFactory scopeFactory,
@@ -49,6 +50,19 @@ namespace IFA.Infrastructure.Services
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
                     break;
+                }
+                catch (Npgsql.PostgresException ex) when (ex.SqlState == "42P01")
+                {
+                    // Table missing (e.g. the app started against a legacy schema
+                    // that startup is still upgrading). Wait quietly instead of
+                    // spamming errors — startup self-heals the schema.
+                    if (!_schemaMissingLogged)
+                    {
+                        _schemaMissingLogged = true;
+                        _logger.LogWarning(
+                            "Generation tables not ready ({Table}); waiting for schema initialization.",
+                            ex.TableName ?? "GenerationJobs");
+                    }
                 }
                 catch (Exception ex)
                 {

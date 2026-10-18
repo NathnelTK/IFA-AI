@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Linq;
 
 // Load local secrets (see .env.example) before configuration is built so the
 // PostgreSQL password never has to be committed. Missing file is a no-op.
@@ -154,7 +155,68 @@ using (var scope = app.Services.CreateScope())
             createCmd.CommandText = createScript;
             await createCmd.ExecuteNonQueryAsync();
             logger.LogInformation("Application tables created.");
+
+            // Stamp the migration history so a later MigrateAsync() (or a flip of
+            // DB_USE_MIGRATIONS) treats this freshly created schema as current
+            // instead of replaying CREATE TABLE statements over existing tables.
+            await StampMigrationHistoryAsync(db, logger);
         }
+        else
+        {
+            // Existing database from before the Educator Studio migration:
+            // self-heal by applying pending migrations (safe here because the
+            // migration only adds new tables and widens existing columns).
+            var hasStudioTables = await HasTableAsync(dbConnection, "GenerationJobs");
+            if (!hasStudioTables)
+            {
+                logger.LogInformation("Pre-studio schema detected; applying EF Core migrations...");
+                await db.Database.MigrateAsync();
+                logger.LogInformation("Migrations applied to legacy schema.");
+            }
+        }
+        }
+
+        static async Task<bool> HasTableAsync(System.Data.Common.DbConnection connection, string tableName)
+        {
+            await using var cmd = connection.CreateCommand();
+            cmd.CommandText =
+                "SELECT count(*) FROM information_schema.tables " +
+                "WHERE table_schema = 'public' AND table_type = 'BASE TABLE' AND table_name = @name";
+            var p = cmd.CreateParameter();
+            p.ParameterName = "@name";
+            p.Value = tableName;
+            cmd.Parameters.Add(p);
+            return (long)(await cmd.ExecuteScalarAsync())! > 0;
+        }
+
+        static async Task StampMigrationHistoryAsync(ApplicationDbContext db, Microsoft.Extensions.Logging.ILogger logger)
+        {
+            var migrations = db.Database.GetMigrations().ToList();
+            if (migrations.Count == 0) return;
+
+            await using var conn = (System.Data.Common.DbConnection)db.Database.GetDbConnection();
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
+                    "MigrationId" text NOT NULL CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY,
+                    "ProductVersion" text NOT NULL);
+                """;
+            await cmd.ExecuteNonQueryAsync();
+
+            foreach (var migration in migrations)
+            {
+                await using var insert = conn.CreateCommand();
+                insert.CommandText = """
+                    INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+                    SELECT @id, @version
+                    WHERE NOT EXISTS (SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = @id);
+                    """;
+                var id = insert.CreateParameter(); id.ParameterName = "@id"; id.Value = migration; insert.Parameters.Add(id);
+                var efVersion = typeof(DbContext).Assembly.GetName().Version?.ToString(3) ?? "10.0";
+                var ver = insert.CreateParameter(); ver.ParameterName = "@version"; ver.Value = efVersion; insert.Parameters.Add(ver);
+                await insert.ExecuteNonQueryAsync();
+            }
+            logger.LogInformation("Migration history stamped ({Count} migration(s)).", migrations.Count);
         }
 
         // Seed development data if in development environment
