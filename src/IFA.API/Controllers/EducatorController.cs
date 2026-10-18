@@ -1043,6 +1043,16 @@ namespace IFA.API.Controllers
                 course.PriceAmount = 0;
             }
 
+            // Keep the originating studio project in sync so the educator home
+            // shows the course as Published instead of ReadyForReview.
+            var project = await _context.EducatorProjects
+                .FirstOrDefaultAsync(p => p.CourseId == course.Id, ct);
+            if (project != null)
+            {
+                project.Status = "Published";
+                project.UpdatedAt = DateTime.UtcNow;
+            }
+
             await _context.SaveChangesAsync(ct);
 
             return Ok(new { isPublic = course.IsPublic, isPaid = course.IsPaid, price = course.PriceAmount });
