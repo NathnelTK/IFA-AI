@@ -92,10 +92,13 @@ namespace IFA.Infrastructure.Services
                     cancellationToken);
             if (!alreadyEnrolled)
             {
+                // Paid courses never grant instant access: the enrollment waits
+                // for payment (then educator approval). Free courses stay Active.
                 _context.Add(new CourseEnrollment
                 {
                     CourseId = course.Id,
                     LearnerId = learnerId,
+                    Status = course.IsPaid ? "PendingPayment" : "Active",
                     EnrolledAt = DateTime.UtcNow,
                     LastAccessedAt = DateTime.UtcNow
                 });

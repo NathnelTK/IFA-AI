@@ -9,6 +9,9 @@
 
   let bookmarked = false;
   $: cover = resolveCover(course.thumbnail, course.title);
+  $: priceLabel = course.isPaid
+    ? `${(course.currency || 'ETB')} ${Number(course.priceAmount ?? 0).toLocaleString()}`
+    : '';
 </script>
 
 <div class="bg-ifa-card rounded-2xl border border-ifa-border overflow-hidden hover:shadow-elevated transition group">
@@ -34,10 +37,15 @@
         {/if}
       </button>
     </div>
-    <div class="absolute bottom-3 left-3">
+    <div class="absolute bottom-3 left-3 flex items-center gap-2">
       <span class="px-2 py-1 bg-black/70 text-white text-xs font-semibold rounded-full">
         {course.level}
       </span>
+      {#if priceLabel}
+        <span class="px-2 py-1 bg-ifa-pine text-white text-xs font-bold rounded-full shadow">
+          {priceLabel}
+        </span>
+      {/if}
     </div>
   </div>
 
@@ -86,7 +94,7 @@
       on:click={onEnroll}
       class="w-full py-2.5 bg-ifa-pine text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-emerald-800 transition"
     >
-      <span>{isEnrolled ? 'Continue' : 'Enroll Now'}</span>
+      <span>{isEnrolled ? 'Continue' : course.isPaid ? 'Buy & Enroll' : 'Enroll Now'}</span>
       <ArrowRight class="w-3 h-3" />
     </button>
   </div>

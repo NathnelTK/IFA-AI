@@ -1,12 +1,14 @@
 # IFA — AI-Powered Adaptive Learning Companion
 
-> **STARK Hackathon 2026** — Team XOR (Nathnel Teklemariam, Ermiyas Eshetu, Negede Tekleyes)
-
 IFA turns a conversation into a personalized course. You describe what you're trying to achieve, a
 conversational advisor asks the questions that matter, a course architect drafts a blueprint you
-approve, and a builder writes the lessons — grounded in **ScholarXiv** academic research, YouTube and
-web sources, generated **one module at a time**. The whole app can be driven hands-free with
-**Voxide** voice navigation.
+approve, and a builder writes the lessons — grounded in academic research from **OpenAlex,
+Semantic Scholar, arXiv, Tavily and Wikimedia Commons**, generated **one module at a time**. The
+whole app can be driven hands-free with **Voxide** voice navigation.
+
+Educators and content creators get the **Educator Studio**: turn linked learning materials (PDFs,
+videos, websites, articles, slides) into structured online courses, publish them free or paid
+(**Telebirr / Chapa**), and track learner progress from a dedicated dashboard.
 
 ## Live Demo
 
@@ -44,9 +46,9 @@ artifact to the next one, and the learner sits in the middle of it.
    complete. One-word or off-topic input stays in conversation rather than generating a course.
 2. **Model 2 — Course Architect.** Produces a reviewable blueprint: modules, the topics inside them
    and hour estimates. Nothing is generated until you approve it.
-3. **Research.** On approval, ScholarXiv academic search runs alongside web and YouTube lookups, and
-   the results are saved as a **reusable research package** on the course — so later modules don't pay
-   for the search again.
+3. **Research.** On approval, academic search (OpenAlex, Semantic Scholar, arXiv), web/Tavily and
+   Wikimedia Commons run alongside YouTube lookups, and the results are saved as a **reusable
+   research package** on the course — so later modules don't pay for the search again.
 4. **Model 3 — JIT Course Builder.** Writes **Module 1 immediately**: lessons plus exam-style quizzes.
    You are auto-enrolled and the course appears in **My Courses**. Every subsequent module is
    generated on demand from the course page.
@@ -64,14 +66,18 @@ under a `## Course Sources` section — the model is told to cite them, and IFA 
 - **Courses Library** with search, filter and sort
 - **My Skills & Skill Profile** with radar charts and per-skill breakdowns
 - **Progress Dashboard** with analytics and activity charts
-- **Research Workspace** with ScholarXiv, web and YouTube sources
+- **Research Workspace** with academic (OpenAlex, Semantic Scholar, arXiv), web and YouTube sources
 - **Settings & Preferences** for learning, resources, notifications and theme
 - **Global Search Command Palette** (⌘K / Ctrl+K) for keyboard-driven navigation
 - **Notification Center** and learner profile menu
 
 ### AI-powered
 - **Three-model pipeline** — conversational advisor, course architect, JIT course builder
-- **ScholarXiv research** integration for academic, peer-reviewed sources
+- **Full-screen advisor chat** (`/chat`) with properly rendered markdown responses
+- **Academic research** via OpenAlex, Semantic Scholar, arXiv, Tavily and Wikimedia Commons
+- **Educator Studio** — turn linked materials into structured courses: source panel, AI research
+  suggestions, conflict/duplicate resolution, blueprint review, background module-by-module
+  generation with per-module jobs and notifications
 - **YouTube** resource matching, including a preferred channel
 - **Voxide voice navigation** — spoken requests map onto the same capabilities the UI calls
 - **AI Tutor** — Socratic learning assistant, course-aware
@@ -79,15 +85,17 @@ under a `## Course Sources` section — the model is told to cite them, and IFA 
 - **Recommendation engine** — personalized course suggestions, including remediation courses
 
 ### Social learning
-- **Course sharing** with shareable links and enrollment codes
-- **Course marketplace** for public course discovery and publishing
+- **Course sharing** with shareable links — friends with an account enroll in one click, visitors
+  are guided to create an account first
+- **Course marketplace** for discovering educator-published courses
+- **Paid courses** via **Chapa** (Telebirr supported) with educator enrollment approval
 - **Activity stream** for peer activity
 - **Peer progress comparison** for skill benchmarking
 
 ### Landing page
 A standalone marketing page (`client/src/routes/+page.svelte`) with an animated hero, a live pipeline
-demo, and dedicated sections for ScholarXiv research and Voxide voice. Fully theme-aware (light/dark)
-and reduced-motion aware.
+demo, and dedicated sections for Educator Studio, academic research and Voxide voice. Fully
+theme-aware (light/dark) and reduced-motion aware.
 
 ## Technology Stack
 
@@ -189,8 +197,18 @@ GROQ_API_KEY=your_groq_api_key
 OLLAMA_BASE_URL=http://localhost:11434
 
 # External services
-SCHOLARXIV_API_KEY=your_scholarxiv_api_key
+SEMANTIC_SCHOLAR_API_KEY=your_semantic_scholar_api_key   # optional, raises rate limits
+TAVILY_API_KEY=your_tavily_api_key                       # optional, web/image search
 YOUTUBE_API_KEY=your_youtube_api_key
+
+# Payments — Chapa (Telebirr supported). Sandbox by default.
+CHAPA_SECRET_KEY=your_chapa_secret_key
+CHAPA_BASE_URL=https://api.chapa.co/v1
+CHAPA_WEBHOOK_SECRET=your_chapa_webhook_secret
+
+# Set to true to apply EF migrations at startup instead of the
+# create-if-empty schema flow (recommended for existing databases).
+DB_USE_MIGRATIONS=false
 
 # CORS — comma-separated frontend origins. Required; the API uses
 # AllowCredentials(), so a wildcard origin is not accepted.
@@ -201,8 +219,7 @@ ASPNETCORE_URLS=http://+:8080
 ```
 
 Connection resolution order: `ConnectionStrings:DefaultConnection` → `DATABASE_URL` → the `DB_*`
-values. Provider tuning lives in `src/IFA.API/appsettings.json` (models, per-pipeline provider,
-`Scholarxiv:UseMockData`).
+values. Provider tuning lives in `src/IFA.API/appsettings.json` (models, per-pipeline provider).
 
 ### Frontend (`client/.env`)
 
@@ -255,12 +272,18 @@ gets its own hostname, so add any preview domains you intend to use.
 
 ## Database & Schema
 
-The API does **not** use EF migrations at runtime. On startup it checks `information_schema` for base
-tables in the `public` schema and, if the schema is empty, creates it from
-`Database.GenerateCreateScript()`, then seeds the entrance-exam catalog and demo data.
+By default the API checks `information_schema` for base tables in the `public` schema and, if the
+schema is empty, creates it from `Database.GenerateCreateScript()`, then seeds the entrance-exam
+catalog and demo data.
 
-Consequence: **`EnsureCreated` cannot alter existing tables.** After a model change that adds or
-changes columns, reset the schema and restart the API:
+For existing databases, set `DB_USE_MIGRATIONS=true` to apply EF Core migrations at startup instead
+(e.g. `AddEducatorStudioAndPayments`, which adds the Educator Studio, payments and enrollment
+tables). Migrations are the recommended path for production — Render sets this flag in
+`render.yaml`.
+
+Consequence of the default flow: **`EnsureCreated` cannot alter existing tables.** After a model
+change that adds or changes columns (without `DB_USE_MIGRATIONS=true`), reset the schema and restart
+the API:
 
 ```sql
 DROP SCHEMA public CASCADE;
@@ -330,18 +353,12 @@ npm run check             # Type-check with svelte-check
 
 - [Demo script](docs/DEMO_SCRIPT.md) — a single end-to-end use case for presenting IFA
 - [Pitch deck](docs/PITCH_DECK.md) — problem, solution, architecture, roadmap
-- [STARK changelog](docs/stark-changelog.md) — milestone history
+- [Changelog](docs/stark-changelog.md) — milestone history
 - [Implementation plan](IFA_AI_Learning_Companion_Implementation_Plan_v3.md) — design and PR tracking
-
-## Team
-
-- **Nathnel Teklemariam** — Team Lead, architecture and system design
-- **Ermiyas Eshetu** — Backend, ASP.NET Core API, database, AI integration
-- **Negede Tekleyes** — Frontend, SvelteKit UI, design system, accessibility
 
 ## Acknowledgments
 
-- STARK Hackathon 2026
 - Gemini AI · Groq AI · Ollama
-- ScholarXiv
+- OpenAlex · Semantic Scholar · arXiv · Tavily · Wikimedia Commons
+- Chapa (Telebirr)
 - Voxide

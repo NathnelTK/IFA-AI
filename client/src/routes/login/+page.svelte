@@ -1,9 +1,18 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
   import { ArrowRight, Code2, Lock, Mail, CheckCircle2, Loader2 } from 'lucide-svelte';
   import { authApi, type DemoAccountDto } from '$lib/api';
   import { signIn, continueAsDemo } from '$lib/stores/sessionStore';
+
+  // Optional ?redirect=/path — after a successful sign-in we send the learner
+  // back where they started (e.g. a shared course link or the chat page).
+  $: redirectTarget = $page.url.searchParams.get('redirect') || '/home';
+
+  function safeRedirect(target: string): string {
+    return target.startsWith('/') && !target.startsWith('//') ? target : '/home';
+  }
 
   let email = '';
   let password = '';
@@ -32,7 +41,7 @@
     error = '';
     try {
       await signIn(email.trim(), password);
-      await goto('/home');
+      await goto(safeRedirect(redirectTarget));
     } catch (cause) {
       error = cause instanceof Error ? cause.message : 'Sign in failed.';
     } finally {
@@ -52,7 +61,7 @@
     error = '';
     try {
       await continueAsDemo();
-      await goto('/home');
+      await goto(safeRedirect(redirectTarget));
     } catch (cause) {
       error = cause instanceof Error ? cause.message : 'Demo sign in failed.';
     } finally {
@@ -189,7 +198,10 @@
 
       <p class="text-sm text-ifa-text-secondary mt-6 text-center">
         New to IFA?
-        <a href="/register" class="font-semibold text-ifa-pine hover:text-ifa-pine-dark">Create an account</a>
+        <a
+          href={redirectTarget !== '/home' ? `/register?redirect=${encodeURIComponent(redirectTarget)}` : '/register'}
+          class="font-semibold text-ifa-pine hover:text-ifa-pine-dark"
+        >Create an account</a>
       </p>
     </div>
   </div>

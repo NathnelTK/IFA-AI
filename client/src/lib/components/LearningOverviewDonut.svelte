@@ -49,7 +49,7 @@
     <!-- Peer Comparison Summary Card -->
     <div class="p-3 rounded-2xl bg-gradient-to-r from-emerald-50 to-purple-50 border border-purple-100 flex items-center justify-between">
       <div class="text-left">
-        <p class="text-[10px] uppercase font-bold text-emerald-700 tracking-wider">You (Nathnel)</p>
+        <p class="text-[10px] uppercase font-bold text-emerald-700 tracking-wider">You</p>
         <p class="text-lg font-black text-emerald-900">{$peerComparison.userProgress}%</p>
       </div>
       <div class="text-[11px] font-black text-ifa-text-muted px-2 py-0.5 bg-white/80 rounded-md shadow-soft">

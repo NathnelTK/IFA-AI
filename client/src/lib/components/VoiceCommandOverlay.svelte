@@ -22,7 +22,7 @@
     const phrases = [
       'Show my weak areas',
       'Continue with REST APIs',
-      'Compare my progress with Ermiyas',
+      'Compare my progress with peers',
       'Practice SQL joins',
       'Generate a new course for Python'
     ];

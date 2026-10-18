@@ -15,6 +15,7 @@
   let notificationToast: string | null = null;
   let showPeerComparison = false;
   let shareOpen = false;
+  let shareCourse: { id: string; title: string } | null = null;
 
   function showToast(msg: string) {
     notificationToast = msg;
@@ -37,12 +38,15 @@
   function handleCompareToggle() {
     showPeerComparison = !showPeerComparison;
     if (showPeerComparison) {
-      showToast('Opening Peer Progress Comparison with Ermiyas!');
+      showToast('Opening Peer Progress Comparison!');
     }
   }
 
-  function handlePublishCourse() {
-    showToast('Your course "C# Backend Development" was published to Public Courses!');
+  // Sharing replaces the old inline publish flow: educators/learners send a
+  // one-click enrollment link instead of publishing from the dashboard.
+  function handleShareGridCourse(course: { id: string; title: string }) {
+    shareCourse = course;
+    shareOpen = true;
   }
 
   function handleSelectRecommendation(id: string) {
@@ -76,8 +80,8 @@
         onCompareToggle={handleCompareToggle}
       />
 
-      <!-- Explore Public Courses Grid -->
-      <PublicCoursesGrid onPublishCourse={handlePublishCourse} />
+      <!-- Explore Public Courses Grid (share instead of publish) -->
+      <PublicCoursesGrid onShareCourse={handleShareGridCourse} />
     </div>
 
     <!-- Right Sidebar Column (xl:col-span-4) -->
@@ -106,7 +110,8 @@
     <CourseShareDialog
       isOpen={shareOpen}
       on:close={() => (shareOpen = false)}
-      courseTitle={$activeCourse?.title || 'C# Backend Development'}
+      courseId={shareCourse?.id || $activeCourse?.id || ''}
+      courseTitle={shareCourse?.title || $activeCourse?.title || 'C# Backend Development'}
     />
   {/if}
 </div>

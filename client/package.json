@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "@voxide/react": "^0.8.0",
+    "dompurify": "^3.4.17",
     "marked": "^14.1.4"
   }
 }

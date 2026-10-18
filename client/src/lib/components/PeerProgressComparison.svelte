@@ -3,8 +3,8 @@
 
   const peerData = {
     currentLearner: {
-      name: 'Nathnel',
-      avatar: 'N',
+      name: 'You',
+      avatar: 'Y',
       overallProgress: 72,
       coursesCompleted: 3,
       skills: {
@@ -17,8 +17,8 @@
     },
     peers: [
       {
-        name: 'Ermiyas',
-        avatar: 'E',
+        name: 'Amina',
+        avatar: 'A',
         overallProgress: 61,
         coursesCompleted: 2,
         skills: {
@@ -30,8 +30,8 @@
         }
       },
       {
-        name: 'Negede',
-        avatar: 'N',
+        name: 'Kalkidan',
+        avatar: 'K',
         overallProgress: 85,
         coursesCompleted: 4,
         skills: {

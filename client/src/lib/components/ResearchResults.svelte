@@ -34,7 +34,7 @@
 
       <div class="flex items-center gap-4 text-xs text-ifa-text-secondary mb-3">
         <div class="flex items-center gap-1">
-          <span class="font-semibold">{research.scholarxivCount}</span>
+          <span class="font-semibold">{research.academicCount}</span>
           <span>Academic</span>
         </div>
         <div class="flex items-center gap-1">

@@ -31,6 +31,28 @@ namespace IFA.API.Controllers
 
             if (lesson == null) return NotFound();
 
+            // Paid-course gating: the learner needs an Active enrollment (or be
+            // the owning educator) to read lessons of a paid course.
+            var course = lesson.Module?.Course;
+            if (course is { IsPaid: true })
+            {
+                var learnerIdForGate = await GetCurrentLearnerIdAsync(_context);
+                if (course.CreatorLearnerId != learnerIdForGate)
+                {
+                    var hasAccess = await _context.CourseEnrollments
+                        .AnyAsync(e => e.CourseId == course.Id
+                                       && e.LearnerId == learnerIdForGate
+                                       && e.Status == "Active");
+                    if (!hasAccess)
+                    {
+                        return StatusCode(403, new
+                        {
+                            message = "This is a paid course. Complete the payment and get educator approval to access it."
+                        });
+                    }
+                }
+            }
+
             return Ok(lesson);
         }
 

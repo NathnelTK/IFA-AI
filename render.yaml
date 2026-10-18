@@ -46,10 +46,21 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
-      - key: SCHOLARXIV_API_KEY
-        sync: false
       - key: YOUTUBE_API_KEY
         sync: false
+      - key: SEMANTIC_SCHOLAR_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: CHAPA_SECRET_KEY
+        sync: false
+      - key: CHAPA_WEBHOOK_SECRET
+        sync: false
+      - key: CHAPA_BASE_URL
+        value: https://api.chapa.co/v1
+      # Apply EF migrations at startup instead of the create-if-empty flow.
+      - key: DB_USE_MIGRATIONS
+        value: "true"
 
       # --- Set this to the Vercel domain once the frontend is live ----------
       # Example: https://ifa-ai.vercel.app

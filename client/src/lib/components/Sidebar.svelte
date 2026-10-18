@@ -10,9 +10,11 @@
     TrendingUp,
     Settings,
     Lightbulb,
+    FolderOpen,
     X
   } from 'lucide-svelte';
   import { sidebarOpen, closeSidebar } from '$lib/stores/uiStore';
+  import { session } from '$lib/stores/sessionStore';
 
   export let activeTab = 'home';
 
@@ -27,6 +29,9 @@
     { id: 'progress', label: 'Progress', icon: TrendingUp, href: '/progress' },
     { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
   ];
+
+  // The Educator Studio is only exposed to educators.
+  $: isEducator = $session.role === 'Educator';
 </script>
 
 <!-- Mobile backdrop: tap to close the drawer -->
@@ -84,6 +89,19 @@
           <span>{item.label}</span>
         </a>
       {/each}
+
+      {#if isEducator}
+        <a
+          href="/studio"
+          on:click={closeSidebar}
+          class="flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 {activeTab.startsWith('studio')
+            ? 'bg-ifa-pine text-white shadow-sm font-semibold'
+            : 'text-ifa-text-secondary hover:text-ifa-pine hover:bg-black/5'}"
+        >
+          <FolderOpen class="w-4 h-4 {activeTab.startsWith('studio') ? 'text-emerald-300' : 'text-ifa-text-muted'}" />
+          <span>Studio</span>
+        </a>
+      {/if}
     </nav>
   </div>
 

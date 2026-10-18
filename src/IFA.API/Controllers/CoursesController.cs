@@ -113,7 +113,34 @@ namespace IFA.API.Controllers
 
             if (course == null) return NotFound(new { message = "Course not found." });
 
+            // Paid-course gating: content is only served to learners with an
+            // Active enrollment (or the owning educator).
+            var gating = await EnsurePaidCourseAccessAsync(course);
+            if (gating != null) return gating;
+
             return Ok(course);
+        }
+
+        /// <summary>
+        /// Returns a 403 response when the current learner may not see the
+        /// content of a PAID course (no Active enrollment and not the owning
+        /// educator). Free courses always pass.
+        /// </summary>
+        private async Task<IActionResult?> EnsurePaidCourseAccessAsync(Course course)
+        {
+            if (!course.IsPaid) return null;
+
+            var learnerId = await GetCurrentLearnerIdAsync(_context);
+            if (course.CreatorLearnerId == learnerId) return null;
+
+            var active = await _context.CourseEnrollments
+                .AnyAsync(e => e.CourseId == course.Id
+                              && e.LearnerId == learnerId
+                              && e.Status == "Active");
+
+            return active
+                ? null
+                : StatusCode(403, new { message = "This is a paid course. Complete the payment and get educator approval to access it." });
         }
 
         [HttpPost]
@@ -169,13 +196,26 @@ namespace IFA.API.Controllers
         [HttpPost("{id}/publish")]
         public async Task<IActionResult> PublishCourse(Guid id)
         {
+            // Publishing is educator-only now: learners can no longer flip the
+            // public flag on their personal AI-generated courses.
+            var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value
+                       ?? User.FindFirst("role")?.Value;
+            if (!string.Equals(role, "Educator", StringComparison.OrdinalIgnoreCase))
+            {
+                return StatusCode(403, new { message = "Educator role required to publish courses." });
+            }
+
+            var learnerId = await GetCurrentLearnerIdAsync(_context);
             var course = await _context.Courses.FirstOrDefaultAsync(c => c.Id == id);
             if (course == null) return NotFound();
+            if (course.CreatorLearnerId != learnerId)
+            {
+                return StatusCode(403, new { message = "You do not own this course." });
+            }
 
             course.IsPublic = !course.IsPublic;
             await _context.SaveChangesAsync();
 
-            var learnerId = await GetCurrentLearnerIdAsync(_context);
             if (course.IsPublic)
             {
                 await _activityService.RecordActivityAsync(
@@ -286,15 +326,26 @@ namespace IFA.API.Controllers
         public async Task<IActionResult> JoinCourse(string code)
         {
             var learnerId = await GetCurrentLearnerIdAsync(_context);
-            var success = await _sharingService.EnrollViaShareCodeAsync(code, learnerId);
-            if (!success) return BadRequest(new { message = "Invalid or expired share code." });
 
+            // Resolve the course first so paid courses can be routed to payment
+            // instead of granting instant access.
             var course = await _context.Courses
                 .FirstOrDefaultAsync(item => item.ShareCode == code && item.IsPublic);
             course ??= await _context.CourseShareInvites
                 .Where(invite => invite.ShareCode == code)
                 .Select(invite => invite.Course)
                 .FirstOrDefaultAsync();
+
+            var success = await _sharingService.EnrollViaShareCodeAsync(code, learnerId);
+            if (!success) return BadRequest(new { message = "Invalid or expired share code." });
+
+            if (course is { IsPaid: true })
+            {
+                // EnrollViaShareCodeAsync created/kept the enrollment as
+                // PendingPayment for paid courses.
+                return Ok(new { paymentRequired = true, courseId = course.Id });
+            }
+
             return Ok(new { success = true, courseId = course?.Id });
         }
 

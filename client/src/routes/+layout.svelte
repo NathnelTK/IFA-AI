@@ -34,7 +34,10 @@
   $: isPublicPage =
     currentPath === '/' ||
     currentPath.startsWith('/login') ||
-    currentPath.startsWith('/register');
+    currentPath.startsWith('/register') ||
+    // The full-screen advisor chat renders its own shell and shows a sign-in
+    // prompt (with a redirect back) for anonymous visitors.
+    currentPath.startsWith('/chat');
 
   // Bootstrap the API session once per page load (client side only).
   let sessionStarted = false;

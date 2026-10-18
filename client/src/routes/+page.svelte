@@ -26,6 +26,7 @@
     Terminal,
     MessageSquare,
     FileText,
+    Link2,
     Youtube,
     TrendingUp,
     Award,
@@ -121,8 +122,8 @@
   ];
 
   const researchRows = [
-    { icon: FlaskConical, label: 'ScholarXiv · academic papers', meta: 'peer-reviewed sources', tone: 'purple' },
-    { icon: Globe, label: 'Web resources', meta: 'official docs & references', tone: 'blue' },
+    { icon: FlaskConical, label: 'Academic papers · OpenAlex · Semantic Scholar · arXiv', meta: 'peer-reviewed sources', tone: 'purple' },
+    { icon: Globe, label: 'Web resources · Tavily · Wikimedia Commons', meta: 'official docs & references', tone: 'blue' },
     { icon: Youtube, label: 'YouTube walkthroughs', meta: 'matched to your creator', tone: 'pink' }
   ];
 
@@ -162,7 +163,9 @@
   /* ------------------------------------------------------------------ */
 
   const partners = [
-    { icon: FlaskConical, name: 'ScholarXiv', role: 'Academic research' },
+    { icon: FlaskConical, name: 'OpenAlex', role: 'Academic research' },
+    { icon: FlaskConical, name: 'Semantic Scholar', role: 'Paper search' },
+    { icon: FlaskConical, name: 'arXiv', role: 'Preprints' },
     { icon: AudioLines, name: 'Voxide', role: 'Voice navigation' },
     { icon: Sparkles, name: 'Gemini', role: 'Conversational AI' },
     { icon: Zap, name: 'Groq', role: 'Fast inference' },
@@ -208,7 +211,7 @@
       summary:
         'Lessons and exam-style quizzes are written one module at a time, grounded in research and shaped by your assessment results.',
       points: [
-        'ScholarXiv papers, web and YouTube gathered per module',
+        'Academic papers, web and YouTube gathered per module',
         'Lesson + quiz generated on demand, saved to the course',
         'Adaptive: weak areas return with more depth and practice'
       ]
@@ -223,10 +226,34 @@
       body: 'Intake, architecture and building are separate models with separate jobs — not one prompt asked to do everything.'
     },
     {
+      icon: GraduationCap,
+      accent: 'blue',
+      title: 'Educator Studio',
+      body: 'Turn linked materials — PDFs, videos, websites, articles, slides — into structured courses with AI research suggestions, conflict resolution, blueprint review and background generation.'
+    },
+    {
+      icon: MessageSquare,
+      accent: 'green',
+      title: 'Full-screen AI advisor',
+      body: 'A dedicated chat page where the advisor scopes your goal, drafts the setup and proposes a course blueprint you approve.'
+    },
+    {
+      icon: Users,
+      accent: 'amber',
+      title: 'One-click course sharing',
+      body: 'Share any course with a link — friends create a free account and enroll in one click. No codes to copy.'
+    },
+    {
+      icon: TrendingUp,
+      accent: 'orange',
+      title: 'Paid courses, Ethiopian payments',
+      body: 'Sell your courses in ETB with Telebirr and Chapa checkout. Learners pay securely; educators see every enrollment.'
+    },
+    {
       icon: FlaskConical,
       accent: 'purple',
-      title: 'ScholarXiv research',
-      body: 'Academic search through the ScholarXiv MCP, plus web and YouTube, saved as a reusable research package per course.'
+      title: 'Academic research grounding',
+      body: 'Search across OpenAlex, Semantic Scholar, arXiv, Tavily and Wikimedia Commons, saved as a reusable research package per course.'
     },
     {
       icon: Mic,
@@ -235,34 +262,10 @@
       body: 'Talk to the app: jump to a section, start a course, or open the tutor. Voice maps to real capabilities, not a mock transcript.'
     },
     {
-      icon: TrendingUp,
-      accent: 'amber',
-      title: 'Adaptive engine',
-      body: 'Assessment outcomes feed back into the plan, so the next module leans into the skills you have not locked in yet.'
-    },
-    {
-      icon: Zap,
-      accent: 'orange',
-      title: 'Just-in-time generation',
-      body: 'Modules materialize when you reach them. Course one opens with a finished lesson and quiz, not a placeholder.'
-    },
-    {
       icon: BarChart3,
       accent: 'blue',
       title: 'Skills & progress',
       body: 'Skill breakdowns and progress analytics computed from your real assessment data, with weak areas called out.'
-    },
-    {
-      icon: Users,
-      accent: 'green',
-      title: 'Social learning',
-      body: 'Share a course with an enrollment code, publish it to the marketplace, and benchmark your skills against peers.'
-    },
-    {
-      icon: Search,
-      accent: 'purple',
-      title: 'Keyboard-first search',
-      body: 'A ⌘K command palette jumps across courses, skills, research and pages without touching the mouse.'
     }
   ];
 
@@ -301,7 +304,7 @@
     {
       icon: Cpu,
       title: 'AI & integrations',
-      items: ['Gemini — conversational AI', 'Groq — fast inference', 'ScholarXiv MCP — research', 'Voxide — voice interface']
+      items: ['Gemini — conversational AI', 'Groq — fast inference', 'OpenAlex · Semantic Scholar · arXiv — research', 'Voxide — voice interface']
     }
   ];
 
@@ -332,7 +335,7 @@
   <title>IFA — Your AI Learning Companion</title>
   <meta
     name="description"
-    content="IFA turns a conversation into a personalized course: a conversational advisor learns your goal, a course architect drafts a blueprint you approve, and a builder writes research-backed lessons — grounded in ScholarXiv research with hands-free Voxide voice navigation."
+    content="IFA turns a conversation into a personalized course: a conversational advisor learns your goal, a course architect drafts a blueprint you approve, and a builder writes research-backed lessons — grounded in academic research from OpenAlex, Semantic Scholar and arXiv, with hands-free Voxide voice navigation and an Educator Studio for course authors."
   />
 </svelte:head>
 
@@ -355,6 +358,7 @@
       <div class="hidden lg:flex items-center gap-1">
         {#each [
           { id: 'how', label: 'How it works' },
+          { id: 'studio', label: 'For educators' },
           { id: 'features', label: 'Features' },
           { id: 'voice', label: 'Voice' },
           { id: 'research', label: 'Research' },
@@ -428,7 +432,7 @@
           <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-ifa-pine/30 bg-ifa-card/80 backdrop-blur">
             <span class="lp-live-dot"></span>
             <span class="text-[11px] font-bold uppercase tracking-wider text-ifa-pine">
-              STARK Hackathon 2026 · Team XOR
+              AI-powered learning · built for Ethiopia
             </span>
           </div>
 
@@ -442,8 +446,9 @@
           <p class="text-lg text-ifa-text-secondary max-w-xl leading-relaxed">
             IFA runs a three-model pipeline: a conversational advisor learns what you are trying to achieve, a course
             architect drafts a blueprint you approve, and a builder writes the lessons — grounded in
-            <strong class="text-ifa-text-primary">ScholarXiv</strong> academic research and YouTube, generated one module at a
-            time. Then run the whole app hands-free with <strong class="text-ifa-text-primary">Voxide</strong> voice navigation.
+            <strong class="text-ifa-text-primary">academic research</strong> and YouTube, generated one module at a
+            time. Educators get a full Studio to turn their materials into courses. Then run the whole app hands-free
+            with <strong class="text-ifa-text-primary">Voxide</strong> voice navigation.
           </p>
 
           <div class="flex flex-wrap items-center gap-3">
@@ -472,7 +477,7 @@
           <div class="flex flex-wrap gap-2 pt-1">
             {#each [
               { icon: Layers, label: '3-model pipeline' },
-              { icon: FlaskConical, label: 'ScholarXiv research' },
+              { icon: FlaskConical, label: 'Academic research' },
               { icon: Mic, label: 'Voxide voice' },
               { icon: Zap, label: 'JIT modules' }
             ] as chip}
@@ -607,7 +612,7 @@
           <!-- Floating integration chips -->
           <div class="hidden xl:flex absolute -left-8 top-24 lp-chip-float">
             <FlaskConical class="w-3.5 h-3.5 text-ifa-accent-purple" />
-            <span>ScholarXiv</span>
+            <span>Academic sources</span>
           </div>
           <div class="hidden xl:flex absolute -right-7 top-40 lp-chip-float lp-chip-delay">
             <AudioLines class="w-3.5 h-3.5 text-ifa-accent-pink" />
@@ -722,6 +727,91 @@
     </div>
   </section>
 
+  <!-- ================= Educator Studio ================= -->
+  <section id="studio" class="py-24 px-6 bg-ifa-bg-warm">
+    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-14 items-center">
+      <div use:reveal>
+        <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-ifa-pine mb-3">Educator Studio</p>
+        <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight text-ifa-text-primary mb-4">
+          Turn your materials into a course students finish
+        </h2>
+        <p class="text-ifa-text-secondary leading-relaxed mb-6">
+          Drop in the links you already teach from — PDFs, videos, websites, articles, slides. IFA extracts each one,
+          suggests additional academic sources, and flags conflicts before a single lesson is written.
+        </p>
+        <ul class="space-y-3">
+          {#each [
+            { icon: Link2, text: 'Add any link — PDFs, videos, websites, articles and slides are auto-detected.' },
+            { icon: Search, text: 'AI research suggestions fill the gaps with academic sources.' },
+            { icon: Shield, text: 'Conflict analysis surfaces duplicates and contradictions you can resolve.' },
+            { icon: ListChecks, text: 'Review the blueprint module by module, then generate in the background.' }
+          ] as item}
+            <li class="flex items-start gap-3">
+              <span class="lp-feature-icon lp-tone-blue shrink-0">
+                <svelte:component this={item.icon} class="w-4 h-4" />
+              </span>
+              <span class="text-sm text-ifa-text-secondary leading-relaxed pt-1.5">{item.text}</span>
+            </li>
+          {/each}
+        </ul>
+        <div class="mt-6 flex flex-wrap gap-3">
+          <button
+            type="button"
+            on:click={() => goto('/register?role=Educator')}
+            class="lp-btn-primary px-5 py-3 rounded-xl bg-ifa-pine text-white text-sm font-bold transition shadow-elevated flex items-center gap-2"
+          >
+            <span class="relative z-10">Start teaching with IFA</span>
+            <ArrowRight class="relative z-10 w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            on:click={handleGetStarted}
+            class="px-5 py-3 rounded-xl border border-ifa-border bg-ifa-card text-ifa-text-primary text-sm font-bold hover:bg-ifa-card-muted transition flex items-center gap-2"
+          >
+            <Sparkles class="w-4 h-4" />
+            See the full platform
+          </button>
+        </div>
+      </div>
+
+      <!-- Studio mock panel -->
+      <div class="lp-card rounded-3xl border border-ifa-border bg-ifa-card p-6 shadow-elevated" use:reveal={100}>
+        <div class="flex items-center justify-between mb-5">
+          <span class="flex items-center gap-2 text-sm font-bold text-ifa-text-primary">
+            <GraduationCap class="w-5 h-5 text-ifa-pine" />
+            Course project · Introduction to Databases
+          </span>
+          <span class="lp-badge-ready">12 sources</span>
+        </div>
+        <div class="space-y-2.5">
+          {#each [
+            { title: 'lecture-01-relational-model.pdf', meta: 'PDF · extracted', tone: 'green', icon: FileText },
+            { title: 'Normalization explained — YouTube', meta: 'Video · extracted', tone: 'green', icon: Youtube },
+            { title: 'ACID properties — wiki article', meta: 'Article · extracted', tone: 'green', icon: Globe },
+            { title: 'AI suggestion: survey paper on query optimization', meta: 'Added by AI research', tone: 'purple', icon: FlaskConical }
+          ] as row}
+            <div class="lp-row">
+              <span class="lp-row-icon lp-tone-{row.tone}">
+                <svelte:component this={row.icon} class="w-3.5 h-3.5" />
+              </span>
+              <span class="min-w-0">
+                <span class="block text-xs font-semibold text-ifa-text-primary truncate">{row.title}</span>
+                <span class="block text-[10px] text-ifa-text-muted">{row.meta}</span>
+              </span>
+              <Check class="w-3.5 h-3.5 text-ifa-pine ml-auto shrink-0" />
+            </div>
+          {/each}
+        </div>
+        <div class="mt-5 rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+          <p class="text-[11px] font-bold uppercase tracking-wider text-amber-700 mb-1">Conflict detected</p>
+          <p class="text-xs text-amber-800 leading-relaxed">
+            Two sources define normalization differently — pick one or keep both before generating the blueprint.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ================= Voice (Voxide) ================= -->
   <section id="voice" class="py-24 px-6">
     <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-14 items-center">
@@ -809,7 +899,7 @@
     </div>
   </section>
 
-  <!-- ================= Research (ScholarXiv) ================= -->
+  <!-- ================= Research (academic sources) ================= -->
   <section id="research" class="py-24 px-6 bg-ifa-bg-warm">
     <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-14 items-center">
       <div class="lp-research-card rounded-3xl border border-ifa-border bg-ifa-card p-6 shadow-elevated" use:reveal>
@@ -818,13 +908,13 @@
             <FlaskConical class="w-5 h-5 text-ifa-accent-purple" />
             Research package
           </span>
-          <span class="lp-model-chip lp-tone-purple">ScholarXiv MCP</span>
+          <span class="lp-model-chip lp-tone-purple">Academic + web search</span>
         </div>
 
         <div class="space-y-3">
           {#each [
-            { icon: FlaskConical, title: 'Academic papers', meta: 'Search run through the ScholarXiv MCP server', count: 'ranked by relevance' },
-            { icon: Globe, title: 'Web resources', meta: 'Official documentation and reference pages', count: 'fetched per topic' },
+            { icon: FlaskConical, title: 'Academic papers', meta: 'OpenAlex · Semantic Scholar · arXiv', count: 'ranked by relevance' },
+            { icon: Globe, title: 'Web resources', meta: 'Tavily search and Wikimedia Commons media', count: 'fetched per topic' },
             { icon: Youtube, title: 'YouTube walkthroughs', meta: 'Matched to the creator you asked for', count: 'transcript-ready' }
           ] as source}
             <div class="lp-row">
@@ -853,7 +943,7 @@
       <div use:reveal={100}>
         <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-ifa-pine mb-3">Research</p>
         <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight text-ifa-text-primary mb-4">
-          Backed by ScholarXiv, not vibes
+          Backed by real academic sources, not vibes
         </h2>
         <p class="text-ifa-text-secondary leading-relaxed mb-6">
           Research runs once per course and is stored as a reusable package, so every module you generate later is
@@ -861,8 +951,8 @@
         </p>
         <ul class="space-y-3">
           {#each [
-            { icon: FlaskConical, text: 'ScholarXiv academic search for peer-reviewed starting points.' },
-            { icon: Globe, text: 'Web references pulled for the specific topics in each module.' },
+            { icon: FlaskConical, text: 'OpenAlex, Semantic Scholar and arXiv for peer-reviewed starting points.' },
+            { icon: Globe, text: 'Web references via Tavily and images from Wikimedia Commons.' },
             { icon: Youtube, text: 'Video resources matched to the creator you prefer.' },
             { icon: FileText, text: 'Your pasted links and cover image are treated as first-class sources.' }
           ] as item}
@@ -1020,7 +1110,7 @@
             { id: 'how', label: 'How it works' },
             { id: 'features', label: 'Features' },
             { id: 'voice', label: 'Voice (Voxide)' },
-            { id: 'research', label: 'Research (ScholarXiv)' },
+            { id: 'research', label: 'Research sources' },
             { id: 'stack', label: 'Tech stack' }
           ] as link}
             <li>
@@ -1058,13 +1148,13 @@
       </div>
 
       <div>
-        <h3 class="text-xs font-bold uppercase tracking-wider text-ifa-text-primary mb-4">Built by Team XOR</h3>
+        <h3 class="text-xs font-bold uppercase tracking-wider text-ifa-text-primary mb-4">For educators</h3>
         <ul class="space-y-2.5 text-sm text-ifa-text-secondary">
-          <li>Nathnel Teklemariam</li>
-          <li>Ermiyas Eshetu</li>
-          <li>Negede Tekleyes</li>
+          <li><a href="#studio" class="hover:text-ifa-pine transition">Educator Studio</a></li>
+          <li><a href="#features" class="hover:text-ifa-pine transition">Paid courses &amp; payments</a></li>
+          <li><a href="#research" class="hover:text-ifa-pine transition">Research sources</a></li>
         </ul>
-        <p class="text-xs text-ifa-text-muted mt-4">STARK Official Hackathon 2026</p>
+        <p class="text-xs text-ifa-text-muted mt-4">Turn your materials into structured courses.</p>
       </div>
     </div>
 
@@ -1073,7 +1163,7 @@
     >
       <p class="text-xs text-ifa-text-muted">© 2026 IFA. All rights reserved.</p>
       <p class="text-xs text-ifa-text-muted flex items-center gap-2">
-        <Compass class="w-3.5 h-3.5" /> Research by ScholarXiv · Voice by Voxide
+        <Compass class="w-3.5 h-3.5" /> Academic research from OpenAlex, Semantic Scholar, arXiv, Tavily &amp; Wikimedia Commons · Voice by Voxide
       </p>
     </div>
   </footer>

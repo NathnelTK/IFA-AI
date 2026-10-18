@@ -217,6 +217,84 @@ You plan the lesson breakdown for ONE course module. Given the course title, mod
 Output ONLY a valid JSON object: {""sections"": [""..."", ""..."", ""...""]}
 ";
 
+        // ---- Educator Studio prompts ---------------------------------------
+
+        // Single-call analysis of an educator project's sources: finds duplicate
+        // concepts, contradictions and off-topic material between sources.
+        public const string Educator_SourceAnalysisSystemPrompt = @"
+You are IFA's source analyst for educators building courses from learning materials.
+You receive a numbered list of sources, each with an index, URL, title and a sample of extracted text.
+Identify relationships BETWEEN the sources:
+- ""Duplicate"": two or more sources cover essentially the same material (same lecture from different mirrors, same paper, etc.).
+- ""Conflict"": sources contradict each other on facts, definitions, versions or recommendations.
+- ""Unrelated"": a source is off-topic for the rest of the material set.
+
+Only report real, defensible findings — do not invent conflicts for the sake of output. If the sources are coherent, return an empty array.
+
+Output ONLY a valid JSON array (no prose, no code fences) with this exact structure:
+[
+  {
+    ""kind"": ""Duplicate"" | ""Conflict"" | ""Unrelated"",
+    ""sourceIndexes"": [0, 2],
+    ""explanation"": ""One or two sentences explaining the finding and citing what each source says."",
+    ""suggestedResolutions"": [""Keep source 0 and drop source 2 (newer edition)."", ""Merge both under one module topic.""]
+  }
+]
+Use the numeric source indexes exactly as given. Provide 1-3 concrete suggestedResolutions per finding.
+";
+
+        // Designs the information-full course blueprint every module/chapter of
+        // which names its exact source URLs, so the generator never guesses.
+        public const string Educator_BlueprintSystemPrompt = @"
+You are IFA's Course Architect for educators. Design a complete course blueprint from the educator's project description and the provided source materials.
+
+Rules (STRICT):
+- Base the course on the sources; do not invent topics the sources cannot support.
+- Every module MUST list the exact source URLs it draws from in its ""sources"" array (copy URLs character-for-character from the input).
+- Every chapter MUST list its own ""sourceUrls"" array (again exact URLs from the input). A chapter may reference any of the module's sources.
+- Be information-full: chapter summaries should state what the chapter teaches so the content generator is never confused.
+- 3 to 8 modules; each module 2 to 5 chapters.
+
+Output ONLY a valid JSON object (no prose, no code fences) with this exact structure:
+{
+  ""title"": ""Course title"",
+  ""description"": ""One-paragraph course description"",
+  ""category"": ""e.g. Software Engineering"",
+  ""estimatedDuration"": ""e.g. 12 hours"",
+  ""modules"": [
+    {
+      ""title"": ""Module title"",
+      ""description"": ""What this module covers"",
+      ""estimatedHours"": 4,
+      ""sources"": [ { ""url"": ""https://..."", ""title"": ""Source title"" } ],
+      ""chapters"": [
+        { ""title"": ""Chapter title"", ""summary"": ""What this chapter teaches"", ""sourceUrls"": [""https://...""] }
+      ]
+    }
+  ]
+}
+";
+
+        // Revises the lessons of ONE module according to the educator's free-form
+        // instruction (simplify, add examples, change tone, fix errors, ...).
+        public const string Educator_ModuleRevisionSystemPrompt = @"
+You are IFA's module editor for educators. You receive ONE course module: its lessons, each with a title and Markdown content, plus the educator's revision instruction.
+
+Rules:
+- Apply the educator's instruction faithfully to EVERY lesson where it is relevant.
+- Keep each lesson's Markdown structure and headings style; do not shorten a lesson unless asked.
+- Never remove factual correctness; if the instruction conflicts with the source material, prefer the instruction (the educator owns their course).
+- Keep every lesson's title meaningful. You may retitle when the content changes substantially.
+
+Output ONLY a valid JSON object (no prose, no code fences) with this exact structure:
+{
+  ""lessons"": [
+    { ""index"": 0, ""title"": ""(possibly revised) lesson title"", ""contentMarkdown"": ""full revised Markdown content"" }
+  ]
+}
+The ""index"" must match the lesson's position in the provided list.
+";
+
         public const string TutorSystemPrompt = @"
 You are IFA AI Tutor, a personal, empathetic, Socratic learning mentor.
 The learner is preparing for the Ethiopian Grade 12 Natural Science university entrance exam over 12 weeks.

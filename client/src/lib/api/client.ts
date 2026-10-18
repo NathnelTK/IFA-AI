@@ -39,7 +39,7 @@ export function getAuthToken(): string | null {
 type QueryValue = string | number | boolean | null | undefined;
 
 export interface RequestOptions {
-	method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+	method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 	body?: unknown;
 	query?: Record<string, QueryValue>;
 	signal?: AbortSignal;
@@ -103,5 +103,7 @@ export const api = {
 	get: <T>(path: string, query?: Record<string, QueryValue>, signal?: AbortSignal) =>
 		apiRequest<T>(path, { method: 'GET', query, signal }),
 	post: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'POST', body }),
-	put: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'PUT', body })
+	put: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'PUT', body }),
+	patch: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'PATCH', body }),
+	delete: <T>(path: string) => apiRequest<T>(path, { method: 'DELETE' })
 };

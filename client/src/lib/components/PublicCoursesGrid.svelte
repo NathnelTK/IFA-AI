@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { Star, Clock, ArrowRight, Compass, PlusCircle, Loader2 } from 'lucide-svelte';
+  import { Star, Clock, ArrowRight, Compass, Share2, Loader2 } from 'lucide-svelte';
   import { goto } from '$app/navigation';
   import { publicCourses } from '../stores/dashboardStore';
   import { coursesApi } from '$lib/api';
   import { courseCover } from '$lib/utils/cover';
   import type { CourseCard } from '$lib/types';
 
-  export let onPublishCourse = () => {};
+  export let onShareCourse: (course: CourseCard) => void = () => {};
 
   // The home page shows only a preview of the newest courses; the full catalog
   // lives on the marketplace page (reachable via "Show all").
@@ -53,17 +53,8 @@
       </p>
     </div>
 
-    <!-- Publish Button & Show all -->
+    <!-- Share & Show all -->
     <div class="flex items-center gap-2">
-      <button
-        type="button"
-        on:click={onPublishCourse}
-        class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-ifa-card border border-ifa-border text-xs font-semibold text-ifa-pine hover:bg-ifa-card-muted shadow-soft transition"
-      >
-        <PlusCircle class="w-3.5 h-3.5 text-emerald-600" />
-        <span>Publish Course</span>
-      </button>
-
       <a
         href="/marketplace"
         class="flex items-center gap-1 px-3 py-1.5 rounded-full bg-ifa-pine text-white text-xs font-semibold hover:bg-ifa-pine-light shadow-soft transition"
@@ -122,7 +113,7 @@
           </div>
         </div>
 
-        <!-- Enroll Action -->
+        <!-- Enroll / Share Actions -->
         <div class="mt-3 pt-2.5 border-t border-ifa-border-light flex items-center justify-between">
           <button
             type="button"
@@ -137,6 +128,16 @@
               <span>Enroll Now</span>
               <ArrowRight class="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
             {/if}
+          </button>
+          <!-- Share flow replaced the old learner publish button -->
+          <button
+            type="button"
+            title="Share this course"
+            aria-label="Share this course"
+            on:click={() => onShareCourse(course)}
+            class="p-1.5 rounded-lg text-ifa-text-muted hover:text-ifa-pine hover:bg-ifa-card-muted transition"
+          >
+            <Share2 class="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

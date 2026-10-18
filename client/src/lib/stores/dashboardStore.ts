@@ -33,8 +33,8 @@ export const publicCourses = writable<CourseCard[]>([]);
 
 export const peerComparison = writable({
   enabled: false,
-  user: 'Nathnel',
-  peerName: 'Ermiyas',
+  user: 'You',
+  peerName: 'Peer',
   userProgress: 72,
   peerProgress: 61,
   skillComparison: [

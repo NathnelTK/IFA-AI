@@ -67,29 +67,34 @@ namespace IFA.Infrastructure
             services.AddScoped<FallbackLlmProvider>();
             services.AddScoped<ILlmGateway, LlmGateway>();
 
-            // External Research Services
-            var useMockScholarxiv = configuration.GetValue<bool>("Scholarxiv:UseMockData");
-            if (useMockScholarxiv)
+            // Multi-provider academic research (OpenAlex, Semantic Scholar,
+            // arXiv, Tavily when configured, Wikimedia).
+            services.AddHttpClient<IAcademicResearchService, AcademicResearchService>(client =>
             {
-                services.AddSingleton<IScholarxivService, MockScholarxivService>();
-            }
-            else
-            {
-                services.AddHttpClient<IScholarxivService, ScholarxivService>(client =>
-                {
-                    client.BaseAddress = new Uri("https://scholarxiv.com");
-                    client.Timeout = TimeSpan.FromSeconds(30);
-                    var apiKey = configuration["SCHOLARXIV_API_KEY"]
-                        ?? configuration["SCHOLARXIV_API_KEY_IFA"];
+                client.Timeout = TimeSpan.FromSeconds(20);
+            });
 
-                    if (!string.IsNullOrWhiteSpace(apiKey)
-                        && apiKey != "change_me"
-                        && !apiKey.StartsWith("your_", StringComparison.OrdinalIgnoreCase))
-                    {
-                        client.DefaultRequestHeaders.Add("x-api-key", apiKey);
-                    }
-                });
-            }
+            // Educator Studio: source ingestion, analysis and blueprinting.
+            services.AddScoped<ISourceIngestionService, SourceIngestionService>();
+            services.AddScoped<ISourceAnalysisService, SourceAnalysisService>();
+            services.AddScoped<IBlueprintService, BlueprintService>();
+
+            // Named HTTP client for source ingestion (URL fetch / PDF download).
+            services.AddHttpClient("SourceIngestion", client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(20);
+                client.DefaultRequestHeaders.UserAgent.ParseAdd(
+                    "IFA-AI/1.0 (educational source extraction)");
+            });
+
+            // Payments (Chapa)
+            services.AddHttpClient<IChapaPaymentService, ChapaPaymentService>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(20);
+            });
+
+            // Background per-module course generation for educator projects.
+            services.AddHostedService<ModuleGenerationBackgroundService>();
 
             // YouTube Resource Service
             services.AddScoped<IYouTubeResourceService, YouTubeResourceService>();

@@ -4,6 +4,13 @@ import type {
 	CoursePipelineProposalDto,
 	CourseSummaryDto,
 	DemoAccountDto,
+	EducatorConflictDto,
+	EducatorDashboardDto,
+	EducatorEnrollmentDto,
+	EducatorGenerationStatusDto,
+	EducatorProjectDetailDto,
+	EducatorProjectDto,
+	EducatorSourceDto,
 	IntakeHistoryMessage,
 	IntakeResponseDto,
 	LearnerMeDto,
@@ -14,6 +21,8 @@ import type {
 	LearningActivityDto,
 	MarketplaceCourseDto,
 	NotificationDto,
+	PaymentInitializeDto,
+	PaymentVerifyDto,
 	PeerComparisonDto,
 	RecommendationDto,
 	TokenResult
@@ -25,7 +34,7 @@ import type {
  */
 
 export const authApi = {
-	register: (body: { name: string; email: string; password: string }) =>
+	register: (body: { name: string; email: string; password: string; role?: 'Learner' | 'Educator' }) =>
 		api.post<TokenResult>('/api/auth/register', body),
 	login: (body: { email: string; password: string }) =>
 		api.post<TokenResult>('/api/auth/login', body),
@@ -188,4 +197,89 @@ export interface ResearchPackageDto {
 
 export const healthApi = {
 	check: () => api.get<{ status: string; service: string; version: string }>('/api/health')
+};
+
+/* ------------------------------------------------------------------ */
+/* Educator Studio                                                     */
+/* ------------------------------------------------------------------ */
+
+export const educatorApi = {
+	projects: () => api.get<EducatorProjectDto[]>('/api/educator/projects'),
+	createProject: (body: { title: string; description: string }) =>
+		api.post<EducatorProjectDto>('/api/educator/projects', body),
+	project: (id: string) => api.get<EducatorProjectDetailDto>(`/api/educator/projects/${id}`),
+	updateProject: (id: string, body: { title?: string; description?: string }) =>
+		api.put<EducatorProjectDto>(`/api/educator/projects/${id}`, body),
+	deleteProject: (id: string) => api.delete<void>(`/api/educator/projects/${id}`),
+
+	addSource: (projectId: string, body: { url: string; type?: string; title?: string }) =>
+		api.post<EducatorSourceDto>(`/api/educator/projects/${projectId}/sources`, body),
+	deleteSource: (projectId: string, sourceId: string) =>
+		api.delete<void>(`/api/educator/projects/${projectId}/sources/${sourceId}`),
+	setSourceIncluded: (projectId: string, sourceId: string, included: boolean) =>
+		api.patch<EducatorSourceDto>(`/api/educator/projects/${projectId}/sources/${sourceId}/include`, { included }),
+
+	/** AI research suggestions — persisted server-side with addedBy:"Ai". */
+	suggestSources: (projectId: string) =>
+		api.post<{ suggestions: EducatorSourceDto[] }>(`/api/educator/projects/${projectId}/research/suggest`),
+
+	analyze: (projectId: string) =>
+		api.post<{ conflictCount: number; conflicts: EducatorConflictDto[] }>(
+			`/api/educator/projects/${projectId}/analyze`
+		),
+	resolveConflict: (
+		projectId: string,
+		conflictId: string,
+		body: { resolution: 'Keep' | 'Remove' | 'Merge' | 'ManualNote'; manualNote?: string }
+	) => api.post<EducatorConflictDto>(`/api/educator/projects/${projectId}/conflicts/${conflictId}/resolve`, body),
+
+	generateBlueprint: (projectId: string) =>
+		api.post<{ blueprintJson: string }>(`/api/educator/projects/${projectId}/blueprint/generate`),
+	approveBlueprint: (projectId: string) =>
+		api.post<{ courseId: string; jobs: EducatorProjectDetailDto['generationJobs'] }>(
+			`/api/educator/projects/${projectId}/blueprint/approve`
+		),
+	generationStatus: (projectId: string) =>
+		api.get<EducatorGenerationStatusDto>(`/api/educator/projects/${projectId}/status`),
+
+	setCourseCover: (courseId: string, imageUrl: string) =>
+		api.post<{ coverImageUrl: string }>(`/api/educator/courses/${courseId}/cover`, { imageUrl }),
+	/** Without a body: returns candidates only. With imageUrl: applies the cover. */
+	autoCourseCover: (courseId: string, imageUrl?: string) =>
+		api.post<{ candidates?: Array<{ url: string; title: string }>; coverImageUrl?: string }>(
+			`/api/educator/courses/${courseId}/cover/auto`,
+			imageUrl ? { imageUrl } : undefined
+		),
+
+	updateModule: (
+		courseId: string,
+		moduleId: string,
+		body: { title?: string; description?: string; lessons?: Array<{ id?: string; title: string; content: string; order: number }> }
+	) => api.put<unknown>(`/api/educator/courses/${courseId}/modules/${moduleId}`, body),
+	aiUpdateModule: (courseId: string, moduleId: string, instruction: string) =>
+		api.post<unknown>(`/api/educator/courses/${courseId}/modules/${moduleId}/ai-update`, { instruction }),
+
+	publishCourse: (courseId: string, body: { isPaid: boolean; price?: number; currency?: string }) =>
+		api.post<{ isPublic: boolean; isPaid: boolean; price: number | null }>(
+			`/api/educator/courses/${courseId}/publish`,
+			body
+		),
+
+	dashboard: () => api.get<EducatorDashboardDto>('/api/educator/dashboard'),
+	enrollments: (status = 'PendingApproval') =>
+		api.get<EducatorEnrollmentDto[]>('/api/educator/enrollments', { status }),
+	approveEnrollment: (enrollmentId: string) =>
+		api.post<unknown>(`/api/educator/enrollments/${enrollmentId}/approve`),
+	rejectEnrollment: (enrollmentId: string) =>
+		api.post<unknown>(`/api/educator/enrollments/${enrollmentId}/reject`)
+};
+
+/* ------------------------------------------------------------------ */
+/* Payments (Telebirr / Chapa via Chapa checkout)                      */
+/* ------------------------------------------------------------------ */
+
+export const paymentsApi = {
+	initialize: (courseId: string) =>
+		api.post<PaymentInitializeDto>('/api/payments/initialize', { courseId }),
+	verify: (txRef: string) => api.get<PaymentVerifyDto>(`/api/payments/verify/${txRef}`)
 };

@@ -1,11 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { page } from '$app/stores';
   import { goto } from '$app/navigation';
-  import { Search, Filter, Grid, List, BookOpen, Star, Users, Clock, TrendingUp } from 'lucide-svelte';
+  import { Search, Filter, Grid, List, BookOpen, Star, Users, Clock, TrendingUp, BadgeCheck, Loader2, AlertCircle } from 'lucide-svelte';
   import PublicCourseCard from '$lib/components/PublicCourseCard.svelte';
   import MarketplaceFilters from '$lib/components/MarketplaceFilters.svelte';
-  import { coursesApi, type MarketplaceCourseDto } from '$lib/api';
+  import { coursesApi, paymentsApi, type MarketplaceCourseDto } from '$lib/api';
   import { resolveCover } from '$lib/utils/cover';
+  import { session } from '$lib/stores/sessionStore';
 
   interface MarketplaceCard {
     id: string;
@@ -22,6 +24,9 @@
     thumbnail: string;
     isPublished: boolean;
     shareCode?: string;
+    isPaid?: boolean;
+    priceAmount?: number | string | null;
+    currency?: string | null;
   }
 
   let searchQuery = '';
@@ -30,6 +35,9 @@
   let publicCourses: MarketplaceCard[] = [];
   let loading = true;
   let error = '';
+  // Chapa checkout returns to /marketplace?tx_ref=… — verify on arrival.
+  let paymentState: 'verifying' | 'success' | 'pending' | 'failed' | null = null;
+  let paymentMessage = '';
 
   const categories = [
     { id: 'all', name: 'All Courses' },
@@ -44,16 +52,58 @@
   ];
 
   async function handleEnroll(course: MarketplaceCard) {
+    // Anonymous visitors go to sign-in first and come straight back here.
+    if (!$session.authenticated) {
+      await goto('/login?redirect=/marketplace');
+      return;
+    }
     if (!course.shareCode) {
       error = `This course cannot be enrolled in yet: ${course.title} has no share code.`;
       return;
     }
 
+    // Paid courses start a Telebirr/Chapa checkout instead of enrolling.
+    if (course.isPaid) {
+      try {
+        const payment = await paymentsApi.initialize(course.id);
+        window.location.href = payment.checkoutUrl;
+      } catch (cause) {
+        error = cause instanceof Error ? cause.message : 'Could not start checkout.';
+      }
+      return;
+    }
+
     try {
-      await coursesApi.join(course.shareCode);
+      const result = await coursesApi.join(course.shareCode);
+      if ((result as { paymentRequired?: boolean })?.paymentRequired) {
+        // Server insists on payment even if the flag was missing client-side.
+        const payment = await paymentsApi.initialize(course.id);
+        window.location.href = payment.checkoutUrl;
+        return;
+      }
       await goto(`/courses/${course.id}`);
     } catch (cause) {
       error = cause instanceof Error ? cause.message : 'Enrollment failed.';
+    }
+  }
+
+  async function verifyPayment(txRef: string) {
+    paymentState = 'verifying';
+    try {
+      const result = await paymentsApi.verify(txRef);
+      if (result.enrollmentStatus === 'Active' || result.status === 'Success') {
+        paymentState = 'success';
+        paymentMessage = 'Payment confirmed — you are enrolled. Find the course in My Courses.';
+      } else if (result.status === 'Pending') {
+        paymentState = 'pending';
+        paymentMessage = 'Payment is still processing. Your enrollment activates as soon as it settles.';
+      } else {
+        paymentState = 'failed';
+        paymentMessage = 'We could not confirm the payment. Contact support if you were charged.';
+      }
+    } catch {
+      paymentState = 'failed';
+      paymentMessage = 'We could not verify the payment right now. Please try again later.';
     }
   }
 
@@ -87,11 +137,18 @@
       tags: [course.category],
       thumbnail: resolveCover(course.thumbnailUrl, course.title),
       isPublished: true,
-      shareCode: course.shareCode
+      shareCode: course.shareCode,
+      isPaid: course.isPaid,
+      priceAmount: course.priceAmount,
+      currency: course.currency
     };
   }
 
   onMount(async () => {
+    // Returned from the Chapa checkout with a transaction reference?
+    const txRef = $page.url.searchParams.get('tx_ref');
+    if (txRef) void verifyPayment(txRef);
+
     try {
       const list = await coursesApi.marketplace();
       publicCourses = list.map(toCard);
@@ -164,6 +221,26 @@
       <span>Community powered</span>
     </div>
   </div>
+
+  <!-- Payment return banner (Chapa / Telebirr) -->
+  {#if paymentState}
+    <div class="flex items-center gap-3 rounded-xl border p-4 text-sm {paymentState === 'success'
+      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+      : paymentState === 'pending'
+        ? 'border-amber-200 bg-amber-50 text-amber-800'
+        : paymentState === 'verifying'
+          ? 'border-ifa-border bg-ifa-card text-ifa-text-secondary'
+          : 'border-red-200 bg-red-50 text-red-700'}">
+      {#if paymentState === 'verifying'}
+        <Loader2 class="w-4 h-4 animate-spin shrink-0" />
+      {:else if paymentState === 'success'}
+        <BadgeCheck class="w-4 h-4 shrink-0" />
+      {:else}
+        <AlertCircle class="w-4 h-4 shrink-0" />
+      {/if}
+      <span>{paymentState === 'verifying' ? 'Verifying your payment…' : paymentMessage}</span>
+    </div>
+  {/if}
 
   <!-- Course Grid -->
   {#if error}

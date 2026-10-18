@@ -1,14 +1,37 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { ArrowRight, Code2, Lock, Mail, User, CheckCircle2, Loader2 } from 'lucide-svelte';
+  import { page } from '$app/stores';
+  import { ArrowRight, Code2, Lock, Mail, User, CheckCircle2, GraduationCap, Loader2 } from 'lucide-svelte';
   import { register } from '$lib/stores/sessionStore';
+
+  // Optional ?redirect=/path — after registration we send the new learner back
+  // where they started (e.g. a shared course link or the chat page).
+  $: redirectTarget = $page.url.searchParams.get('redirect') || '/home';
+
+  function safeRedirect(target: string): string {
+    return target.startsWith('/') && !target.startsWith('//') ? target : '/home';
+  }
 
   let name = '';
   let email = '';
   let password = '';
   let confirm = '';
+  let role: 'Learner' | 'Educator' = 'Learner';
   let submitting = false;
   let error = '';
+
+  const roleOptions: Array<{ value: 'Learner' | 'Educator'; title: string; description: string }> = [
+    {
+      value: 'Learner',
+      title: 'Learner',
+      description: 'Chat with the AI advisor, take courses and track your skills.'
+    },
+    {
+      value: 'Educator',
+      title: 'Educator',
+      description: 'Turn your materials into structured courses in the Studio.'
+    }
+  ];
 
   async function handleSubmit() {
     if (submitting) return;
@@ -27,8 +50,8 @@
     submitting = true;
     error = '';
     try {
-      await register(name.trim(), email.trim(), password);
-      await goto('/home');
+      await register(name.trim(), email.trim(), password, role);
+      await goto(safeRedirect(redirectTarget));
     } catch (cause) {
       error = cause instanceof Error ? cause.message : 'Registration failed.';
     } finally {
@@ -70,6 +93,33 @@
       {/if}
 
       <form class="space-y-4" on:submit|preventDefault={handleSubmit}>
+        <!-- Role picker -->
+        <div>
+          <span class="block text-xs font-semibold text-ifa-text-secondary mb-1.5">I am joining as…</span>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {#each roleOptions as option (option.value)}
+              <button
+                type="button"
+                on:click={() => (role = option.value)}
+                aria-pressed={role === option.value}
+                class="text-left p-3 rounded-xl border transition {role === option.value
+                  ? 'border-ifa-pine bg-ifa-pine/5 ring-1 ring-ifa-pine/30'
+                  : 'border-ifa-border bg-ifa-card-muted hover:bg-ifa-border/30'}"
+              >
+                <span class="flex items-center gap-2 text-sm font-bold {role === option.value ? 'text-ifa-pine' : 'text-ifa-text-primary'}">
+                  {#if option.value === 'Educator'}
+                    <GraduationCap class="w-4 h-4" />
+                  {:else}
+                    <User class="w-4 h-4" />
+                  {/if}
+                  {option.title}
+                </span>
+                <span class="block text-[11px] text-ifa-text-secondary mt-1 leading-snug">{option.description}</span>
+              </button>
+            {/each}
+          </div>
+        </div>
+
         <div>
           <label for="name" class="block text-xs font-semibold text-ifa-text-secondary mb-1">Full name</label>
           <div class="relative">
@@ -147,7 +197,10 @@
 
       <p class="text-sm text-ifa-text-secondary mt-6 text-center">
         Already have an account?
-        <a href="/login" class="font-semibold text-ifa-pine hover:text-ifa-pine-dark">Sign in</a>
+        <a
+          href={redirectTarget !== '/home' ? `/login?redirect=${encodeURIComponent(redirectTarget)}` : '/login'}
+          class="font-semibold text-ifa-pine hover:text-ifa-pine-dark"
+        >Sign in</a>
       </p>
     </div>
   </div>

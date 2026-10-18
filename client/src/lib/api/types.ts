@@ -152,6 +152,12 @@ export interface CourseDetailDto {
 	isPublic: boolean;
 	shareCode: string;
 	modules: BackendModuleDto[];
+	/** True when the course is sold (Telebirr/Chapa checkout). */
+	isPaid?: boolean;
+	/** Price in minor-unit-free decimal string/number as returned by the API. */
+	priceAmount?: number | string | null;
+	currency?: string | null;
+	coverImageUrl?: string | null;
 }
 
 /** GET /api/courses/marketplace */
@@ -169,6 +175,10 @@ export interface MarketplaceCourseDto {
 	badge: string | null;
 	moduleCount: number;
 	shareCode: string;
+	/** Paid-courses surface these on the marketplace. */
+	isPaid?: boolean;
+	priceAmount?: number | string | null;
+	currency?: string | null;
 }
 
 /** GET /api/skills/{learnerId} */
@@ -337,4 +347,137 @@ export interface CoursePipelineProposalDto {
 	targetGoal: string;
 	totalEstimatedHours: number;
 	modules: PipelineProposalModuleDto[];
+}
+
+/* ------------------------------------------------------------------ */
+/* Educator Studio                                                     */
+/* ------------------------------------------------------------------ */
+
+/** GET /api/educator/projects (list item) and POST response. */
+export interface EducatorProjectDto {
+	id: string;
+	title: string;
+	description: string;
+	status: string;
+	sourceCount: number;
+	courseId: string | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
+/** Source inside GET /api/educator/projects/{id}. */
+export interface EducatorSourceDto {
+	id: string;
+	url: string;
+	type: string;
+	title: string;
+	description: string;
+	status: string;
+	failureReason: string | null;
+	addedBy: string;
+	included: boolean;
+}
+
+/** Conflict inside GET /api/educator/projects/{id} and the analyze response. */
+export interface EducatorConflictDto {
+	id: string;
+	kind: string;
+	sourceIds: string[];
+	explanation: string;
+	suggestedResolutions: string[];
+	resolution: string | null;
+	manualNote: string | null;
+	resolvedBy: string | null;
+}
+
+/** Blueprint module inside the blueprint JSON string. */
+export interface BlueprintChapterDto {
+	title: string;
+	summary: string;
+	sourceUrls: string[];
+}
+
+export interface BlueprintModuleDto {
+	title: string;
+	description: string;
+	estimatedHours: number;
+	sources: Array<{ url: string; title: string }>;
+	chapters: BlueprintChapterDto[];
+}
+
+/** Parsed shape of the blueprint JSON string returned by blueprint/generate. */
+export interface CourseBlueprint {
+	title: string;
+	description: string;
+	category: string;
+	estimatedDuration: string;
+	modules: BlueprintModuleDto[];
+}
+
+/** GET /api/educator/projects/{id}. */
+export interface EducatorProjectDetailDto {
+	id: string;
+	title: string;
+	description: string;
+	status: string;
+	sources: EducatorSourceDto[];
+	conflicts: EducatorConflictDto[];
+	blueprint: { json: string; approvedAt: string | null } | null;
+	generationJobs: Array<{ id: string; moduleIndex: number; moduleTitle: string; status: string; error: string | null }>;
+	courseId: string | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
+/** GET /api/educator/projects/{id}/status. */
+export interface EducatorGenerationStatusDto {
+	status: string;
+	jobs: Array<{ moduleIndex: number; moduleTitle: string; status: string; error: string | null }>;
+	completedCount: number;
+	totalCount: number;
+	courseId: string | null;
+}
+
+/** GET /api/educator/dashboard. */
+export interface EducatorDashboardDto {
+	courses: Array<{
+		courseId: string;
+		title: string;
+		isPublic: boolean;
+		isPaid: boolean;
+		price: number | null;
+		enrollments: number;
+		activeEnrollments: number;
+		pendingApprovals: number;
+		avgProgress: number;
+		traffic: Array<{ date: string; enrollments: number; activity: number }>;
+	}>;
+	totals: { enrollments: number; pendingApprovals: number; publishedCourses: number };
+}
+
+/** GET /api/educator/enrollments?status=PendingApproval. */
+export interface EducatorEnrollmentDto {
+	enrollmentId: string;
+	courseId: string;
+	courseTitle: string;
+	learnerId: string;
+	learnerName: string;
+	status: string;
+	enrolledAt: string;
+}
+
+/* ------------------------------------------------------------------ */
+/* Payments                                                            */
+/* ------------------------------------------------------------------ */
+
+/** POST /api/payments/initialize. */
+export interface PaymentInitializeDto {
+	checkoutUrl: string;
+	txRef: string;
+}
+
+/** GET /api/payments/verify/{txRef}. */
+export interface PaymentVerifyDto {
+	status: string;
+	enrollmentStatus: string;
 }

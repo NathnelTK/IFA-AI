@@ -87,9 +87,14 @@ export async function signIn(email: string, password: string): Promise<SessionSt
 	return applyMe(me, result.accessToken, false);
 }
 
-/** Register a new learner and hydrate the session. */
-export async function register(name: string, email: string, password: string): Promise<SessionState> {
-	const result = await authApi.register({ name, email, password });
+/** Register a new learner (optionally as an Educator) and hydrate the session. */
+export async function register(
+	name: string,
+	email: string,
+	password: string,
+	role: 'Learner' | 'Educator' = 'Learner'
+): Promise<SessionState> {
+	const result = await authApi.register({ name, email, password, role });
 	setAuthToken(result.accessToken);
 	const me = await authApi.me();
 	return applyMe(me, result.accessToken, false);

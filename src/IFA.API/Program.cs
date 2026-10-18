@@ -117,8 +117,26 @@ using (var scope = app.Services.CreateScope())
         // contain tables — so it would silently skip creating our tables after
         // a "DROP SCHEMA public CASCADE" reset. Check the public schema only.
         logger.LogInformation("Ensuring database schema is created...");
+
+        // Production deployments can opt into EF migrations instead of the
+        // create-if-empty flow by setting DB_USE_MIGRATIONS=true. This applies
+        // pending migrations (e.g. AddEducatorStudioAndPayments) to an existing
+        // database without a manual schema reset.
+        var useMigrations = string.Equals(
+            builder.Configuration["DB_USE_MIGRATIONS"] ?? Environment.GetEnvironmentVariable("DB_USE_MIGRATIONS"),
+            "true", StringComparison.OrdinalIgnoreCase);
+
         var dbConnection = db.Database.GetDbConnection();
         await dbConnection.OpenAsync();
+
+        if (useMigrations)
+        {
+            logger.LogInformation("Applying EF Core migrations...");
+            await db.Database.MigrateAsync();
+            logger.LogInformation("Migrations applied.");
+        }
+        else
+        {
         long existingPublicTables;
         await using (var checkCmd = dbConnection.CreateCommand())
         {
@@ -137,7 +155,8 @@ using (var scope = app.Services.CreateScope())
             await createCmd.ExecuteNonQueryAsync();
             logger.LogInformation("Application tables created.");
         }
-        
+        }
+
         // Seed development data if in development environment
         if (app.Environment.IsDevelopment())
         {
@@ -151,7 +170,7 @@ using (var scope = app.Services.CreateScope())
             enrollDemoLearner: app.Environment.IsDevelopment());
 
         // Demo accounts + public course catalog. Idempotent, so safe to run on
-        // every startup; this is what makes the hackathon demo self-contained.
+        // every startup.
         await DemoDataSeeder.SeedAsync(db, logger);
 
         logger.LogInformation("Database initialization completed successfully.");

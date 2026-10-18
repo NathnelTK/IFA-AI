@@ -14,20 +14,20 @@ namespace IFA.Infrastructure.Services
     public class ResearchService : IResearchService
     {
         private readonly IApplicationDbContext _context;
-        private readonly IScholarxivService _scholarxivService;
+        private readonly IAcademicResearchService _academicResearchService;
         private readonly IYouTubeResourceService _youtubeService;
         private readonly IImageResourceService _imageService;
         private readonly Microsoft.Extensions.Logging.ILogger<ResearchService> _logger;
 
         public ResearchService(
             IApplicationDbContext context,
-            IScholarxivService scholarxivService,
+            IAcademicResearchService academicResearchService,
             IYouTubeResourceService youtubeService,
             IImageResourceService imageService,
             Microsoft.Extensions.Logging.ILogger<ResearchService> logger)
         {
             _context = context;
-            _scholarxivService = scholarxivService;
+            _academicResearchService = academicResearchService;
             _youtubeService = youtubeService;
             _imageService = imageService;
             _logger = logger;
@@ -44,19 +44,30 @@ namespace IFA.Infrastructure.Services
         {
             var cleanTopic = string.IsNullOrWhiteSpace(topic) ? "Software Architecture" : topic.Trim();
 
-            var papersTask = _scholarxivService.SearchPapersAsync(cleanTopic, 3, ct);
+            var papersTask = _academicResearchService.SearchAsync(cleanTopic, 5, ct);
             var videosTask = _youtubeService.SearchEducationalVideosAsync(cleanTopic, "", 3, ct);
             var imagesTask = _imageService.SearchImagesAsync(cleanTopic, 3, ct);
             var graphsTask = _imageService.SearchImagesAsync($"{cleanTopic} diagram", 2, ct);
 
             await Task.WhenAll(papersTask, videosTask, imagesTask, graphsTask);
 
-            var papers = await papersTask;
+            var papers = (await papersTask)
+                // Wikimedia images arrive separately below as Image sources.
+                .Where(p => !string.Equals(p.Source, "Wikimedia", StringComparison.OrdinalIgnoreCase))
+                .ToList();
             var videos = await videosTask;
             var images = await imagesTask;
             var graphs = await graphsTask;
 
-            var keyConcepts = papers.SelectMany(p => p.KeyTopics).Distinct().Take(5).ToList();
+            // Aggregate sources now come from multiple providers (OpenAlex,
+            // Semantic Scholar, arXiv, Tavily, Wikimedia). Key concepts are
+            // drawn from result titles since summaries are per-provider.
+            var keyConcepts = papers
+                .Select(p => p.Title)
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(5)
+                .ToList();
 
             var researchPackage = new ResearchPackage
             {
@@ -65,8 +76,8 @@ namespace IFA.Infrastructure.Services
                 CourseId = courseId,
                 Topic = Clamp(cleanTopic, 300),
                 Summary = papers.Count == 0
-                    ? $"No academic papers were returned for {cleanTopic}. Try a narrower search or verify the ScholarXiv configuration."
-                    : $"ScholarXiv returned {papers.Count} academic result(s) for {cleanTopic}. Review each paper's abstract and publication details before relying on it.",
+                    ? $"No research results were returned for {cleanTopic}. Try a narrower search or verify the research provider configuration."
+                    : $"Research returned {papers.Count} result(s) for {cleanTopic}. Review each item's summary and publication details before relying on it.",
                 KeyConceptsJson = JsonSerializer.Serialize(keyConcepts),
                 CreatedAt = DateTime.UtcNow
             };
@@ -78,18 +89,12 @@ namespace IFA.Infrastructure.Services
                     Id = Guid.NewGuid(),
                     ResearchPackageId = researchPackage.Id,
                     Title = Clamp(paper.Title, 300),
-                    Url = Clamp(
-                        string.IsNullOrWhiteSpace(paper.Doi)
-                            ? string.Empty
-                            : paper.Doi.StartsWith("http", StringComparison.OrdinalIgnoreCase)
-                                ? paper.Doi
-                                : $"https://doi.org/{paper.Doi}",
-                        1000),
+                    Url = Clamp(paper.Url, 1000),
                     SourceType = "Academic",
                     Authors = Clamp(paper.Authors, 300),
-                    Snippet = Clamp(paper.Abstract, 20000),
+                    Snippet = Clamp(paper.Summary, 20000),
                     RelevanceScore = 0,
-                    PublishedYear = int.TryParse(paper.PublishedYear, out var yr) ? yr : null
+                    PublishedYear = paper.PublishedDate?.Year
                 });
             }
 

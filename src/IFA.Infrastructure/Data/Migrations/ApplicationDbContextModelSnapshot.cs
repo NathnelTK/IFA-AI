@@ -212,11 +212,28 @@ namespace IFA.Infrastructure.Data.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
+                    b.Property<string>("ChapaReference")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("CoverImageSource")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("CoverImageUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("CreatorLearnerId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
 
                     b.Property<string>("Description")
                         .IsRequired()
@@ -228,8 +245,19 @@ namespace IFA.Infrastructure.Data.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
+                    b.Property<string>("ExternalMaterials")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<bool>("IsPaid")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsPublic")
                         .HasColumnType("boolean");
+
+                    b.Property<decimal>("PriceAmount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
 
                     b.Property<string>("ProviderLogo")
                         .HasMaxLength(512)
@@ -260,8 +288,8 @@ namespace IFA.Infrastructure.Data.Migrations
 
                     b.Property<string>("ThumbnailUrl")
                         .IsRequired()
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)");
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -277,6 +305,33 @@ namespace IFA.Infrastructure.Data.Migrations
                     b.HasIndex("ShareCode");
 
                     b.ToTable("Courses", (string)null);
+                });
+
+            modelBuilder.Entity("IFA.Domain.Entities.CourseBlueprint", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Json")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId")
+                        .IsUnique();
+
+                    b.ToTable("CourseBlueprints", (string)null);
                 });
 
             modelBuilder.Entity("IFA.Domain.Entities.CourseEnrollment", b =>
@@ -306,6 +361,13 @@ namespace IFA.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
                         .HasDefaultValue(0);
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("Active");
 
                     b.HasKey("Id");
 
@@ -353,6 +415,97 @@ namespace IFA.Infrastructure.Data.Migrations
                     b.HasIndex("ShareCode");
 
                     b.ToTable("CourseShareInvites", (string)null);
+                });
+
+            modelBuilder.Entity("IFA.Domain.Entities.EducatorProject", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CourseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<Guid>("EducatorLearnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CourseId");
+
+                    b.HasIndex("EducatorLearnerId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("EducatorProjects", (string)null);
+                });
+
+            modelBuilder.Entity("IFA.Domain.Entities.GenerationJob", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CourseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("ModuleIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ModuleTitle")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId");
+
+                    b.HasIndex("CourseId", "ModuleIndex");
+
+                    b.ToTable("GenerationJobs", (string)null);
                 });
 
             modelBuilder.Entity("IFA.Domain.Entities.Learner", b =>
@@ -769,6 +922,64 @@ namespace IFA.Infrastructure.Data.Migrations
                     b.ToTable("Notifications", (string)null);
                 });
 
+            modelBuilder.Entity("IFA.Domain.Entities.Payment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<string>("CheckoutUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CourseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<Guid>("LearnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("ProviderTxRef")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LearnerId");
+
+                    b.HasIndex("ProviderTxRef")
+                        .IsUnique();
+
+                    b.HasIndex("CourseId", "LearnerId");
+
+                    b.ToTable("Payments", (string)null);
+                });
+
             modelBuilder.Entity("IFA.Domain.Entities.PracticalResource", b =>
                 {
                     b.Property<Guid>("Id")
@@ -811,6 +1022,64 @@ namespace IFA.Infrastructure.Data.Migrations
                     b.HasIndex("ResearchPackageId");
 
                     b.ToTable("PracticalResources");
+                });
+
+            modelBuilder.Entity("IFA.Domain.Entities.ProjectSource", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AddedBy")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("ExtractedContent")
+                        .HasColumnType("text");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<bool>("Included")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId");
+
+                    b.ToTable("ProjectSources", (string)null);
                 });
 
             modelBuilder.Entity("IFA.Domain.Entities.Question", b =>
@@ -862,8 +1131,14 @@ namespace IFA.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
                     b.Property<Guid>("ModuleId")
                         .HasColumnType("uuid");
+
+                    b.Property<int>("OrderIndex")
+                        .HasColumnType("integer");
 
                     b.Property<int>("PassingScorePercentage")
                         .ValueGeneratedOnAdd()
@@ -877,8 +1152,7 @@ namespace IFA.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ModuleId")
-                        .IsUnique();
+                    b.HasIndex("ModuleId");
 
                     b.ToTable("Quizzes", (string)null);
                 });
@@ -1031,6 +1305,58 @@ namespace IFA.Infrastructure.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("SkillMetrics", (string)null);
+                });
+
+            modelBuilder.Entity("IFA.Domain.Entities.SourceConflict", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Explanation")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("ManualNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Resolution")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ResolvedBy")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<string>("SourceIds")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("SuggestedResolutions")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId");
+
+                    b.ToTable("SourceConflicts", (string)null);
                 });
 
             modelBuilder.Entity("IFA.Domain.Entities.VideoResource", b =>
@@ -1228,6 +1554,17 @@ namespace IFA.Infrastructure.Data.Migrations
                     b.Navigation("CreatorLearner");
                 });
 
+            modelBuilder.Entity("IFA.Domain.Entities.CourseBlueprint", b =>
+                {
+                    b.HasOne("IFA.Domain.Entities.EducatorProject", "Project")
+                        .WithOne("Blueprint")
+                        .HasForeignKey("IFA.Domain.Entities.CourseBlueprint", "ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+                });
+
             modelBuilder.Entity("IFA.Domain.Entities.CourseEnrollment", b =>
                 {
                     b.HasOne("IFA.Domain.Entities.Course", "Course")
@@ -1264,6 +1601,35 @@ namespace IFA.Infrastructure.Data.Migrations
                     b.Navigation("Course");
 
                     b.Navigation("SenderLearner");
+                });
+
+            modelBuilder.Entity("IFA.Domain.Entities.EducatorProject", b =>
+                {
+                    b.HasOne("IFA.Domain.Entities.Course", "Course")
+                        .WithMany()
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("IFA.Domain.Entities.Learner", "EducatorLearner")
+                        .WithMany()
+                        .HasForeignKey("EducatorLearnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Course");
+
+                    b.Navigation("EducatorLearner");
+                });
+
+            modelBuilder.Entity("IFA.Domain.Entities.GenerationJob", b =>
+                {
+                    b.HasOne("IFA.Domain.Entities.EducatorProject", "Project")
+                        .WithMany("GenerationJobs")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
                 });
 
             modelBuilder.Entity("IFA.Domain.Entities.LearnerProfile", b =>
@@ -1343,6 +1709,25 @@ namespace IFA.Infrastructure.Data.Migrations
                     b.Navigation("Learner");
                 });
 
+            modelBuilder.Entity("IFA.Domain.Entities.Payment", b =>
+                {
+                    b.HasOne("IFA.Domain.Entities.Course", "Course")
+                        .WithMany()
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("IFA.Domain.Entities.Learner", "Learner")
+                        .WithMany()
+                        .HasForeignKey("LearnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Course");
+
+                    b.Navigation("Learner");
+                });
+
             modelBuilder.Entity("IFA.Domain.Entities.PracticalResource", b =>
                 {
                     b.HasOne("IFA.Domain.Entities.ResearchPackage", "ResearchPackage")
@@ -1352,6 +1737,17 @@ namespace IFA.Infrastructure.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("ResearchPackage");
+                });
+
+            modelBuilder.Entity("IFA.Domain.Entities.ProjectSource", b =>
+                {
+                    b.HasOne("IFA.Domain.Entities.EducatorProject", "Project")
+                        .WithMany("Sources")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
                 });
 
             modelBuilder.Entity("IFA.Domain.Entities.Question", b =>
@@ -1368,8 +1764,8 @@ namespace IFA.Infrastructure.Data.Migrations
             modelBuilder.Entity("IFA.Domain.Entities.Quiz", b =>
                 {
                     b.HasOne("IFA.Domain.Entities.Module", "Module")
-                        .WithOne("ModuleQuiz")
-                        .HasForeignKey("IFA.Domain.Entities.Quiz", "ModuleId")
+                        .WithMany("Quizzes")
+                        .HasForeignKey("ModuleId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -1425,6 +1821,17 @@ namespace IFA.Infrastructure.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Learner");
+                });
+
+            modelBuilder.Entity("IFA.Domain.Entities.SourceConflict", b =>
+                {
+                    b.HasOne("IFA.Domain.Entities.EducatorProject", "Project")
+                        .WithMany("Conflicts")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
                 });
 
             modelBuilder.Entity("IFA.Domain.Entities.VideoResource", b =>
@@ -1497,6 +1904,17 @@ namespace IFA.Infrastructure.Data.Migrations
                     b.Navigation("ShareInvites");
                 });
 
+            modelBuilder.Entity("IFA.Domain.Entities.EducatorProject", b =>
+                {
+                    b.Navigation("Blueprint");
+
+                    b.Navigation("Conflicts");
+
+                    b.Navigation("GenerationJobs");
+
+                    b.Navigation("Sources");
+                });
+
             modelBuilder.Entity("IFA.Domain.Entities.Learner", b =>
                 {
                     b.Navigation("Activities");
@@ -1522,7 +1940,7 @@ namespace IFA.Infrastructure.Data.Migrations
                 {
                     b.Navigation("Lessons");
 
-                    b.Navigation("ModuleQuiz");
+                    b.Navigation("Quizzes");
                 });
 
             modelBuilder.Entity("IFA.Domain.Entities.Quiz", b =>

@@ -68,6 +68,9 @@
       These are the sources IFA used to build your courses — papers, videos, images and diagrams.
       You can run more research to add to what powers a course's modules.
     </p>
+    <p class="text-xs text-ifa-text-muted mt-1.5 font-medium">
+      Source stack: OpenAlex · Semantic Scholar · arXiv · Tavily · Wikimedia Commons
+    </p>
   </div>
 
   <!-- Course picker: show the research used for a specific course -->

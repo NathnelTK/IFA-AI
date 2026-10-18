@@ -5,7 +5,7 @@
     {
       id: 'act-1',
       type: 'enrollment',
-      user: 'Ermiyas',
+      user: "Amina",
       action: 'enrolled in',
       target: 'C# Backend Development',
       time: '2 hours ago',
@@ -15,7 +15,7 @@
     {
       id: 'act-2',
       type: 'completion',
-      user: 'Negede',
+      user: "Kalkidan",
       action: 'completed',
       target: 'SQL for Developers - Module 1',
       time: '5 hours ago',
@@ -25,7 +25,7 @@
     {
       id: 'act-3',
       type: 'achievement',
-      user: 'Ermiyas',
+      user: "Amina",
       action: 'earned achievement',
       target: 'Fast Learner',
       time: '1 day ago',
@@ -35,7 +35,7 @@
     {
       id: 'act-4',
       type: 'recommendation',
-      user: 'Negede',
+      user: "Kalkidan",
       action: 'was recommended',
       target: 'Advanced Database Optimization',
       time: '2 days ago',
@@ -45,7 +45,7 @@
     {
       id: 'act-5',
       type: 'enrollment',
-      user: 'Nathnel',
+      user: "Dawit",
       action: 'enrolled in',
       target: 'Python Fundamentals',
       time: '3 days ago',
