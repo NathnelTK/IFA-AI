@@ -29,6 +29,13 @@ namespace IFA.Infrastructure.Data.Configurations
             builder.Property(c => c.ShareCode).HasMaxLength(64);
             builder.Property(c => c.ExternalMaterials).HasMaxLength(4000);
 
+            // Monetization + cover image
+            builder.Property(c => c.PriceAmount).HasPrecision(12, 2);
+            builder.Property(c => c.Currency).HasMaxLength(8);
+            builder.Property(c => c.ChapaReference).HasMaxLength(128);
+            builder.Property(c => c.CoverImageUrl).HasMaxLength(2048);
+            builder.Property(c => c.CoverImageSource).HasMaxLength(16);
+
             builder.HasIndex(c => c.ShareCode);
             builder.HasIndex(c => c.IsPublic);
 

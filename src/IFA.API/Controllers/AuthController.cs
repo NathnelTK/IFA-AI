@@ -29,6 +29,8 @@ namespace IFA.API.Controllers
             public string Name { get; set; } = string.Empty;
             public string Email { get; set; } = string.Empty;
             public string Password { get; set; } = string.Empty;
+            /// <summary>"Learner" (default) or "Educator" — chosen at sign-up.</summary>
+            public string? Role { get; set; }
         }
 
         public class LoginRequest
@@ -58,13 +60,23 @@ namespace IFA.API.Controllers
                 return Conflict(new { message = "User with this email already exists." });
             }
 
+            var role = request.Role?.Trim();
+            if (!string.Equals(role, "Educator", StringComparison.OrdinalIgnoreCase))
+            {
+                role = "Learner";
+            }
+            else
+            {
+                role = "Educator";
+            }
+
             var learner = new Learner
             {
                 Id = Guid.NewGuid(),
                 Name = string.IsNullOrWhiteSpace(request.Name) ? cleanEmail.Split('@')[0] : request.Name.Trim(),
                 Email = cleanEmail,
                 PasswordHash = PasswordHasher.Hash(request.Password),
-                Role = "Learner",
+                Role = role,
                 AvatarUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces",
                 OverallProgress = 0,
                 CreatedAt = DateTime.UtcNow

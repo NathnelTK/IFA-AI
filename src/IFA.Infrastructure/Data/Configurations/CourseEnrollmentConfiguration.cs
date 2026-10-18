@@ -13,6 +13,7 @@ namespace IFA.Infrastructure.Data.Configurations
 
             builder.Property(e => e.ProgressPercentage).HasDefaultValue(0);
             builder.Property(e => e.CompletedModulesCount).HasDefaultValue(0);
+            builder.Property(e => e.Status).HasMaxLength(16).HasDefaultValue("Active");
 
             // A learner can enroll in a given course only once.
             builder.HasIndex(e => new { e.CourseId, e.LearnerId }).IsUnique();

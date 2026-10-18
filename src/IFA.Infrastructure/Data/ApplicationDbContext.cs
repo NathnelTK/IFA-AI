@@ -41,6 +41,12 @@ namespace IFA.Infrastructure.Data
         public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
         public DbSet<QuizAttempt> QuizAttempts => Set<QuizAttempt>();
         public DbSet<QuizAnswer> QuizAnswers => Set<QuizAnswer>();
+        public DbSet<EducatorProject> EducatorProjects => Set<EducatorProject>();
+        public DbSet<ProjectSource> ProjectSources => Set<ProjectSource>();
+        public DbSet<SourceConflict> SourceConflicts => Set<SourceConflict>();
+        public DbSet<CourseBlueprint> CourseBlueprints => Set<CourseBlueprint>();
+        public DbSet<GenerationJob> GenerationJobs => Set<GenerationJob>();
+        public DbSet<Payment> Payments => Set<Payment>();
 
         public DbSet<LessonProgress> LessonProgress => Set<LessonProgress>();
 
@@ -70,6 +76,12 @@ namespace IFA.Infrastructure.Data
         IQueryable<Assessment> IApplicationDbContext.Assessments => Assessments;
         IQueryable<AssessmentResponse> IApplicationDbContext.AssessmentResponses => AssessmentResponses;
         IQueryable<LearningActivity> IApplicationDbContext.Activities => Activities;
+        IQueryable<EducatorProject> IApplicationDbContext.EducatorProjects => EducatorProjects;
+        IQueryable<ProjectSource> IApplicationDbContext.ProjectSources => ProjectSources;
+        IQueryable<SourceConflict> IApplicationDbContext.SourceConflicts => SourceConflicts;
+        IQueryable<CourseBlueprint> IApplicationDbContext.CourseBlueprints => CourseBlueprints;
+        IQueryable<GenerationJob> IApplicationDbContext.GenerationJobs => GenerationJobs;
+        IQueryable<Payment> IApplicationDbContext.Payments => Payments;
 
 
         public new void Add<TEntity>(TEntity entity) where TEntity : class => Set<TEntity>().Add(entity);

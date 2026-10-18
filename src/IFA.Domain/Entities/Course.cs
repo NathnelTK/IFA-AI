@@ -28,6 +28,19 @@ namespace IFA.Domain.Entities
         public Guid? CreatorLearnerId { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+        // Monetization (educator-published courses)
+        public bool IsPaid { get; set; } = false;
+        public decimal PriceAmount { get; set; } = 0;
+        public string Currency { get; set; } = "ETB";
+        /// <summary>Paid courses keep enrollments pending until payment + educator approval.</summary>
+        public bool RequiresApproval => IsPaid;
+        public string? ChapaReference { get; set; }
+
+        // Cover image (educator link or auto-discovered via Wikimedia/Tavily)
+        public string? CoverImageUrl { get; set; }
+        /// <summary>User | Auto (Wikimedia/Tavily search) | Generated</summary>
+        public string? CoverImageSource { get; set; }
+
         // Navigation properties
         public Learner? CreatorLearner { get; set; }
         public ICollection<Module> Modules { get; set; } = new List<Module>();

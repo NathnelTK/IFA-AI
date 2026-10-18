@@ -29,6 +29,12 @@ namespace IFA.Application.Common.Interfaces
         IQueryable<Assessment> Assessments { get; }
         IQueryable<AssessmentResponse> AssessmentResponses { get; }
         IQueryable<LearningActivity> Activities { get; }
+        IQueryable<EducatorProject> EducatorProjects { get; }
+        IQueryable<ProjectSource> ProjectSources { get; }
+        IQueryable<SourceConflict> SourceConflicts { get; }
+        IQueryable<CourseBlueprint> CourseBlueprints { get; }
+        IQueryable<GenerationJob> GenerationJobs { get; }
+        IQueryable<Payment> Payments { get; }
 
         void Add<TEntity>(TEntity entity) where TEntity : class;
         void Remove<TEntity>(TEntity entity) where TEntity : class;
