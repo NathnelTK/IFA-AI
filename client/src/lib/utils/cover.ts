@@ -30,14 +30,14 @@ function hash(input: string): number {
 
 function initials(title: string): string {
 	const words = title.trim().split(/\s+/).filter(Boolean);
-	if (words.length === 0) return 'IFA';
+	if (words.length === 0) return 'W';
 	if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
 	return (words[0][0] + words[1][0]).toUpperCase();
 }
 
 /** An inline SVG data-URI gradient cover derived from a course title. */
 export function courseCover(title: string): string {
-	const t = title && title.trim() ? title : 'IFA Course';
+	const t = title && title.trim() ? title : 'Witforge Course';
 	const [from, to] = PALETTES[hash(t) % PALETTES.length];
 	const label = initials(t);
 	const angle = hash(t) % 360;

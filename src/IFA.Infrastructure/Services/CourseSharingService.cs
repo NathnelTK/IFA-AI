@@ -18,10 +18,12 @@ namespace IFA.Infrastructure.Services
 
         public async Task<ShareCourseResult> ShareCourseAsync(ShareCourseCommand command)
         {
-            if (!await _context.Courses.AnyAsync(course => course.Id == command.CourseId))
-            {
-                throw new KeyNotFoundException($"Course {command.CourseId} was not found.");
-            }
+            var access = await CourseAccess.GetAsync(_context, command.CourseId, command.SharedByLearnerId);
+            access.RequireContent();
+            if (!access.Course.IsPublished)
+                throw new CourseAccessException(409, "Publish this course before creating learner invitations.");
+            if (!access.IsOwner && (access.Course.Visibility == "Private" || access.Course.EnrollmentMode == "InviteOnly"))
+                throw new CourseAccessException(403, "Only the course owner can issue invitations to this course.");
 
             string shareCode;
             do
@@ -49,7 +51,7 @@ namespace IFA.Infrastructure.Services
             {
                 ShareUrl = $"/courses/join/{shareCode}",
                 ShareCode = shareCode,
-                ExpiresAt = DateTime.UtcNow.AddDays(7)
+                ExpiresAt = shareInvite.CreatedAt.AddDays(7)
             };
         }
 
@@ -58,64 +60,21 @@ namespace IFA.Infrastructure.Services
             Guid learnerId,
             CancellationToken cancellationToken = default)
         {
-            if (string.IsNullOrWhiteSpace(shareCode))
+            try
+            {
+                var (course, invite) = await CourseAccess.ResolveShareAsync(_context, shareCode, cancellationToken);
+                await CourseAccess.EnrollAsync(_context, course.Id, learnerId, invite?.Id, cancellationToken);
+                return true;
+            }
+            catch (CourseAccessException ex) when (ex.StatusCode == 404)
             {
                 return false;
             }
-
-            var course = await _context.Courses
-                .FirstOrDefaultAsync(
-                    item => item.IsPublic && item.ShareCode == shareCode,
-                    cancellationToken);
-
-            CourseShareInvite? invite = null;
-            if (course is null)
-            {
-                invite = await _context.CourseShareInvites
-                    .Include(item => item.Course)
-                    .FirstOrDefaultAsync(
-                        item => item.ShareCode == shareCode
-                            && !item.IsAccepted
-                            && item.CreatedAt >= DateTime.UtcNow.AddDays(-7),
-                        cancellationToken);
-                course = invite?.Course;
-            }
-
-            if (course is null)
-            {
-                return false;
-            }
-
-            var alreadyEnrolled = await _context.CourseEnrollments
-                .AnyAsync(
-                    enrollment => enrollment.CourseId == course.Id && enrollment.LearnerId == learnerId,
-                    cancellationToken);
-            if (!alreadyEnrolled)
-            {
-                // Paid courses never grant instant access: the enrollment waits
-                // for payment (then educator approval). Free courses stay Active.
-                _context.Add(new CourseEnrollment
-                {
-                    CourseId = course.Id,
-                    LearnerId = learnerId,
-                    Status = course.IsPaid ? "PendingPayment" : "Active",
-                    EnrolledAt = DateTime.UtcNow,
-                    LastAccessedAt = DateTime.UtcNow
-                });
-            }
-
-            if (invite is not null)
-            {
-                invite.IsAccepted = true;
-            }
-
-            await _context.SaveChangesAsync(cancellationToken);
-            return true;
         }
 
         private string GenerateShareCode()
         {
-            return Guid.NewGuid().ToString("N").Substring(0, 8);
+            return Guid.NewGuid().ToString("N");
         }
     }
 }

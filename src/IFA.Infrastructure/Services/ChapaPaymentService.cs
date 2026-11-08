@@ -35,6 +35,7 @@ namespace IFA.Infrastructure.Services
         public decimal Amount { get; set; }
         public string Currency { get; set; } = "ETB";
         public string? RedirectUrl { get; set; }
+        public string? CallbackUrl { get; set; }
         public string CustomerEmail { get; set; } = string.Empty;
         public string CustomerFirstName { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;
@@ -90,7 +91,9 @@ namespace IFA.Infrastructure.Services
 
         public bool IsConfigured =>
             !string.IsNullOrWhiteSpace(_secretKey) &&
-            _secretKey != "change_me" &&
+            _secretKey.Length >= 20 &&
+            !_secretKey.Contains("change_me", StringComparison.OrdinalIgnoreCase) &&
+            !_secretKey.Contains("placeholder", StringComparison.OrdinalIgnoreCase) &&
             !_secretKey.StartsWith("your_", StringComparison.OrdinalIgnoreCase);
 
         public async Task<ChapaInitializeResult> InitializeAsync(ChapaInitializeRequest request, CancellationToken ct = default)
@@ -107,17 +110,15 @@ namespace IFA.Infrastructure.Services
                     tx_ref = request.TxRef,
                     amount = request.Amount,
                     currency = request.Currency,
-                    redirect_url = request.RedirectUrl,
-                    customer = new
-                    {
-                        email = request.CustomerEmail,
-                        first_name = request.CustomerFirstName
-                    },
+                    email = request.CustomerEmail,
+                    first_name = request.CustomerFirstName,
+                    return_url = request.RedirectUrl,
+                    callback_url = request.CallbackUrl,
                     customization = new { title = request.Title }
                 });
 
                 using var content = new StringContent(payload, Encoding.UTF8, "application/json");
-                using var message = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/payment/initialize")
+                using var message = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/transaction/initialize")
                 {
                     Content = content
                 };

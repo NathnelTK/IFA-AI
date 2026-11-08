@@ -90,7 +90,7 @@ namespace IFA.Infrastructure.Services
                     ResearchPackageId = researchPackage.Id,
                     Title = Clamp(paper.Title, 300),
                     Url = Clamp(paper.Url, 1000),
-                    SourceType = "Academic",
+                    SourceType = string.Equals(paper.Source, "Tavily", StringComparison.OrdinalIgnoreCase) ? "Web" : "Academic",
                     Authors = Clamp(paper.Authors, 300),
                     Snippet = Clamp(paper.Summary, 20000),
                     RelevanceScore = 0,
@@ -108,9 +108,9 @@ namespace IFA.Infrastructure.Services
                     Url = Clamp($"https://www.youtube.com/watch?v={video.VideoId}", 1000),
                     SourceType = "Video",
                     Authors = Clamp(video.ChannelTitle, 300),
-                    Snippet = $"Educational video resource covering {cleanTopic}.",
+                    Snippet = string.Empty,
                     RelevanceScore = 0,
-                    PublishedYear = DateTime.UtcNow.Year
+                    PublishedYear = null
                 });
             }
 
@@ -126,7 +126,7 @@ namespace IFA.Infrastructure.Services
                     Url = Clamp(image.ImageUrl, 1000),
                     SourceType = "Image",
                     Authors = Clamp(image.Source, 300),
-                    Snippet = $"Illustration for {cleanTopic}.",
+                    Snippet = string.Empty,
                     RelevanceScore = 0
                 });
             }
@@ -139,9 +139,9 @@ namespace IFA.Infrastructure.Services
                     ResearchPackageId = researchPackage.Id,
                     Title = Clamp(graph.Title, 300),
                     Url = Clamp(graph.ImageUrl, 1000),
-                    SourceType = "Graph",
+                    SourceType = "Image",
                     Authors = Clamp(graph.Source, 300),
-                    Snippet = $"Diagram/graph related to {cleanTopic}.",
+                    Snippet = string.Empty,
                     RelevanceScore = 0
                 });
             }

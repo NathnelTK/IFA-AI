@@ -3,18 +3,28 @@
   import { User, Settings, LogOut, ChevronDown, Layout, BookOpen, Trophy, Target } from 'lucide-svelte';
   import { session, signOut } from '$lib/stores/sessionStore';
 
-  const menuItems = [
-    { label: 'My Courses', icon: BookOpen, href: '/courses' },
-    { label: 'Skills', icon: Target, href: '/my-skills' },
-    { label: 'Progress', icon: Trophy, href: '/progress' },
-    { divider: true },
-    { label: 'Settings', icon: Settings, href: '/settings' },
-    { label: 'Sign Out', icon: LogOut, action: 'signout' }
-  ];
+  $: isEducator = $session.role === 'Educator';
+
+  $: menuItems = isEducator
+    ? [
+        { label: 'Educator Studio', icon: Layout, href: '/studio' },
+        { label: 'Create Course', icon: Target, href: '/studio/create' },
+        { divider: true },
+        { label: 'Settings', icon: Settings, href: '/settings' },
+        { label: 'Sign Out', icon: LogOut, action: 'signout' }
+      ]
+    : [
+        { label: 'My Courses', icon: BookOpen, href: '/courses' },
+        { label: 'Skills', icon: Target, href: '/my-skills' },
+        { label: 'Progress', icon: Trophy, href: '/progress' },
+        { divider: true },
+        { label: 'Settings', icon: Settings, href: '/settings' },
+        { label: 'Sign Out', icon: LogOut, action: 'signout' }
+      ];
 
   let isOpen = false;
 
-  $: displayName = $session.name || $session.email?.split('@')[0] || 'Learner';
+  $: displayName = $session.name || $session.email?.split('@')[0] || (isEducator ? 'Educator' : 'Learner');
   $: initial = displayName.charAt(0).toUpperCase();
 
   function handleItemClick(item: any) {
@@ -61,7 +71,10 @@
           {/if}
           <div class="min-w-0">
             <h3 class="text-sm font-bold text-ifa-text-primary truncate">{displayName}</h3>
-            <p class="text-xs text-ifa-text-secondary truncate">{$session.email ?? 'Learner'}</p>
+            <p class="text-xs text-ifa-text-secondary truncate">{$session.email ?? (isEducator ? 'Educator' : 'Learner')}</p>
+            <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-ifa-pine/10 text-ifa-pine mt-0.5">
+              {isEducator ? 'Educator Studio' : 'Learner'}
+            </span>
           </div>
         </div>
       </div>

@@ -20,6 +20,13 @@ namespace IFA.Infrastructure.Services
 
         public async Task SendNotificationAsync(Guid learnerId, string type, string title, string message, string? linkUrl = null, CancellationToken ct = default)
         {
+            var settings = await _context.LearnerSettings.FirstOrDefaultAsync(item => item.LearnerId == learnerId, ct);
+            if (settings != null &&
+                ((type.StartsWith("live_session_", StringComparison.Ordinal) && !settings.DailyReminders) ||
+                 (type.StartsWith("assignment_", StringComparison.Ordinal) && !settings.AssessmentResults) ||
+                 (type == "recommendation" && !settings.CourseRecommendations)))
+                return;
+
             var notification = new Notification
             {
                 Id = Guid.NewGuid(),

@@ -4,8 +4,10 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using IFA.Application.Common.Interfaces;
+using IFA.Application.Common.Exceptions;
 using IFA.Domain.Entities;
 using IFA.Infrastructure.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -13,6 +15,7 @@ using Microsoft.Extensions.Logging;
 namespace IFA.API.Controllers
 {
     [ApiController]
+    [Authorize]
     [Route("api/[controller]")]
     public class ModulesController : BaseApiController
     {
@@ -39,31 +42,41 @@ namespace IFA.API.Controllers
         [HttpPost("{id}/generate")]
         public async Task<IActionResult> GenerateModule(Guid id, CancellationToken cancellationToken)
         {
-            var module = await _context.Modules
-                .Include(m => m.Course)
-                .Include(m => m.Lessons)
-                .Include(m => m.Quizzes)
-                .FirstOrDefaultAsync(m => m.Id == id);
-
-            if (module == null) return NotFound(new { message = "Module not found." });
-
-            if (module.GenerationStatus == ModuleGenerationStatus.Ready && module.Lessons.Count > 0)
+            var learnerId = await GetCurrentLearnerIdAsync(_context);
+            if (!IsCurrentUserInRole("Educator"))
+                return StatusCode(403, new { message = "Only the owning educator can generate course content." });
+            Module? module;
+            await using (var transaction = await CourseAccess.BeginMutationAsync(_context, cancellationToken))
             {
-                return Ok(module);
-            }
+                module = await _context.Modules
+                    .Include(m => m.Course)
+                    .Include(m => m.Lessons)
+                    .Include(m => m.Quizzes).ThenInclude(q => q.Questions)
+                    .AsSplitQuery().FirstOrDefaultAsync(m => m.Id == id, cancellationToken);
 
-            if (module.GenerationStatus == ModuleGenerationStatus.Generating)
-            {
-                return Conflict(new { message = "This module is already being generated." });
-            }
+                if (module == null) return NotFound(new { message = "Module not found." });
+                if (module.Course?.CreatorLearnerId != learnerId)
+                    return StatusCode(403, new { message = "You do not own this course." });
+                if (module.Course.IsPublished)
+                    return Conflict(new { message = "Unpublish the course before changing its content." });
+                if (await _context.GenerationJobs.AnyAsync(j => j.CourseId == module.CourseId &&
+                    (j.Status == "Pending" || j.Status == "Queued" || j.Status == "Running"), cancellationToken))
+                    return Conflict(new { message = "Course generation is already in progress." });
 
-            module.GenerationStatus = ModuleGenerationStatus.Generating;
-            await _context.SaveChangesAsync(cancellationToken);
+                if (module.GenerationStatus == ModuleGenerationStatus.Ready && module.Lessons.Count > 0)
+                    return Ok(module);
+                if (module.GenerationStatus == ModuleGenerationStatus.Generating)
+                    return Conflict(new { message = "This module is already being generated." });
+                if (module.Lessons.Count > 0 || module.Quizzes.Count > 0)
+                    return Conflict(new { message = "This module already has content. Review it in the course editor instead of appending generated content." });
+
+                module.GenerationStatus = ModuleGenerationStatus.Generating;
+                await _context.SaveChangesAsync(cancellationToken);
+                if (transaction != null) await transaction.CommitAsync(cancellationToken);
+            }
 
             try
             {
-                var learnerId = await GetCurrentLearnerIdAsync(_context);
-
                 // Pipeline stage 2 (Research Agent) runs once per course and is
                 // persisted as a ResearchPackage. Stage 3 (this endpoint) only
                 // builds content from the research already on hand; it must never
@@ -81,7 +94,7 @@ namespace IFA.API.Controllers
                             module.CourseId,
                             cancellationToken);
                     }
-                    catch (Exception researchEx)
+                    catch (Exception researchEx) when (researchEx is not OperationCanceledException && researchEx is not AiUnavailableException)
                     {
                         // Research is a best-effort grounding step; generation
                         // must still work when the research provider is down.
@@ -123,7 +136,7 @@ namespace IFA.API.Controllers
 
                 var jitRequest = new JitModuleGenerationRequest
                 {
-                    CourseTitle = module.Course?.Title ?? "IFA Personalized Course",
+                    CourseTitle = module.Course?.Title ?? "Witforge Personalized Course",
                     ModuleNumber = module.ModuleNumber,
                     ModuleTitle = module.Title,
                     TargetGoal = module.Summary,
@@ -169,6 +182,18 @@ namespace IFA.API.Controllers
                     .FirstAsync(m => m.Id == module.Id, cancellationToken);
 
                 return Ok(updated);
+            }
+            catch (AiUnavailableException)
+            {
+                module.GenerationStatus = ModuleGenerationStatus.Failed;
+                await _context.SaveChangesAsync(CancellationToken.None);
+                throw;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                module.GenerationStatus = ModuleGenerationStatus.Failed;
+                await _context.SaveChangesAsync(CancellationToken.None);
+                throw;
             }
             catch (InvalidOperationException ex)
             {

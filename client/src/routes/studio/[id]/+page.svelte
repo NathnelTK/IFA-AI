@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import { goto } from '$app/navigation';
+  import { beforeNavigate, goto } from '$app/navigation';
+  import { page } from '$app/stores';
   import {
     Loader2,
     ArrowLeft,
@@ -26,11 +27,11 @@
     CircleCheck,
     CircleX
   } from 'lucide-svelte';
-  import { educatorApi, type EducatorProjectDetailDto, type EducatorSourceDto, type EducatorConflictDto, type EducatorGenerationStatusDto, type CourseBlueprint } from '$lib/api';
+  import { apiErrorMessage, educatorApi, type CourseDetailDto, type EducatorProjectDetailDto, type EducatorSourceDto, type EducatorConflictDto, type EducatorGenerationStatusDto, type CourseBlueprint } from '$lib/api';
   import { session } from '$lib/stores/sessionStore';
   import CourseEditor from '$lib/components/studio/CourseEditor.svelte';
 
-  export let id: string;
+  $: id = $page.params.id ?? '';
 
   let project: EducatorProjectDetailDto | null = null;
   let loading = true;
@@ -53,6 +54,12 @@
   // Generation progress state
   let status: EducatorGenerationStatusDto | null = null;
   let pollTimer: number | null = null;
+  let statusLoading = false;
+  let statusFailures = 0;
+  let editorDirty = false;
+  let editorRevision = 0;
+  let mounted = false;
+  let requestedId = '';
 
   // Cover state
   let coverUrlInput = '';
@@ -61,23 +68,40 @@
   let savedCoverUrl = '';
 
   // Publish state
-  let publishPaid = false;
-  let publishPrice = '';
-  let publishCurrency = 'ETB';
   let published = false;
 
   $: unresolvedConflicts = project?.conflicts.filter((c) => !c.resolution) ?? [];
+  $: conflictDirty = Object.values(conflictNotes).some((note) => note.trim().length > 0) || Object.keys(conflictSelections).length > 0;
+  $: panelDirty = (!!coverUrlInput.trim() && coverUrlInput.trim() !== savedCoverUrl) || !!sourceUrl.trim() || conflictDirty;
+  beforeNavigate((navigation) => {
+    if (busy) { navigation.cancel(); return; }
+    if (panelDirty && !editorDirty && navigation.type !== 'leave' && !confirm('Leave this project and discard unsaved source or cover inputs?')) navigation.cancel();
+  });
+  function beforeUnload(event: BeforeUnloadEvent) {
+    if (!panelDirty && !busy) return;
+    event.preventDefault(); event.returnValue = '';
+  }
 
-  onMount(loadProject);
+  onMount(() => { mounted = true; });
+  $: if (mounted && id && requestedId !== id) {
+    requestedId = id;
+    stopPolling();
+    project = null; status = null; loading = true; published = false;
+    sourceUrl = ''; coverUrlInput = ''; suggestions = []; coverCandidates = []; savedCoverUrl = ''; conflictNotes = {}; conflictSelections = {}; notice = ''; statusFailures = 0;
+    void loadProject();
+  }
 
   onDestroy(() => {
     if (pollTimer !== null) window.clearInterval(pollTimer);
   });
 
   async function loadProject() {
+    const projectId = id;
     error = '';
     try {
-      project = await educatorApi.project(id);
+      const result = await educatorApi.project(projectId);
+      if (id !== projectId) return;
+      project = result;
       blueprint = parseBlueprint(project.blueprint?.json ?? null);
       // If generation already started, resume polling.
       if (project.generationJobs.length > 0 && !isTerminalGeneration(project)) {
@@ -88,14 +112,17 @@
     } catch (cause) {
       error = cause instanceof Error ? cause.message : 'Could not load the project.';
     } finally {
-      loading = false;
+      if (id === projectId) loading = false;
     }
   }
 
   function parseBlueprint(json: string | null): CourseBlueprint | null {
     if (!json) return null;
     try {
-      return JSON.parse(json) as CourseBlueprint;
+      // Existing persisted source blueprints used PascalCase JSON properties.
+      const parsed = JSON.parse(json, (_key, value) => value && typeof value === 'object' && !Array.isArray(value)
+        ? Object.fromEntries(Object.entries(value).map(([key, entry]) => [key[0].toLowerCase() + key.slice(1), entry])) : value);
+      return parsed && Array.isArray(parsed.modules) ? parsed as CourseBlueprint : null;
     } catch {
       return null;
     }
@@ -123,10 +150,10 @@
     busy = 'add-source';
     error = '';
     try {
-      // The server auto-detects the type (PDF/video/website/article/slides).
+      // The server validates and extracts supported public PDF/text/web links.
       const source = await educatorApi.addSource(id, { url });
       sourceUrl = '';
-      project?.sources.push(source);
+      if (project) project.sources = [...project.sources, source];
       notice = `Source added — detected as ${source.type || 'link'}.`;
     } catch (cause) {
       error = cause instanceof Error ? cause.message : 'Could not add the source.';
@@ -202,6 +229,8 @@
     try {
       const res = await educatorApi.analyze(id);
       if (project) project.conflicts = res.conflicts;
+      conflictNotes = {};
+      conflictSelections = {};
       notice = res.conflictCount
         ? `${res.conflictCount} conflict${res.conflictCount === 1 ? '' : 's'} found — resolve them to unlock blueprint generation.`
         : 'No conflicts found — you can generate the blueprint.';
@@ -217,13 +246,19 @@
     busy = conflict.id;
     error = '';
     try {
-      const updated = await educatorApi.resolveConflict(id, conflict.id, {
+      await educatorApi.resolveConflict(id, conflict.id, {
         resolution,
         ...(resolution === 'ManualNote' && manualNote ? { manualNote } : {})
       });
       if (project) {
-        project.conflicts = project.conflicts.map((c) => (c.id === conflict.id ? updated : c));
+        const updated = await educatorApi.project(id);
+        project.conflicts = updated.conflicts;
+        project.sources = updated.sources;
       }
+      delete conflictNotes[conflict.id];
+      delete conflictSelections[conflict.id];
+      conflictNotes = { ...conflictNotes };
+      conflictSelections = { ...conflictSelections };
     } catch (cause) {
       error = cause instanceof Error ? cause.message : 'Could not resolve the conflict.';
     } finally {
@@ -292,26 +327,37 @@
   }
 
   async function loadStatus() {
+    if (statusLoading) return;
+    statusLoading = true;
+    const projectId = id;
     try {
-      const res = await educatorApi.generationStatus(id);
+      const res = await educatorApi.generationStatus(projectId);
+      if (id !== projectId) return;
       status = res;
-      const lower = res.status?.toLowerCase() ?? '';
-      const allDone = res.totalCount > 0 && res.completedCount >= res.totalCount;
-      const anyFailed = res.jobs.some((j) => j.status?.toLowerCase() === 'failed');
-      if (allDone || lower.includes('ready') || lower.includes('completed') || lower.includes('failed') || anyFailed) {
-        stopPolling();
-        if (res.courseId && project && !project.courseId) project.courseId = res.courseId;
+      statusFailures = 0;
+      if (project) {
+        project.status = res.status;
+        if (res.courseId) project.courseId = res.courseId;
       }
-    } catch {
-      /* transient — keep polling */
+      const allTerminal = res.jobs.length > 0 && res.jobs.every((job) => ['done', 'completed', 'succeeded', 'failed'].includes(job.status.toLowerCase()));
+      if (allTerminal) {
+        stopPolling();
+      }
+    } catch (cause) {
+      statusFailures += 1;
+      if (statusFailures >= 3) {
+        stopPolling();
+        error = `Could not refresh generation status. Use Refresh Job Status to retry. ${apiErrorMessage(cause)}`;
+      }
+    } finally {
+      statusLoading = false;
     }
   }
 
   async function handleRegenerateBlueprint() {
-    // No per-module retry endpoint exists — the fallback is regenerating the
-    // blueprint and approving again.
-    await loadProject();
-    notice = 'Reloaded. Regenerate the blueprint to retry failed modules.';
+    error = '';
+    startPolling();
+    notice = 'Refreshing job status. Failed content can be completed manually in the same course editor after all jobs finish.';
   }
 
   /* ------------------------------------------------------------------ */
@@ -321,11 +367,14 @@
   async function handleSaveCover() {
     const url = coverUrlInput.trim();
     if (!url || busy || !courseIdValue) return;
+    if (published || generationActive) { error = 'Unpublish the course and wait for generation before editing the cover.'; return; }
+    if (editorDirty) { error = 'Save your editor changes before updating the cover.'; return; }
     busy = 'cover';
     error = '';
     try {
       const res = await educatorApi.setCourseCover(courseIdValue, url);
       savedCoverUrl = res.coverImageUrl;
+      editorRevision += 1;
       notice = 'Cover image saved.';
     } catch (cause) {
       error = cause instanceof Error ? cause.message : 'Could not save the cover image.';
@@ -351,11 +400,13 @@
 
   async function handlePickCover(url: string) {
     if (!courseIdValue || busy) return;
+    if (published || generationActive || editorDirty) { error = 'Save your draft changes and unpublish before updating the cover.'; return; }
     busy = 'cover';
     error = '';
     try {
       const res = await educatorApi.autoCourseCover(courseIdValue, url);
       savedCoverUrl = res.coverImageUrl ?? url;
+      editorRevision += 1;
       notice = 'Cover image applied.';
     } catch (cause) {
       error = cause instanceof Error ? cause.message : 'Could not apply the cover image.';
@@ -368,35 +419,20 @@
   /* Publish                                                             */
   /* ------------------------------------------------------------------ */
 
-  async function handlePublish() {
-    if (!courseIdValue || busy) return;
-    const price = Number(publishPrice);
-    if (publishPaid && (!publishPrice.trim() || Number.isNaN(price) || price <= 0)) {
-      error = 'Enter a valid price in ETB for a paid course.';
-      return;
-    }
-    busy = 'publish';
-    error = '';
-    notice = '';
-    try {
-      await educatorApi.publishCourse(courseIdValue, publishPaid
-        ? { isPaid: true, price, currency: publishCurrency }
-        : { isPaid: false });
-      published = true;
-      notice = 'Course published — it is now available in the marketplace.';
-    } catch (cause) {
-      error = cause instanceof Error ? cause.message : 'Could not publish the course.';
-    } finally {
-      busy = '';
+  function editorSaved(course: CourseDetailDto) {
+    published = course.isPublished;
+    savedCoverUrl = course.coverImageUrl || '';
+    if (project) {
+      project.title = course.title; project.description = course.description;
+      if (course.isPublished) project.status = 'Published';
+      else if (project.status === 'Published') project.status = 'Draft';
     }
   }
 
   $: courseIdValue = status?.courseId ?? project?.courseId ?? '';
 
-  $: generationActive = status
-    ? !['readyforreview', 'completed', 'failed', 'ready for review'].includes((status.status ?? '').toLowerCase()) &&
-      status.completedCount < status.totalCount
-    : false;
+  $: generationActive = (status?.jobs ?? project?.generationJobs ?? []).some((job) => ['pending', 'queued', 'running'].includes(job.status.toLowerCase()));
+  $: editorRefreshKey = `${editorRevision}:${(status?.jobs ?? []).map((job) => job.status).join(',')}`;
 
   $: generationDone = status ? status.totalCount > 0 && status.completedCount >= status.totalCount : false;
 
@@ -422,6 +458,8 @@
     }
   }
 </script>
+
+<svelte:window on:beforeunload={beforeUnload} />
 
 <svelte:head>
   <title>{project ? `${project.title} · Studio` : 'Studio project'}</title>
@@ -462,11 +500,13 @@
       </div>
       {#if courseIdValue}
         <a
-          href={`/courses/${courseIdValue}`}
+          href={`/courses/${courseIdValue}?preview=1`}
+          target="_blank"
+          rel="noopener noreferrer"
           class="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-ifa-card border border-ifa-border text-xs font-semibold text-ifa-pine hover:bg-ifa-card-muted transition"
         >
           <BookOpen class="w-3.5 h-3.5" />
-          View course
+          Preview saved course
         </a>
       {/if}
     </div>
@@ -483,6 +523,11 @@
         <Loader2 class="w-6 h-6 text-ifa-pine animate-spin" />
       </div>
     {:else if project}
+      {#if courseIdValue}
+        <CourseEditor courseId={courseIdValue} refreshKey={editorRefreshKey} {generationActive} bind:dirty={editorDirty} on:saved={(event) => editorSaved(event.detail)} />
+      {/if}
+      <details open={!courseIdValue || generationActive} class="space-y-4">
+        <summary class="text-sm font-semibold text-ifa-text-secondary cursor-pointer">Source Research & Cover {courseIdValue ? '(Optional)' : ''}</summary>
       <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] gap-6 items-start">
         <!-- ================= LEFT: Sources panel ================= -->
         <section class="bg-ifa-card rounded-2xl border border-ifa-border p-5 shadow-card space-y-4">
@@ -491,7 +536,7 @@
             <button
               type="button"
               on:click={handleSuggest}
-              disabled={suggesting}
+              disabled={suggesting || !!courseIdValue}
               class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-ifa-pine/10 text-ifa-pine text-[11px] font-bold hover:bg-ifa-pine/20 transition disabled:opacity-50"
             >
               {#if suggesting}
@@ -507,15 +552,16 @@
           <div class="flex items-center gap-2">
             <input
               type="url"
+              aria-label="Source material URL"
               bind:value={sourceUrl}
               on:keydown={(e) => e.key === 'Enter' && handleAddSource()}
-              placeholder="Paste a link — PDF, video, website, article or slides…"
+              placeholder="Paste a public PDF, text, video, or web link…"
               class="flex-1 px-3 py-2 rounded-xl bg-ifa-card-muted border border-ifa-border text-xs text-ifa-text-primary placeholder-ifa-text-muted focus:ring-1 focus:ring-ifa-pine"
             />
             <button
               type="button"
               on:click={handleAddSource}
-              disabled={!sourceUrl.trim() || busy !== ''}
+              disabled={!sourceUrl.trim() || busy !== '' || !!courseIdValue}
               class="px-3 py-2 rounded-xl bg-ifa-pine text-white text-xs font-bold flex items-center gap-1 hover:bg-ifa-pine-light transition disabled:opacity-50"
             >
               {#if busy === 'add-source'}
@@ -526,7 +572,7 @@
               Add
             </button>
           </div>
-          <p class="text-[10px] text-ifa-text-muted">The type (PDF, video, website, article, slides) is detected automatically.</p>
+          <p class="text-[10px] text-ifa-text-muted">Link materials only. Sources must be successfully extracted before AI analysis. {courseIdValue ? 'The approved source plan is retained for reference; edit saved content in the course editor.' : ''}</p>
 
           <!-- Source rows -->
           <div class="space-y-2 max-h-[480px] overflow-y-auto pr-1">
@@ -580,7 +626,7 @@
                     <button
                       type="button"
                       on:click={() => handleToggleIncluded(source)}
-                      disabled={busy !== ''}
+                      disabled={busy !== '' || !!courseIdValue}
                       title={source.included ? 'Exclude from course' : 'Include in course'}
                       class="p-1.5 rounded-lg text-ifa-text-muted hover:text-ifa-pine hover:bg-ifa-card transition disabled:opacity-40"
                     >
@@ -593,7 +639,7 @@
                     <button
                       type="button"
                       on:click={() => handleDeleteSource(source.id)}
-                      disabled={busy !== ''}
+                      disabled={busy !== '' || !!courseIdValue}
                       title="Delete source"
                       class="p-1.5 rounded-lg text-ifa-text-muted hover:text-red-600 hover:bg-red-50 transition disabled:opacity-40"
                     >
@@ -651,7 +697,7 @@
               <button
                 type="button"
                 on:click={handleAnalyze}
-                disabled={busy !== ''}
+                disabled={busy !== '' || !!courseIdValue}
                 class="px-3 py-1.5 rounded-lg bg-ifa-pine text-white text-[11px] font-bold flex items-center gap-1.5 hover:bg-ifa-pine-light transition disabled:opacity-50"
               >
                 {#if busy === 'analyze'}
@@ -751,7 +797,7 @@
               <button
                 type="button"
                 on:click={handleGenerateBlueprint}
-                disabled={busy !== '' || unresolvedConflicts.length > 0}
+                disabled={busy !== '' || unresolvedConflicts.length > 0 || !!courseIdValue}
                 title={unresolvedConflicts.length > 0 ? 'Resolve all conflicts first' : 'Generate a course blueprint'}
                 class="px-3 py-1.5 rounded-lg bg-ifa-pine text-white text-[11px] font-bold flex items-center gap-1.5 hover:bg-ifa-pine-light transition disabled:opacity-50"
               >
@@ -827,7 +873,7 @@
               <button
                 type="button"
                 on:click={handleApproveBlueprint}
-                disabled={busy !== '' || !!project.blueprint?.approvedAt}
+                disabled={busy !== '' || !!project.blueprint?.approvedAt || !!courseIdValue}
                 class="w-full py-2.5 rounded-xl bg-ifa-pine text-white text-xs font-bold flex items-center justify-center gap-2 hover:bg-ifa-pine-light transition disabled:opacity-60"
               >
                 {#if busy === 'approve'}
@@ -892,14 +938,14 @@
                 {/each}
               </div>
 
-              {#if status.jobs.some((j) => j.status?.toLowerCase() === 'failed')}
+              {#if statusFailures > 0 || status.jobs.some((j) => j.status?.toLowerCase() === 'failed')}
                 <button
                   type="button"
                   on:click={handleRegenerateBlueprint}
                   class="w-full py-2 rounded-xl bg-ifa-card-muted border border-ifa-border text-ifa-text-secondary text-xs font-semibold hover:text-ifa-text-primary transition flex items-center justify-center gap-1.5"
                 >
                   <RefreshCw class="w-3.5 h-3.5" />
-                  Regenerate blueprint (retry failed modules)
+                  Refresh Job Status
                 </button>
               {/if}
             </section>
@@ -916,6 +962,7 @@
               <div class="flex items-center gap-2">
                 <input
                   type="url"
+                  aria-label="Course cover image URL"
                   bind:value={coverUrlInput}
                   placeholder="Add image link — https://…/cover.jpg"
                   class="flex-1 px-3 py-2 rounded-xl bg-ifa-card-muted border border-ifa-border text-xs text-ifa-text-primary placeholder-ifa-text-muted focus:ring-1 focus:ring-ifa-pine"
@@ -923,7 +970,7 @@
                 <button
                   type="button"
                   on:click={handleSaveCover}
-                  disabled={!coverUrlInput.trim() || busy !== ''}
+                  disabled={!coverUrlInput.trim() || busy !== '' || published || generationActive || editorDirty}
                   class="px-3 py-2 rounded-xl bg-ifa-pine text-white text-xs font-bold hover:bg-ifa-pine-light transition disabled:opacity-50"
                 >
                   Save
@@ -931,7 +978,7 @@
                 <button
                   type="button"
                   on:click={handleFindCover}
-                  disabled={busy !== ''}
+                  disabled={busy !== '' || published || generationActive || findingCover}
                   class="px-3 py-2 rounded-xl bg-ifa-pine/10 text-ifa-pine text-xs font-bold hover:bg-ifa-pine/20 transition flex items-center gap-1.5 disabled:opacity-50"
                 >
                   {#if findingCover}
@@ -959,6 +1006,7 @@
                     {#each coverCandidates as candidate (candidate.url)}
                       <button
                         type="button"
+                        disabled={published || generationActive || editorDirty || busy !== ''}
                         on:click={() => handlePickCover(candidate.url)}
                         class="rounded-lg overflow-hidden border-2 {savedCoverUrl === candidate.url ? 'border-ifa-pine' : 'border-ifa-border'} hover:border-ifa-pine transition"
                       >
@@ -971,65 +1019,6 @@
               {/if}
             </section>
 
-            <!-- Publish -->
-            <section class="bg-ifa-card rounded-2xl border border-ifa-border p-5 shadow-card space-y-3">
-              <h2 class="text-sm font-bold text-ifa-text-primary flex items-center gap-2">
-                <Globe class="w-4 h-4 text-ifa-pine" />
-                Publish
-              </h2>
-
-              {#if published}
-                <p class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 flex items-center gap-1.5">
-                  <CircleCheck class="w-3.5 h-3.5" />
-                  Published — learners can find it in the marketplace.
-                </p>
-              {:else}
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    on:click={() => {
-                      publishPaid = false;
-                      void handlePublish();
-                    }}
-                    disabled={busy !== ''}
-                    class="py-2.5 rounded-xl bg-ifa-pine text-white text-xs font-bold hover:bg-ifa-pine-light transition disabled:opacity-50"
-                  >
-                    Publish free
-                  </button>
-                  <div class="flex items-center gap-1.5">
-                    <input
-                      type="number"
-                      min="1"
-                      bind:value={publishPrice}
-                      placeholder="Price (ETB)"
-                      class="flex-1 px-3 py-2.5 rounded-xl bg-ifa-card-muted border border-ifa-border text-xs text-ifa-text-primary placeholder-ifa-text-muted focus:ring-1 focus:ring-ifa-pine w-24"
-                      on:input={() => (publishPaid = true)}
-                    />
-                    <button
-                      type="button"
-                      on:click={() => {
-                        publishPaid = true;
-                        void handlePublish();
-                      }}
-                      disabled={busy !== '' || !publishPrice.trim()}
-                      class="px-3 py-2.5 rounded-xl bg-ifa-pine/10 text-ifa-pine text-xs font-bold hover:bg-ifa-pine/20 transition disabled:opacity-50 shrink-0"
-                    >
-                      {#if busy === 'publish'}
-                        <Loader2 class="w-3.5 h-3.5 animate-spin" />
-                      {:else}
-                        Publish paid
-                      {/if}
-                    </button>
-                  </div>
-                </div>
-                <p class="text-[10px] text-ifa-text-muted">
-                  Paid courses check out with Telebirr / Chapa in Ethiopian Birr (ETB).
-                </p>
-              {/if}
-            </section>
-
-            <!-- Edit course -->
-            <CourseEditor courseId={courseIdValue} />
           {:else if status && generationDone}
             <p class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
               Generation finished but the course id is not available yet — reload the page to continue.
@@ -1037,6 +1026,7 @@
           {/if}
         </div>
       </div>
+      </details>
     {/if}
   {/if}
 </div>

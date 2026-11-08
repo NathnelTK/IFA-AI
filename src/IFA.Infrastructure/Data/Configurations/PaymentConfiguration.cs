@@ -20,6 +20,10 @@ namespace IFA.Infrastructure.Data.Configurations
 
             builder.HasIndex(p => p.ProviderTxRef).IsUnique();
             builder.HasIndex(p => new { p.CourseId, p.LearnerId });
+            builder.HasIndex(p => new { p.CourseId, p.LearnerId, p.Status })
+                .HasDatabaseName("IX_Payments_OneOpenCheckout")
+                .HasFilter("\"Status\" IN ('Pending', 'Initializing')")
+                .IsUnique();
 
             builder.HasOne(p => p.Learner)
                 .WithMany()

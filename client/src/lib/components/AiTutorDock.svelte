@@ -7,9 +7,10 @@
    *
    * The dock used to run a text intake chat that scoped a course. Chat is gone:
    * Voxide is voice-only and drives the app through the capabilities registered
-   * in `$lib/voxide` (navigate to a section, open the tutor, create a course).
+   * in `$lib/voxide` (navigate to a section or open the learner tutor; course
+   * creation is available separately in Educator Studio).
    * The live transcript below is read back from the Voxide snapshot — the user
-   * cannot type here. Course *scoping* still lives in the hero on /home.
+   * cannot type here.
    */
 
   let isOpen = false;
@@ -56,7 +57,7 @@
     {
       group: 'Do',
       icon: Compass,
-      items: ['Create a course on …', 'Open the tutor for …']
+      items: ['Ask the tutor about …']
     }
   ];
 </script>
@@ -75,7 +76,7 @@
       <div>
         <div class="flex items-center gap-1.5 text-xs font-bold text-white tracking-tight">
           <span class="text-cyan-400 font-mono text-[10px]">•||•</span>
-          <span>IFA Voice Assistant</span>
+          <span>Witforge Voice Assistant</span>
         </div>
         <p class="text-[10px] text-gray-300">Navigate &amp; act — just speak.</p>
       </div>
@@ -99,7 +100,7 @@
           <Sparkles class="w-4 h-4" />
         </div>
         <div>
-          <h4 class="text-xs font-bold leading-tight">IFA Voice Assistant</h4>
+          <h4 class="text-xs font-bold leading-tight">Witforge Voice Assistant</h4>
           <p class="text-[10px] text-cyan-300 font-mono">
             {voiceActive ? voiceStatusLabel($voxideStatus) : 'Voice commands · navigate & act'}
           </p>
@@ -109,7 +110,7 @@
         <button
           type="button"
           on:click={handleMic}
-          title={voxideEnabled ? 'Talk to IFA (voice)' : 'Voice needs a Voxide key'}
+          title={voxideEnabled ? 'Talk to Witforge (voice)' : 'Voice needs a Voxide key'}
           class="w-7 h-7 rounded-full flex items-center justify-center transition {voiceActive
             ? 'bg-cyan-500 text-white animate-pulse'
             : 'bg-white/10 text-cyan-400 hover:bg-white/20'}"
@@ -142,7 +143,7 @@
           {#if $voxideMessages.length > 0}
             {#each $voxideMessages.slice(-6) as vm}
               <p class="text-[11px] {vm.role === 'user' ? 'text-ifa-text-primary font-semibold' : 'text-ifa-text-secondary'}">
-                <span class="opacity-60">{vm.role === 'user' ? 'You' : 'IFA'}:</span> {vm.content}
+                <span class="opacity-60">{vm.role === 'user' ? 'You' : 'Witforge'}:</span> {vm.content}
               </p>
             {/each}
           {:else}
@@ -202,7 +203,7 @@
           <span>Stop listening</span>
         {:else}
           <Mic class="w-4 h-4" />
-          <span>Talk to IFA</span>
+          <span>Talk to Witforge</span>
         {/if}
       </button>
       {#if !voxideEnabled}

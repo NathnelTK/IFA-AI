@@ -1,8 +1,14 @@
 import { api } from './client';
 import type {
+	AssignmentDto,
+	AssignmentSubmissionDto,
 	CourseDetailDto,
+	CourseInvitePreviewDto,
+	CourseDiscussionDto,
 	CoursePipelineProposalDto,
 	CourseSummaryDto,
+	CourseTemplateDto,
+	CourseVisibility,
 	DemoAccountDto,
 	EducatorConflictDto,
 	EducatorDashboardDto,
@@ -11,6 +17,7 @@ import type {
 	EducatorProjectDetailDto,
 	EducatorProjectDto,
 	EducatorSourceDto,
+	EnrollmentResultDto,
 	IntakeHistoryMessage,
 	IntakeResponseDto,
 	LearnerMeDto,
@@ -19,11 +26,14 @@ import type {
 	LearnerSkillsResultDto,
 	LearnerProgressDto,
 	LearningActivityDto,
+	LiveSessionDto,
 	MarketplaceCourseDto,
 	NotificationDto,
 	PaymentInitializeDto,
 	PaymentVerifyDto,
 	PeerComparisonDto,
+	QuizAuthoringDto,
+	QuizSubmissionResultDto,
 	RecommendationDto,
 	TokenResult
 } from './types';
@@ -52,7 +62,7 @@ export const authApi = {
 };
 
 export const coursesApi = {
-	/** Enrolled courses for the signed-in learner (auto-seeds one if empty). */
+	/** Persisted enrollments for the signed-in learner. */
 	listMine: () => api.get<CourseSummaryDto[]>('/api/courses'),
 	getById: (id: string) => api.get<CourseDetailDto>(`/api/courses/${id}`),
 	create: (body: {
@@ -68,15 +78,29 @@ export const coursesApi = {
 		api.get<MarketplaceCourseDto[]>('/api/courses/marketplace', params),
 	publish: (id: string) => api.post<{ isPublic: boolean }>(`/api/courses/${id}/publish`),
 	share: (id: string) => api.post<{ shareCode: string }>(`/api/courses/${id}/share`),
-	previewJoin: (code: string) => api.get<MarketplaceCourseDto>(`/api/courses/join/${code}`),
-	join: (code: string) => api.post<{ success: boolean; courseId?: string }>(`/api/courses/join/${code}`),
-	peerComparison: (id: string) => api.get<PeerComparisonDto>(`/api/courses/${id}/peer-comparison`)
+	previewJoin: (code: string) => api.get<CourseInvitePreviewDto>(`/api/courses/join/${encodeURIComponent(code)}`),
+	join: (code: string) => api.post<EnrollmentResultDto>(`/api/courses/join/${encodeURIComponent(code)}`),
+	enroll: (id: string) => api.post<EnrollmentResultDto>(`/api/courses/${id}/enroll`),
+	peerComparison: (id: string) => api.get<PeerComparisonDto>(`/api/courses/${id}/peer-comparison`),
+	liveSessions: (id: string) => api.get<LiveSessionDto[]>(`/api/courses/${id}/live-sessions`),
+	discussions: (id: string, lessonId?: string) =>
+		api.get<CourseDiscussionDto[]>(`/api/courses/${id}/discussions`, lessonId ? { lessonId } : undefined),
+	postDiscussion: (id: string, body: { lessonId?: string; title?: string; content: string }) =>
+		api.post<CourseDiscussionDto>(`/api/courses/${id}/discussions`, body),
+	postReply: (id: string, discussionId: string, body: { content: string }) =>
+		api.post<{ id: string; content: string }>(`/api/courses/${id}/discussions/${discussionId}/reply`, body),
+	assignments: (id: string) => api.get<AssignmentDto[]>(`/api/courses/${id}/assignments`),
+	submitAssignment: (
+		id: string,
+		assignmentId: string,
+		body: { submissionText: string; fileUrl?: string; fileName?: string }
+	) => api.post<AssignmentSubmissionDto>(`/api/courses/${id}/assignments/${assignmentId}/submit`, body)
 };
 
 export const lessonsApi = {
 	get: (id: string) => api.get<{ id: string; title: string }>(`/api/lessons/${id}`),
 	complete: (id: string) =>
-		api.post<{ success: boolean; lessonId: string; isCompleted: boolean }>(`/api/lessons/${id}/complete`)
+		api.post<{ success: boolean; lessonId: string; isCompleted: boolean; courseId: string; progressPercentage: number }>(`/api/lessons/${id}/complete`)
 };
 
 export const modulesApi = {
@@ -88,7 +112,7 @@ export const quizzesApi = {
 	get: (id: string) => api.get<unknown>(`/api/quizzes/${id}`),
 	/** Answers keyed by question GUID -> selected option index. */
 	submit: (id: string, answers: Record<string, number>) =>
-		api.post<{ scorePercentage?: number; isPassed?: boolean }>(`/api/quizzes/${id}/submit`, { answers })
+		api.post<QuizSubmissionResultDto>(`/api/quizzes/${id}/submit`, { answers })
 };
 
 export const learnerApi = {
@@ -231,7 +255,7 @@ export const educatorApi = {
 		projectId: string,
 		conflictId: string,
 		body: { resolution: 'Keep' | 'Remove' | 'Merge' | 'ManualNote'; manualNote?: string }
-	) => api.post<EducatorConflictDto>(`/api/educator/projects/${projectId}/conflicts/${conflictId}/resolve`, body),
+	) => api.post<{ success: boolean; status: string }>(`/api/educator/projects/${projectId}/conflicts/${conflictId}/resolve`, body),
 
 	generateBlueprint: (projectId: string) =>
 		api.post<{ blueprintJson: string }>(`/api/educator/projects/${projectId}/blueprint/generate`),
@@ -254,16 +278,26 @@ export const educatorApi = {
 	updateModule: (
 		courseId: string,
 		moduleId: string,
-		body: { title?: string; description?: string; lessons?: Array<{ id?: string; title: string; content: string; order: number }> }
+		body: { title?: string; description?: string; lessons?: Array<{ id: string; title: string; content: string; order: number; readingTimeMinutes: number; youTubeVideoId?: string | null }> }
 	) => api.put<unknown>(`/api/educator/courses/${courseId}/modules/${moduleId}`, body),
 	aiUpdateModule: (courseId: string, moduleId: string, instruction: string) =>
 		api.post<unknown>(`/api/educator/courses/${courseId}/modules/${moduleId}/ai-update`, { instruction }),
 
 	publishCourse: (courseId: string, body: { isPaid: boolean; price?: number; currency?: string }) =>
-		api.post<{ isPublic: boolean; isPaid: boolean; price: number | null }>(
+		api.post<{ isPublished: boolean; isPublic: boolean; isPaid: boolean; price: number | null }>(
 			`/api/educator/courses/${courseId}/publish`,
 			body
 		),
+	unpublishCourse: (courseId: string) =>
+		api.post<{ isPublished: boolean }>(`/api/educator/courses/${courseId}/unpublish`),
+	reorderModules: (courseId: string, moduleIds: string[]) =>
+		api.put<unknown>(`/api/educator/courses/${courseId}/modules/reorder`, { moduleIds }),
+	duplicateModule: (courseId: string, moduleId: string) =>
+		api.post<unknown>(`/api/educator/courses/${courseId}/modules/${moduleId}/duplicate`),
+	duplicateLesson: (courseId: string, moduleId: string, lessonId: string) =>
+		api.post<unknown>(`/api/educator/courses/${courseId}/modules/${moduleId}/lessons/${lessonId}/duplicate`),
+	updateQuizzes: (courseId: string, moduleId: string, quizzes: QuizAuthoringDto[]) =>
+		api.put<unknown>(`/api/educator/courses/${courseId}/modules/${moduleId}/quizzes`, { quizzes }),
 
 	dashboard: () => api.get<EducatorDashboardDto>('/api/educator/dashboard'),
 	enrollments: (status = 'PendingApproval') =>
@@ -271,7 +305,117 @@ export const educatorApi = {
 	approveEnrollment: (enrollmentId: string) =>
 		api.post<unknown>(`/api/educator/enrollments/${enrollmentId}/approve`),
 	rejectEnrollment: (enrollmentId: string) =>
-		api.post<unknown>(`/api/educator/enrollments/${enrollmentId}/reject`)
+		api.post<unknown>(`/api/educator/enrollments/${enrollmentId}/reject`),
+
+	templates: () => api.get<CourseTemplateDto[]>('/api/educator/templates'),
+	createManualCourse: (body: {
+		title: string;
+		description?: string;
+		category?: string;
+		targetAudience?: string;
+		estimatedDuration?: string;
+		templateId?: string;
+		accentColor?: string;
+		themeMode?: string;
+		enrollmentMode?: string;
+		level?: string;
+		language?: string;
+		learningObjectives?: string[];
+		requirePassingQuizzes?: boolean;
+		visibility?: CourseVisibility;
+		modules?: Array<{
+			title: string;
+			summary: string;
+			estimatedHours: number;
+			lessons: Array<{ title: string; summary: string; contentMarkdown: string; readingTimeMinutes: number }>;
+		}>;
+	}) =>
+		api.post<{ courseId: string; projectId: string; title: string; shareCode: string }>(
+			'/api/educator/courses/manual',
+			body
+		),
+	addModule: (courseId: string, body: { title: string; summary?: string; estimatedHours?: number }) =>
+		api.post<{ moduleId: string; moduleNumber: number; title: string }>(
+			`/api/educator/courses/${courseId}/modules`,
+			body
+		),
+	deleteModule: (courseId: string, moduleId: string) =>
+		api.delete<{ success: boolean }>(`/api/educator/courses/${courseId}/modules/${moduleId}`),
+	addLesson: (
+		courseId: string,
+		moduleId: string,
+		body: { title: string; summary?: string; contentMarkdown?: string; readingTimeMinutes?: number }
+	) =>
+		api.post<{ lessonId: string; lessonNumber: number; title: string }>(
+			`/api/educator/courses/${courseId}/modules/${moduleId}/lessons`,
+			body
+		),
+	deleteLesson: (courseId: string, moduleId: string, lessonId: string) =>
+		api.delete<{ success: boolean }>(`/api/educator/courses/${courseId}/modules/${moduleId}/lessons/${lessonId}`),
+	updateBranding: (
+		courseId: string,
+		body: {
+			title?: string;
+			description?: string;
+			category?: string;
+			targetAudience?: string;
+			estimatedDuration?: string;
+			accentColor?: string;
+			themeMode?: string;
+			enrollmentMode?: string;
+			passingScorePercentage?: number;
+			maxQuizAttempts?: number;
+			prerequisites?: string;
+			instructorBio?: string;
+			instructorTitle?: string;
+			level?: string;
+			language?: string;
+			learningObjectives?: string[];
+			requirePassingQuizzes?: boolean;
+			visibility?: CourseVisibility;
+			enrollmentLimit?: number | null;
+			enrollmentOpensAt?: string | null;
+			enrollmentClosesAt?: string | null;
+		}
+	) => api.put<unknown>(`/api/educator/courses/${courseId}/branding`, body),
+	liveSessions: (courseId: string) =>
+		api.get<LiveSessionDto[]>(`/api/educator/courses/${courseId}/live-sessions`),
+	createLiveSession: (
+		courseId: string,
+		body: {
+			title: string;
+			description?: string;
+			startTime: string;
+			durationMinutes?: number;
+			timeZone?: string;
+			meetingUrl?: string;
+		}
+	) => api.post<LiveSessionDto>(`/api/educator/courses/${courseId}/live-sessions`, body),
+	updateLiveSession: (courseId: string, sessionId: string, body: Partial<LiveSessionDto>) =>
+		api.put<LiveSessionDto>(`/api/educator/courses/${courseId}/live-sessions/${sessionId}`, body),
+	deleteLiveSession: (courseId: string, sessionId: string) =>
+		api.delete<LiveSessionDto>(`/api/educator/courses/${courseId}/live-sessions/${sessionId}`),
+	assignments: (courseId: string) =>
+		api.get<AssignmentDto[]>(`/api/educator/courses/${courseId}/assignments`),
+	createAssignment: (
+		courseId: string,
+		body: {
+			title: string;
+			instructionsMarkdown?: string;
+			dueDaysAfterEnrollment?: number;
+			maxScore?: number;
+			allowedFileTypes?: string;
+		}
+	) => api.post<AssignmentDto>(`/api/educator/courses/${courseId}/assignments`, body),
+	assignmentSubmissions: (courseId: string, assignmentId: string) =>
+		api.get<AssignmentSubmissionDto[]>(
+			`/api/educator/courses/${courseId}/assignments/${assignmentId}/submissions`
+		),
+	gradeSubmission: (submissionId: string, body: { score: number; feedback?: string }) =>
+		api.post<{ submissionId: string; status: string; score: number }>(
+			`/api/educator/assignments/submissions/${submissionId}/grade`,
+			body
+		)
 };
 
 /* ------------------------------------------------------------------ */
@@ -279,7 +423,7 @@ export const educatorApi = {
 /* ------------------------------------------------------------------ */
 
 export const paymentsApi = {
-	initialize: (courseId: string) =>
-		api.post<PaymentInitializeDto>('/api/payments/initialize', { courseId }),
+	initialize: (courseId: string, redirectUrl: string) =>
+		api.post<PaymentInitializeDto>('/api/payments/initialize', { courseId, redirectUrl }),
 	verify: (txRef: string) => api.get<PaymentVerifyDto>(`/api/payments/verify/${txRef}`)
 };

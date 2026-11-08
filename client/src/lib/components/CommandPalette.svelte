@@ -204,9 +204,11 @@
     <div
       class="w-full max-w-2xl bg-ifa-card rounded-2xl border border-ifa-border shadow-2xl overflow-hidden"
       role="dialog"
+      tabindex="-1"
       aria-modal="true"
       aria-label="Search"
       on:click|stopPropagation={() => {}}
+      on:keydown|stopPropagation={() => {}}
     >
       <!-- Search Input -->
       <div class="flex items-center gap-3 px-4 py-4 border-b border-ifa-border">
@@ -223,6 +225,7 @@
         {/if}
         <button
           type="button"
+          aria-label="Close search"
           on:click={handleClose}
           class="p-2 text-ifa-text-muted hover:text-ifa-text-primary transition"
         >
@@ -236,7 +239,7 @@
           <!-- Hint shown before typing — no long list of everything -->
           <div class="p-8 text-center">
             <Search class="w-6 h-6 text-ifa-text-muted mx-auto mb-3" />
-            <p class="text-sm font-medium text-ifa-text-primary">Search IFA</p>
+            <p class="text-sm font-medium text-ifa-text-primary">Search Witforge</p>
             <p class="text-xs text-ifa-text-secondary mt-1">
               Type to search your courses, lessons and pages.
             </p>

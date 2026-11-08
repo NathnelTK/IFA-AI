@@ -312,10 +312,19 @@ namespace IFA.Infrastructure.Data
                     ThumbnailUrl = spec.Thumbnail,
                     ProviderName = spec.Provider,
                     Badge = spec.Badge,
-                    Rating = spec.Rating,
-                    ReviewCount = spec.ReviewCount,
+                    Rating = 0,
+                    ReviewCount = "0",
                     EstimatedDuration = spec.Duration,
                     IsPublic = true,
+                    IsPublished = true,
+                    Visibility = "Public",
+                    Level = spec.Title.Contains("Advanced", StringComparison.OrdinalIgnoreCase) ? "Advanced" : "Beginner",
+                    Language = "English",
+                    LearningObjectives = new List<string>
+                    {
+                        $"Explain the core concepts introduced in {spec.Title}.",
+                        $"Apply the course techniques in a guided {spec.Category.ToLowerInvariant()} task."
+                    },
                     ShareCode = spec.ShareCode,
                     CreatedAt = DateTime.UtcNow
                 };

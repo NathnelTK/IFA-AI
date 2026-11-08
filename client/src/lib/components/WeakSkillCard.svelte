@@ -32,19 +32,14 @@
     </div>
   </div>
 
-  <!-- Progress comparison -->
+  <!-- Persisted mastery evidence -->
   <div class="mb-3">
     <div class="flex items-center justify-between text-xs mb-1">
       <span class="text-ifa-text-secondary">Current: {weakArea.currentLevel}%</span>
-      <span class="text-ifa-text-secondary">Target: {weakArea.targetLevel}%</span>
+      <span class="text-ifa-text-secondary">Focus threshold: 50%</span>
     </div>
-    <div class="flex gap-1">
-      <div class="flex-1 h-2 bg-red-200 rounded-full">
+    <div class="h-2 bg-red-200 rounded-full">
         <div class="h-full bg-red-600 rounded-full" style="width: {weakArea.currentLevel}%"></div>
-      </div>
-      <div class="flex-1 h-2 bg-emerald-200 rounded-full">
-        <div class="h-full bg-emerald-600 rounded-full" style="width: {weakArea.targetLevel}%"></div>
-      </div>
     </div>
   </div>
 

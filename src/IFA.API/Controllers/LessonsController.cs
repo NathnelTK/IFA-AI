@@ -3,12 +3,15 @@ using System.Linq;
 using System.Threading.Tasks;
 using IFA.Application.Common.Interfaces;
 using IFA.Domain.Entities;
+using IFA.Infrastructure.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace IFA.API.Controllers
 {
     [ApiController]
+    [Authorize]
     [Route("api/[controller]")]
     public class LessonsController : BaseApiController
     {
@@ -31,34 +34,19 @@ namespace IFA.API.Controllers
 
             if (lesson == null) return NotFound();
 
-            // Paid-course gating: the learner needs an Active enrollment (or be
-            // the owning educator) to read lessons of a paid course.
-            var course = lesson.Module?.Course;
-            if (course is { IsPaid: true })
-            {
-                var learnerIdForGate = await GetCurrentLearnerIdAsync(_context);
-                if (course.CreatorLearnerId != learnerIdForGate)
-                {
-                    var hasAccess = await _context.CourseEnrollments
-                        .AnyAsync(e => e.CourseId == course.Id
-                                       && e.LearnerId == learnerIdForGate
-                                       && e.Status == "Active");
-                    if (!hasAccess)
-                    {
-                        return StatusCode(403, new
-                        {
-                            message = "This is a paid course. Complete the payment and get educator approval to access it."
-                        });
-                    }
-                }
-            }
-
-            return Ok(lesson);
+            var learnerId = await GetCurrentLearnerIdAsync(_context);
+            var access = await CourseAccess.GetAsync(_context, lesson.Module!.CourseId, learnerId, HttpContext.RequestAborted);
+            access.RequireContent();
+            var progress = await CourseProgress.GetAsync(_context, access.Course, access.IsOwner ? null : learnerId, HttpContext.RequestAborted);
+            return Ok(CourseProgress.LessonDto(lesson, true, progress));
         }
 
         [HttpPost("{id}/complete")]
         public async Task<IActionResult> CompleteLesson(Guid id)
         {
+            var learnerId = await GetCurrentLearnerIdAsync(_context);
+            var ct = HttpContext.RequestAborted;
+            await using var transaction = await CourseAccess.BeginMutationAsync(_context, ct);
             var lesson = await _context.Lessons
                 .Include(l => l.Module)
                 .ThenInclude(m => m!.Course)
@@ -66,11 +54,13 @@ namespace IFA.API.Controllers
 
             if (lesson == null) return NotFound();
 
-            var learnerId = await GetCurrentLearnerIdAsync(_context);
+            var access = await CourseAccess.GetAsync(_context, lesson.Module!.CourseId, learnerId, ct);
+            access.RequireContent(learnerMutation: true);
 
             // Completion is per-learner and lives on LessonProgress.
             var progress = await _context.LessonProgress
                 .FirstOrDefaultAsync(p => p.LessonId == id && p.LearnerId == learnerId);
+            var alreadyCompleted = progress?.IsCompleted == true;
             if (progress == null)
             {
                 _context.Add(new LessonProgress
@@ -82,48 +72,44 @@ namespace IFA.API.Controllers
                     CompletedAt = DateTime.UtcNow
                 });
             }
-            else
+            else if (!alreadyCompleted)
             {
                 progress.IsCompleted = true;
                 progress.CompletedAt ??= DateTime.UtcNow;
             }
 
-            // Update course enrollment progress
-            if (lesson.Module?.CourseId != null)
+            if (!alreadyCompleted)
             {
-                var courseId = lesson.Module.CourseId;
-                var totalLessons = await _context.Lessons.CountAsync(l => l.Module!.CourseId == courseId);
-                var completedLessons = await _context.LessonProgress
-                    .CountAsync(p => p.LearnerId == learnerId && p.IsCompleted && p.Lesson!.Module!.CourseId == courseId);
-
-                var enrollment = await _context.CourseEnrollments
-                    .FirstOrDefaultAsync(e => e.CourseId == courseId && e.LearnerId == learnerId);
-
-                if (enrollment != null && totalLessons > 0)
+                var state = await _context.LearnerStates.FirstOrDefaultAsync(s => s.LearnerId == learnerId, ct);
+                if (state != null)
                 {
-                    enrollment.ProgressPercentage = (int)Math.Round((double)completedLessons / totalLessons * 100);
-                    enrollment.LastAccessedAt = DateTime.UtcNow;
+                    state.CompletedLessonsCount++;
+                    state.TotalHoursLearned += Math.Max(0, lesson.ReadingTimeMinutes) / 60.0;
+                    state.CurrentCourseId = access.Course.Id;
+                    state.CurrentModuleId = lesson.ModuleId;
+                    state.UpdatedAt = DateTime.UtcNow;
                 }
+                await _context.SaveChangesAsync(ct);
+                await _activityService.RecordActivityAsync(
+                    learnerId,
+                    "lesson_completed",
+                    $"Completed lesson: {lesson.Title}",
+                    $"Read and completed {lesson.Title} ({lesson.ReadingTimeMinutes} mins).", ct: ct);
             }
 
-            // Update learner state
-            var state = await _context.LearnerStates.FirstOrDefaultAsync(s => s.LearnerId == learnerId);
-            if (state != null)
+            var courseProgress = await CourseProgress.UpdateAsync(_context, access.Course, access.Enrollment!, ct,
+                updateLastAccessed: !alreadyCompleted);
+            if (transaction != null) await transaction.CommitAsync(ct);
+            return Ok(new
             {
-                state.CompletedLessonsCount++;
-                state.TotalHoursLearned += (double)lesson.ReadingTimeMinutes / 60.0;
-                state.UpdatedAt = DateTime.UtcNow;
-            }
-
-            await _context.SaveChangesAsync();
-
-            await _activityService.RecordActivityAsync(
-                learnerId,
-                "lesson_completed",
-                $"Completed lesson: {lesson.Title}",
-                $"Read and completed {lesson.Title} ({lesson.ReadingTimeMinutes} mins).");
-
-            return Ok(new { success = true, lessonId = id, isCompleted = true });
+                success = true,
+                lessonId = id,
+                isCompleted = true,
+                alreadyCompleted,
+                courseId = access.Course.Id,
+                progressPercentage = courseProgress.Percentage,
+                progress = courseProgress
+            });
         }
     }
 }

@@ -20,7 +20,6 @@
   interface UiWeakArea {
     skill: string;
     currentLevel: number;
-    targetLevel: number;
     recommendedAction: string;
     reason: string;
     priority: string;
@@ -59,9 +58,8 @@
       .map((skill) => ({
         skill: skill.name,
         currentLevel: skill.percentage,
-        targetLevel: Math.min(100, skill.percentage + 30),
         recommendedAction: `Practice ${skill.name}`,
-        reason: 'Below the 50% mastery threshold in recent assessments',
+        reason: `Saved mastery is ${skill.percentage}%, below the 50% focus threshold`,
         priority: skill.percentage < 35 ? 'HIGH' : 'MEDIUM'
       }));
   }
@@ -137,7 +135,7 @@
 
   {#if failed}
     <p role="alert" class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700">
-      Couldn't load your skills right now. Connect to the IFA API and refresh to see your live skill profile.
+      Couldn't load your skills right now. Connect to the Witforge API and refresh to see your live skill profile.
     </p>
   {/if}
 

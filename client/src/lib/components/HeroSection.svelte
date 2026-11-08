@@ -2,17 +2,11 @@
   import { goto } from '$app/navigation';
   import { ArrowRight, Sparkles, Compass, FlaskConical, Mic, Zap } from 'lucide-svelte';
 
-  export let onGoalSubmit = (goal: string) => {
-    // Kept for backwards compatibility with the home page wiring; the actual
-    // advisor conversation now lives on the dedicated /chat page.
-    void goal;
-  };
-
   const chips = [
-    { icon: Sparkles, label: 'Full-screen AI advisor chat' },
-    { icon: FlaskConical, label: 'Academic research grounding' },
-    { icon: Mic, label: 'Voxide voice' },
-    { icon: Zap, label: 'JIT modules' }
+    { icon: Sparkles, label: 'Course-aware AI tutor' },
+    { icon: FlaskConical, label: 'Research for deeper understanding' },
+    { icon: Mic, label: 'Voice learning help' },
+    { icon: Zap, label: 'Adaptive practice' }
   ];
 </script>
 
@@ -41,24 +35,21 @@
     </div>
 
     <h2 class="text-3xl font-extrabold tracking-tight text-ifa-pine leading-tight mb-2">
-      What do you want to learn today?
+      Go deeper on what you’re learning
     </h2>
     <p class="text-xs text-ifa-text-secondary font-medium leading-relaxed mb-6">
-      Chat with IFA about your goal — it asks the right questions, then builds a personalized course.
+      Ask questions, explore course topics, and practice concepts with your AI tutor.
     </p>
 
-    <!-- CTA buttons: the advisor conversation lives on the dedicated chat page -->
+    <!-- Learner actions: study with the tutor or discover educator-created courses. -->
     <div class="flex flex-wrap items-center gap-3 mb-6">
       <button
         type="button"
-        on:click={() => {
-          onGoalSubmit('');
-          goto('/chat');
-        }}
+        on:click={() => goto('/ai-tutor')}
         class="px-5 py-3 rounded-xl bg-ifa-pine text-white text-sm font-bold transition shadow-elevated flex items-center gap-2 hover:bg-ifa-pine-light"
       >
         <Sparkles class="w-4 h-4" />
-        <span>Chat with IFA</span>
+        <span>Ask the AI tutor</span>
         <ArrowRight class="w-4 h-4" />
       </button>
       <button

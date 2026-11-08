@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { Share2, Copy, X, Calendar, Lock, Loader2 } from 'lucide-svelte';
+  import { Share2, Copy, X, Lock, Loader2 } from 'lucide-svelte';
   import { coursesApi } from '$lib/api';
 
   export let isOpen = false;
@@ -11,11 +11,15 @@
 
   let shareUrl = '';
   let shareCode = '';
-  let expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  let customMessage = '';
   let copied = false;
   let generating = false;
   let error = '';
+  let dialog: HTMLDialogElement;
+
+  $: if (dialog) {
+    if (isOpen && !dialog.open) dialog.showModal();
+    else if (!isOpen && dialog.open) dialog.close();
+  }
 
   async function handleGenerateShareLink() {
     if (!courseId) {
@@ -24,10 +28,12 @@
     }
     generating = true;
     error = '';
+    const requestedCourse = courseId;
     try {
       // Ask the backend for a real, persisted share code, then build the
       // sendable URL from the current origin.
       const result = await coursesApi.share(courseId);
+      if (!isOpen || requestedCourse !== courseId) return;
       shareCode = result.shareCode;
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       shareUrl = `${origin}/courses/join/${shareCode}`;
@@ -41,11 +47,11 @@
   async function handleCopyLink() {
     try {
       await navigator.clipboard.writeText(shareUrl);
+      copied = true;
+      setTimeout(() => (copied = false), 2000);
     } catch {
-      /* clipboard may be unavailable — the field is selectable as a fallback */
+      error = 'Clipboard access is unavailable. Select the link field to copy it manually.';
     }
-    copied = true;
-    setTimeout(() => (copied = false), 2000);
   }
 
   function handleClose() {
@@ -57,20 +63,16 @@
   }
 </script>
 
-{#if isOpen}
-  <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" on:click={handleClose}>
-    <div
-      class="w-full max-w-md bg-ifa-card rounded-2xl border border-ifa-border shadow-2xl overflow-hidden"
-      on:click|stopPropagation={() => {}}
-    >
+    <dialog bind:this={dialog} on:cancel|preventDefault={handleClose} on:close={handleClose} aria-labelledby="share-course-title" class="w-[calc(100%_-_2rem)] max-w-md bg-ifa-card text-ifa-text-primary rounded-2xl border border-ifa-border shadow-2xl p-0">
       <!-- Header -->
       <div class="flex items-center justify-between px-6 py-4 border-b border-ifa-border">
         <div class="flex items-center gap-2">
           <Share2 class="w-5 h-5 text-ifa-pine" />
-          <h3 class="text-lg font-bold text-ifa-text-primary">Share Course</h3>
+          <h3 id="share-course-title" class="text-lg font-bold text-ifa-text-primary">Share Course</h3>
         </div>
         <button
           type="button"
+          aria-label="Close share dialog"
           on:click={handleClose}
           class="p-2 text-ifa-text-muted hover:text-ifa-text-primary transition"
         >
@@ -95,9 +97,10 @@
             <div class="flex items-center gap-2">
               <input
                 type="text"
+                aria-label="Share link"
                 readonly
                 value={shareUrl}
-                class="flex-1 px-3 py-2 bg-white border border-ifa-border rounded-lg text-sm text-ifa-text-primary"
+                class="min-w-0 flex-1 px-3 py-2 bg-ifa-card border border-ifa-border rounded-lg text-sm text-ifa-text-primary"
               />
               <button
                 type="button"
@@ -115,28 +118,6 @@
             <p class="text-xs text-ifa-text-muted mt-2">Share Code: <span class="font-mono font-semibold">{shareCode}</span></p>
           </div>
         {:else}
-          <div>
-            <label class="block text-sm font-semibold text-ifa-text-primary mb-2">Expiration Date</label>
-            <div class="flex items-center gap-2 px-4 py-2.5 bg-ifa-card-muted border border-ifa-border rounded-lg">
-              <Calendar class="w-4 h-4 text-ifa-text-muted" />
-              <input
-                type="date"
-                bind:value={expiresAt}
-                class="flex-1 bg-transparent text-sm text-ifa-text-primary focus:outline-none"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-sm font-semibold text-ifa-text-primary mb-2">Message (Optional)</label>
-            <textarea
-              bind:value={customMessage}
-              placeholder="Add a personal message..."
-              class="w-full px-4 py-2.5 bg-ifa-card-muted border border-ifa-border rounded-lg text-sm text-ifa-text-primary placeholder-ifa-text-muted focus:outline-none focus:ring-1 focus:ring-ifa-pine resize-none"
-              rows="3"
-            ></textarea>
-          </div>
-
           <button
             type="button"
             on:click={handleGenerateShareLink}
@@ -155,9 +136,11 @@
 
         <div class="flex items-center gap-2 text-xs text-ifa-text-muted">
           <Lock class="w-3 h-3" />
-          <span>Share links expire after 7 days for security</span>
+          <span>Enrollment still follows the course's access, approval, and payment rules. Only published courses can be shared.</span>
         </div>
       </div>
-    </div>
-  </div>
-{/if}
+    </dialog>
+
+<style>
+  dialog::backdrop { background: rgb(0 0 0 / 0.5); }
+</style>

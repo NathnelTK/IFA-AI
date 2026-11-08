@@ -1,14 +1,13 @@
 import { browser } from '$app/environment';
-import { writable } from 'svelte/store';
+import { get, writable } from 'svelte/store';
 import { goto } from '$app/navigation';
 import { coursesApi } from '$lib/api';
+import { session } from '$lib/stores/sessionStore';
 
 /**
  * Voxide voice-assistant integration (capability-first browser SDK).
  *
- * The home-page advisor is voice-first and does NOT chat: Voxide maps speech to
- * the capabilities we register below — navigating sections, creating a course,
- * or opening the tutor — and runs the real handlers here.
+ * Voxide maps speech to navigation, educator course creation, and learner tutoring.
  *
  * IMPORTANT: the browser SDK uses the *publishable* key (`vox_pub_...`), which
  * is safe in page source and protected by the domain whitelist in the Voxide
@@ -83,12 +82,16 @@ export async function initVoxide(): Promise<void> {
       },
       createCourse: {
         description:
-          'Create a brand-new personalized course for a topic the user wants to learn, then open it. Use when the user asks to learn, study, or prepare for something.',
+          'For educators only: create a course draft for a topic, then open it. Learners should be directed to the AI tutor instead.',
         params: {
           topic: { type: 'string', required: true },
           hoursPerWeek: { type: 'number' }
         },
         handler: async ({ topic, hoursPerWeek }: { topic: string; hoursPerWeek?: number }) => {
+          if (get(session).role !== 'Educator') {
+            await goto(`/ai-tutor?topic=${encodeURIComponent(topic)}`);
+            return { status: 'redirected', route: '/ai-tutor', message: 'Learners can study this topic with the AI tutor.' };
+          }
           const course = await coursesApi.create({ goal: topic, hoursPerWeek: hoursPerWeek ?? 5 });
           await goto(`/courses/${course.id}`);
           return { status: 'ok', courseId: course.id, title: course.title };
@@ -106,7 +109,7 @@ export async function initVoxide(): Promise<void> {
 
     client.bindState(() => ({
       route: browser ? window.location.pathname : '/',
-      page: browser ? document.title : 'IFA'
+      page: browser ? document.title : 'Witforge'
     }));
 
     client.subscribe(() => {

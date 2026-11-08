@@ -26,7 +26,7 @@
   let skillProgress: { name: string; percentage: number; improvement: string; color: string }[] = [];
   let assessmentHistory: any[] = [];
   let weeklyActivity: { day: string; hours: number }[] = [];
-  let weakAreas: { skill: string; currentLevel: number; targetLevel: number }[] = [];
+  let weakAreas: { skill: string; currentLevel: number }[] = [];
   let avgQuizScore = 0;
   let totalQuestions = 0;
 
@@ -61,6 +61,7 @@
       type: a.type,
       title: a.title,
       course: a.course,
+      courseId: a.courseId,
       score: a.score,
       date: relativeTime(a.submittedAt),
       duration: a.attemptNumber > 1 ? `Attempt ${a.attemptNumber}` : 'First attempt'
@@ -123,10 +124,11 @@
 
   {#if failed}
     <p role="alert" class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700">
-      Couldn't load your progress right now. Connect to the IFA API and refresh to see your live data.
+      Couldn't load your progress right now. Connect to the Witforge API and refresh to see your live data.
     </p>
   {/if}
 
+  {#if !failed}
   <!-- Progress Overview -->
   <ProgressOverview stats={overallStats} />
 
@@ -196,15 +198,10 @@
                 <div class="flex-1">
                   <div class="flex items-center justify-between text-xs mb-1">
                     <span class="text-ifa-text-secondary">Current: {area.currentLevel}%</span>
-                    <span class="text-ifa-text-secondary">Target: {area.targetLevel}%</span>
+                    <span class="text-ifa-text-secondary">Focus threshold: 50%</span>
                   </div>
-                  <div class="flex gap-1">
-                    <div class="flex-1 h-2 bg-red-200 rounded-full">
+                  <div class="h-2 bg-red-200 rounded-full">
                       <div class="h-full bg-red-600 rounded-full" style="width: {area.currentLevel}%"></div>
-                    </div>
-                    <div class="flex-1 h-2 bg-emerald-200 rounded-full">
-                      <div class="h-full bg-emerald-600 rounded-full" style="width: {area.targetLevel}%"></div>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -297,5 +294,6 @@
         <p class="text-2xl font-bold text-ifa-pine">{avgQuizScore}%</p>
       </div>
     </div>
+  {/if}
   {/if}
 </div>

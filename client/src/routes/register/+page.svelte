@@ -6,17 +6,17 @@
 
   // Optional ?redirect=/path — after registration we send the new learner back
   // where they started (e.g. a shared course link or the chat page).
-  $: redirectTarget = $page.url.searchParams.get('redirect') || '/home';
+  $: redirectTarget = $page.url.searchParams.get('redirect');
 
-  function safeRedirect(target: string): string {
-    return target.startsWith('/') && !target.startsWith('//') ? target : '/home';
+  function safeRedirect(target: string | null, accountRole: string | null): string {
+    return target?.startsWith('/') && !target.startsWith('//') ? target : accountRole === 'Educator' ? '/studio' : '/home';
   }
 
   let name = '';
   let email = '';
   let password = '';
   let confirm = '';
-  let role: 'Learner' | 'Educator' = 'Learner';
+  let role: 'Learner' | 'Educator' = $page.url.searchParams.get('role') === 'Educator' ? 'Educator' : 'Learner';
   let submitting = false;
   let error = '';
 
@@ -24,7 +24,7 @@
     {
       value: 'Learner',
       title: 'Learner',
-      description: 'Chat with the AI advisor, take courses and track your skills.'
+      description: 'Discover courses, learn, research topics and track your skills.'
     },
     {
       value: 'Educator',
@@ -39,8 +39,8 @@
       error = 'Name, email and password are required.';
       return;
     }
-    if (password.length < 6) {
-      error = 'Password must be at least 6 characters.';
+    if (password.length < 8) {
+      error = 'Password must be at least 8 characters.';
       return;
     }
     if (password !== confirm) {
@@ -50,8 +50,8 @@
     submitting = true;
     error = '';
     try {
-      await register(name.trim(), email.trim(), password, role);
-      await goto(safeRedirect(redirectTarget));
+      const registered = await register(name.trim(), email.trim(), password, role);
+      await goto(safeRedirect(redirectTarget, registered.role));
     } catch (cause) {
       error = cause instanceof Error ? cause.message : 'Registration failed.';
     } finally {
@@ -68,16 +68,16 @@
         <div class="w-11 h-11 rounded-xl bg-ifa-pine flex items-center justify-center text-white">
           <Code2 class="w-6 h-6" />
         </div>
-        <span class="text-2xl font-bold text-ifa-pine">IFA</span>
+        <span class="text-2xl font-bold text-ifa-pine">Witforge</span>
       </div>
       <h1 class="text-4xl font-extrabold tracking-tight text-ifa-text-primary leading-tight mb-4">
         Start your <span class="text-ifa-pine">personalized</span> learning journey
       </h1>
       <p class="text-ifa-text-secondary leading-relaxed mb-6">
-        Create an account and tell the AI advisor what you want to learn. IFA researches your topic and builds a course just for you.
+        Create an account to learn from courses or build and share courses with learners.
       </p>
       <ul class="space-y-3 text-sm text-ifa-text-secondary">
-        <li class="flex items-center gap-2"><CheckCircle2 class="w-4 h-4 text-ifa-pine" /> Free, adaptive course generation</li>
+        <li class="flex items-center gap-2"><CheckCircle2 class="w-4 h-4 text-ifa-pine" /> Separate Learner and Educator workspaces</li>
         <li class="flex items-center gap-2"><CheckCircle2 class="w-4 h-4 text-ifa-pine" /> Module quizzes and progress tracking</li>
         <li class="flex items-center gap-2"><CheckCircle2 class="w-4 h-4 text-ifa-pine" /> Study alongside the community</li>
       </ul>
@@ -129,6 +129,8 @@
               type="text"
               bind:value={name}
               autocomplete="name"
+              maxlength="120"
+              required
               placeholder="Ada Lovelace"
               class="w-full pl-10 pr-4 py-3 rounded-xl bg-ifa-card-muted border border-ifa-border text-sm text-ifa-text-primary placeholder-ifa-text-muted focus:outline-none focus:ring-2 focus:ring-ifa-pine/20 focus:border-ifa-pine"
             />
@@ -144,6 +146,8 @@
               type="email"
               bind:value={email}
               autocomplete="email"
+              maxlength="254"
+              required
               placeholder="you@example.com"
               class="w-full pl-10 pr-4 py-3 rounded-xl bg-ifa-card-muted border border-ifa-border text-sm text-ifa-text-primary placeholder-ifa-text-muted focus:outline-none focus:ring-2 focus:ring-ifa-pine/20 focus:border-ifa-pine"
             />
@@ -159,7 +163,9 @@
               type="password"
               bind:value={password}
               autocomplete="new-password"
-              placeholder="At least 6 characters"
+              minlength="8"
+              required
+              placeholder="At least 8 characters"
               class="w-full pl-10 pr-4 py-3 rounded-xl bg-ifa-card-muted border border-ifa-border text-sm text-ifa-text-primary placeholder-ifa-text-muted focus:outline-none focus:ring-2 focus:ring-ifa-pine/20 focus:border-ifa-pine"
             />
           </div>
@@ -174,6 +180,8 @@
               type="password"
               bind:value={confirm}
               autocomplete="new-password"
+              minlength="8"
+              required
               placeholder="Repeat your password"
               class="w-full pl-10 pr-4 py-3 rounded-xl bg-ifa-card-muted border border-ifa-border text-sm text-ifa-text-primary placeholder-ifa-text-muted focus:outline-none focus:ring-2 focus:ring-ifa-pine/20 focus:border-ifa-pine"
             />
@@ -198,7 +206,7 @@
       <p class="text-sm text-ifa-text-secondary mt-6 text-center">
         Already have an account?
         <a
-          href={redirectTarget !== '/home' ? `/login?redirect=${encodeURIComponent(redirectTarget)}` : '/login'}
+          href={redirectTarget ? `/login?redirect=${encodeURIComponent(redirectTarget)}` : '/login'}
           class="font-semibold text-ifa-pine hover:text-ifa-pine-dark"
         >Sign in</a>
       </p>

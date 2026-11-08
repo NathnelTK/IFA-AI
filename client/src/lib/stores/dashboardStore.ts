@@ -1,7 +1,7 @@
 import { writable, get } from 'svelte/store';
 import type { SkillProgress, Recommendation, RecentActivity, CourseCard } from '../types';
 import { activeCourse as activeCourseFromCourses, overallProgress as overallProgressFromCourses } from './coursesStore';
-import { activityApi, coursesApi, learnerApi, recommendationsApi, skillsApi } from '$lib/api';
+import { activityApi, coursesApi, learnerApi, recommendationsApi, skillsApi, getAuthToken } from '$lib/api';
 import type {
 	LearningActivityDto,
 	LearnerSkillsResultDto,
@@ -15,7 +15,7 @@ export const userProfile = writable({
   name: 'Learner',
   role: 'Learner',
   avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
-  greeting: 'Welcome to IFA',
+  greeting: 'Welcome to Witforge',
   tagline: 'Small steps today, big goals tomorrow.'
 });
 
@@ -33,18 +33,21 @@ export const publicCourses = writable<CourseCard[]>([]);
 
 export const peerComparison = writable({
   enabled: false,
-  user: 'You',
-  peerName: 'Peer',
-  userProgress: 72,
-  peerProgress: 61,
-  skillComparison: [
-    { name: 'C#', userPercentage: 84, peerPercentage: 78 },
-    { name: 'Databases', userPercentage: 61, peerPercentage: 72 },
-    { name: 'APIs', userPercentage: 55, peerPercentage: 48 },
-    { name: 'Authentication', userPercentage: 45, peerPercentage: 38 },
-    { name: 'Testing', userPercentage: 32, peerPercentage: 42 }
-  ]
+  userProgress: null as number | null,
+  peerAverage: null as number | null,
+  totalEnrolled: 0,
+  rank: null as number | null,
+  paceStatus: 'Not enough peer data'
 });
+
+export function resetDashboard() {
+  skillsList.set([]);
+  recommendations.set([]);
+  recentActivities.set([]);
+  publicCourses.set([]);
+  userProfile.set({ name: 'Learner', role: 'Learner', avatar: '', greeting: 'Welcome to Witforge', tagline: 'Small steps today, big goals tomorrow.' });
+  peerComparison.set({ enabled: false, userProgress: null, peerAverage: null, totalEnrolled: 0, rank: null, paceStatus: 'Not enough peer data' });
+}
 
 // ---------------------------------------------------------------------------
 // API hydration — each source is independent. The stores start empty and are
@@ -90,7 +93,11 @@ function mapRecommendations(list: RecommendationDto[]): Recommendation[] {
       subtitle: item.reason,
       type: isCourse ? 'continue' : 'practice',
       color: RECOMMENDATION_COLORS[index % RECOMMENDATION_COLORS.length],
-      actionUrl: isCourse ? `/courses/${item.courseId}` : '/courses'
+      actionUrl: isCourse
+        ? `/courses/${item.courseId}`
+        : item.topic
+          ? `/ai-tutor?topic=${encodeURIComponent(item.topic)}`
+          : '/recommendations'
     };
   });
 }
@@ -123,12 +130,12 @@ function mapPublicCourses(list: MarketplaceCourseDto[]): CourseCard[] {
   return list.map((course) => ({
     id: course.id,
     title: course.title,
-    provider: course.providerName ? `By ${course.providerName}` : 'By IFA AI',
+    provider: course.providerName ? `By ${course.providerName}` : 'By Witforge',
     badge: normalizeBadge(course.badge),
     rating: course.rating,
     reviewCount: course.reviewCount,
     duration: course.estimatedDuration,
-    imageUrl: resolveCover(course.thumbnailUrl, course.title),
+    imageUrl: resolveCover(course.coverImageUrl || course.thumbnailUrl, course.title),
     shareCode: course.shareCode
   }));
 }
@@ -141,6 +148,8 @@ function mapPublicCourses(list: MarketplaceCourseDto[]): CourseCard[] {
  */
 export async function loadDashboard(): Promise<void> {
   const learnerId = getLearnerId();
+  const token = getAuthToken();
+  const isCurrent = () => token === getAuthToken() && learnerId === getLearnerId();
   const activeCourseId = get(activeCourseFromCourses)?.id;
 
   const tasks: Promise<void>[] = [];
@@ -149,6 +158,7 @@ export async function loadDashboard(): Promise<void> {
     learnerApi
       .me()
       .then((me) => {
+        if (!isCurrent()) return;
         const name = me.name || 'Learner';
         userProfile.update((profile) => ({
           ...profile,
@@ -166,6 +176,7 @@ export async function loadDashboard(): Promise<void> {
       skillsApi
         .forLearner(learnerId)
         .then((result) => {
+          if (!isCurrent()) return;
           const mapped = mapSkills(result);
           skillsList.set(mapped);
         })
@@ -177,6 +188,7 @@ export async function loadDashboard(): Promise<void> {
     recommendationsApi
       .list()
       .then((list) => {
+        if (!isCurrent()) return;
         const mapped = mapRecommendations(list);
         recommendations.set(mapped);
       })
@@ -187,6 +199,7 @@ export async function loadDashboard(): Promise<void> {
     activityApi
       .recent(6)
       .then((list) => {
+        if (!isCurrent()) return;
         const mapped = mapActivities(list);
         recentActivities.set(mapped);
       })
@@ -197,6 +210,7 @@ export async function loadDashboard(): Promise<void> {
     coursesApi
       .marketplace()
       .then((list) => {
+        if (!isCurrent()) return;
         const mapped = mapPublicCourses(list);
         publicCourses.set(mapped);
       })
@@ -208,11 +222,15 @@ export async function loadDashboard(): Promise<void> {
       coursesApi
         .peerComparison(activeCourseId)
         .then((pc) => {
-          peerComparison.update((current) => ({
-            ...current,
-            userProgress: pc.userProgress ?? current.userProgress,
-            peerProgress: pc.peerAverage ?? current.peerProgress
-          }));
+          if (!isCurrent()) return;
+          peerComparison.set({
+            enabled: pc.userProgress != null && pc.peerAverage != null,
+            userProgress: pc.userProgress,
+            peerAverage: pc.peerAverage,
+            totalEnrolled: pc.totalEnrolled,
+            rank: pc.rank,
+            paceStatus: pc.paceStatus
+          });
         })
         .catch(() => undefined)
     );

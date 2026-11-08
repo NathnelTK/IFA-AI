@@ -56,8 +56,8 @@
         VS
       </div>
       <div class="text-right">
-        <p class="text-[10px] uppercase font-bold text-purple-700 tracking-wider">Peer ({$peerComparison.peerName})</p>
-        <p class="text-lg font-black text-purple-900">{$peerComparison.peerProgress}%</p>
+        <p class="text-[10px] uppercase font-bold text-purple-700 tracking-wider">Peer average</p>
+        <p class="text-lg font-black text-purple-900">{$peerComparison.peerAverage}%</p>
       </div>
     </div>
   {/if}

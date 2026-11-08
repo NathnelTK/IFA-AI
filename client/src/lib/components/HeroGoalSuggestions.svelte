@@ -33,11 +33,11 @@
     <div class="w-8 h-8 rounded-lg bg-ifa-pine/20 flex items-center justify-center text-ifa-pine">
       <Target class="w-4 h-4" />
     </div>
-    <h3 class="text-sm font-bold text-ifa-pine">IFA Recommended Goals</h3>
+    <h3 class="text-sm font-bold text-ifa-pine">Witforge Recommended Goals</h3>
   </div>
 
   {#if goals.length === 0}
-    <p class="text-xs text-ifa-text-secondary">No recommendations yet — complete a lesson and IFA will tailor goals for you.</p>
+    <p class="text-xs text-ifa-text-secondary">No recommendations yet. Complete a graded quiz and Witforge will use that evidence to tailor suggestions.</p>
   {:else}
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
       {#each goals as goal}
@@ -64,7 +64,7 @@
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-1 text-xs text-ifa-text-muted">
               <Zap class="w-3 h-3" />
-              <span>AI suggested</span>
+              <span>Assessment evidence</span>
             </div>
             <ArrowRight class="w-4 h-4 text-ifa-pine" />
           </div>

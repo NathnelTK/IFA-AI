@@ -2,6 +2,7 @@
 
 // IFA.API/Endpoints/LearnerEndpoints.cs
 using System.Text.Json;
+using System.Security.Claims;
 using IFA.API.Contracts;
 using IFA.Application.Common.Interfaces;
 using IFA.Domain.Entities;
@@ -13,7 +14,7 @@ namespace IFA.API.Endpoints
     {
         public static void MapLearnerEndpoints(this IEndpointRouteBuilder app)
         {
-            var group = app.MapGroup("/api/learners").WithTags("Learners");
+            var group = app.MapGroup("/api/learners").WithTags("Learners").RequireAuthorization();
 
             group.MapPost("/{learnerId:guid}/profile", CreateProfile)
                 .WithName("CreateLearnerProfile")
@@ -31,44 +32,55 @@ namespace IFA.API.Endpoints
             Guid learnerId,
             CreateLearnerProfileRequest request,
             IApplicationDbContext db,
+            ClaimsPrincipal user,
             CancellationToken cancellationToken)
         {
+            if (!IsSelf(user, learnerId)) return Results.Forbid();
             var learnerExists = await db.Learners.AnyAsync(l => l.Id == learnerId, cancellationToken);
             if (!learnerExists)
                 return Results.NotFound($"Learner {learnerId} not found.");
 
             if (string.IsNullOrWhiteSpace(request.Goal))
                 return Results.BadRequest("Goal is required.");
+            if (request.Goal.Length > 2000 || request.AvailableStudyHoursPerWeek is < 0 or > 168 ||
+                new[] { request.SubjectTopic, request.CurrentLevel, request.TargetOutcome, request.PreferredLanguage, request.PreferredLearningStyle }
+                    .Any(value => value?.Length > 500) ||
+                new[] { request.Constraints, request.PreferredYouTubeChannels, request.KnownStrengths, request.KnownWeaknesses }
+                    .Any(values => values is { Count: > 30 } || values?.Any(value => value == null || value.Length > 500) == true))
+                return Results.BadRequest("Profile fields exceed the supported limits.");
 
-            var profile = new LearnerProfile
-            {
-                LearnerId = learnerId,
-                LearningGoal = request.Goal,
-                Subject = request.SubjectTopic ?? "General",
-                CurrentLevel = request.CurrentLevel ?? "Beginner",
-                TargetOutcome = request.TargetOutcome ?? string.Empty,
-                WeeklyStudyHours = request.AvailableStudyHoursPerWeek ?? 5,
-                PreferredLanguage = request.PreferredLanguage ?? "en",
-                LearningStyle = request.PreferredLearningStyle ?? "Hands-on",
-                Constraints = request.Constraints is null ? string.Empty : JsonSerializer.Serialize(request.Constraints),
-                PreferredYouTubeChannelsJson = JsonSerializer.Serialize(request.PreferredYouTubeChannels ?? new List<string>()),
-                KnownStrengthsJson = JsonSerializer.Serialize(request.KnownStrengths ?? new List<string>()),
-                KnownWeaknessesJson = JsonSerializer.Serialize(request.KnownWeaknesses ?? new List<string>()),
-                UpdatedAt = DateTime.UtcNow
-            };
+            var profile = await db.LearnerProfiles.FirstOrDefaultAsync(p => p.LearnerId == learnerId, cancellationToken);
+            var created = profile == null;
+            profile ??= new LearnerProfile { LearnerId = learnerId };
+            profile.LearningGoal = request.Goal.Trim();
+            profile.Subject = request.SubjectTopic?.Trim() ?? string.Empty;
+            profile.CurrentLevel = request.CurrentLevel?.Trim() ?? "Not set";
+            profile.TargetOutcome = request.TargetOutcome?.Trim() ?? string.Empty;
+            profile.WeeklyStudyHours = request.AvailableStudyHoursPerWeek ?? 0;
+            profile.PreferredLanguage = request.PreferredLanguage?.Trim() ?? "en";
+            profile.LearningStyle = request.PreferredLearningStyle?.Trim() ?? string.Empty;
+            profile.Constraints = request.Constraints is null ? string.Empty : JsonSerializer.Serialize(request.Constraints);
+            profile.PreferredYouTubeChannelsJson = JsonSerializer.Serialize(request.PreferredYouTubeChannels ?? new List<string>());
+            profile.KnownStrengthsJson = JsonSerializer.Serialize(request.KnownStrengths ?? new List<string>());
+            profile.KnownWeaknessesJson = JsonSerializer.Serialize(request.KnownWeaknesses ?? new List<string>());
+            profile.UpdatedAt = DateTime.UtcNow;
 
-            db.Add(profile);
+            if (created) db.Add(profile);
             await db.SaveChangesAsync(cancellationToken);
 
-            return Results.Created($"/api/learners/{learnerId}/profile/{profile.Id}", profile);
+            return created
+                ? Results.Created($"/api/learners/{learnerId}/profile/{profile.Id}", profile)
+                : Results.Ok(profile);
         }
 
         private static async Task<IResult> TriggerResearch(
             Guid learnerId,
             IApplicationDbContext db,
             IResearchService researchService,
+            ClaimsPrincipal user,
             CancellationToken cancellationToken)
         {
+            if (!IsSelf(user, learnerId)) return Results.Forbid();
             // Latest profile by UpdatedAt - a learner can have multiple
             // profiles over time, research always runs against the most recent.
             var profile = await db.LearnerProfiles
@@ -89,8 +101,10 @@ namespace IFA.API.Endpoints
         private static async Task<IResult> GetLatestResearch(
             Guid learnerId,
             IApplicationDbContext db,
+            ClaimsPrincipal user,
             CancellationToken cancellationToken)
         {
+            if (!IsSelf(user, learnerId)) return Results.Forbid();
             var package = await db.ResearchPackages
                 .Where(r => r.LearnerId == learnerId)
                 .OrderByDescending(r => r.CreatedAt)
@@ -101,5 +115,8 @@ namespace IFA.API.Endpoints
                 ? Results.NotFound($"No research package found for learner {learnerId}.")
                 : Results.Ok(package);
         }
+
+        private static bool IsSelf(ClaimsPrincipal user, Guid learnerId) =>
+            Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var currentId) && currentId == learnerId;
     }
 }

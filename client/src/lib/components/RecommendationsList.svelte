@@ -17,7 +17,7 @@
       <div class="w-6 h-6 rounded-lg bg-ifa-pine/10 flex items-center justify-center text-ifa-pine">
         <Lightbulb class="w-3.5 h-3.5 text-emerald-700" />
       </div>
-      <h3 class="text-xs font-bold text-ifa-text-primary tracking-tight">IFA Recommends</h3>
+      <h3 class="text-xs font-bold text-ifa-text-primary tracking-tight">Evidence-based Suggestions</h3>
     </div>
     <a href="/recommendations" class="text-[11px] font-semibold text-ifa-text-muted hover:text-ifa-pine transition flex items-center gap-0.5">
       <span>View all</span>

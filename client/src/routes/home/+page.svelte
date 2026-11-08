@@ -19,7 +19,6 @@
   let notificationToast: string | null = null;
   let showPeerComparison = false;
   let shareOpen = false;
-  let shareCourse: { id: string; title: string } | null = null;
 
   function showToast(msg: string) {
     notificationToast = msg;
@@ -27,12 +26,12 @@
   }
 
   function handleGoalSubmit(goal: string) {
-    showToast(`Personalized course pipeline created for: "${goal}"! Module 1 ready.`);
+    if (goal.trim()) void goto(`/ai-tutor?topic=${encodeURIComponent(goal.trim())}`);
   }
 
   function handleContinueLearning() {
     if ($activeCourse) goto(`/courses/${$activeCourse.id}`);
-    else showToast('Entering interactive lesson: "Working with REST APIs"');
+    else goto('/courses');
   }
 
   function handleShareCourse() {
@@ -41,20 +40,22 @@
 
   function handleCompareToggle() {
     showPeerComparison = !showPeerComparison;
-    if (showPeerComparison) {
-      showToast('Opening Peer Progress Comparison!');
-    }
   }
 
   // Sharing replaces the old inline publish flow: educators/learners send a
   // one-click enrollment link instead of publishing from the dashboard.
-  function handleShareGridCourse(course: { id: string; title: string }) {
-    shareCourse = course;
-    shareOpen = true;
+  async function handleShareGridCourse(course: { id: string; title: string }) {
+    const url = `${window.location.origin}/courses/${course.id}`;
+    try {
+      if (navigator.share) await navigator.share({ title: course.title, url });
+      else { await navigator.clipboard.writeText(url); showToast('Public course link copied.'); }
+    } catch (cause) {
+      if (!(cause instanceof DOMException && cause.name === 'AbortError')) showToast('Could not share this course link.');
+    }
   }
 
-  function handleSelectRecommendation(id: string) {
-    showToast(`Launching adaptive review module for recommendation [${id}]`);
+  function handleSelectRecommendation(actionUrl: string) {
+    if (actionUrl) void goto(actionUrl);
   }
 </script>
 
@@ -72,7 +73,7 @@
     <!-- Center / Primary Column (xl:col-span-8) -->
     <div class="xl:col-span-8 space-y-6">
       <!-- Hero Section with AI Assistant & Scoping FSM -->
-      <HeroSection onGoalSubmit={handleGoalSubmit} />
+      <HeroSection />
 
       <!-- Goal Suggestions -->
       <HeroGoalSuggestions onSelectGoal={handleGoalSubmit} />
@@ -114,8 +115,8 @@
     <CourseShareDialog
       isOpen={shareOpen}
       on:close={() => (shareOpen = false)}
-      courseId={shareCourse?.id || $activeCourse?.id || ''}
-      courseTitle={shareCourse?.title || $activeCourse?.title || 'C# Backend Development'}
+      courseId={$activeCourse?.id || ''}
+      courseTitle={$activeCourse?.title || 'Course'}
     />
   {/if}
 </div>

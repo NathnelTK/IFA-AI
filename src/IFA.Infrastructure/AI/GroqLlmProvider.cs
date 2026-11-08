@@ -28,18 +28,15 @@ namespace IFA.Infrastructure.AI
             get
             {
                 var key = _configuration["GROQ_API_KEY"] ?? _configuration["Ai:Groq:ApiKey"];
-                return !string.IsNullOrWhiteSpace(key)
-                    && key != "change_me"
-                    && !key.StartsWith("your_", StringComparison.OrdinalIgnoreCase);
+                return LlmGateway.IsConfiguredKey(key);
             }
         }
 
         public async Task<string> GenerateAsync(string systemPrompt, string userPrompt, string? modelOverride = null, CancellationToken ct = default)
         {
-            var apiKey = _configuration["GROQ_API_KEY"] ?? _configuration["Ai:Groq:ApiKey"];
-            if (string.IsNullOrWhiteSpace(apiKey)
-                || apiKey == "change_me"
-                || apiKey.StartsWith("your_", StringComparison.OrdinalIgnoreCase))
+            ct.ThrowIfCancellationRequested();
+            var apiKey = (_configuration["GROQ_API_KEY"] ?? _configuration["Ai:Groq:ApiKey"])?.Trim();
+            if (!LlmGateway.IsConfiguredKey(apiKey))
             {
                 throw new InvalidOperationException("GROQ_API_KEY is not configured with a real provider key.");
             }
@@ -62,23 +59,24 @@ namespace IFA.Infrastructure.AI
                 max_tokens = 4096
             };
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-
-            // Mirrors the Gemini provider: transient 429/5xx responses (rate
-            // limits happen fast when several lesson calls run in parallel)
-            // retry with a short backoff before falling through to the next
-            // provider in the gateway chain.
-            HttpResponseMessage? response = null;
+            var serializedBody = JsonSerializer.Serialize(requestBody);
             const int maxAttempts = 3;
             for (var attempt = 1; attempt <= maxAttempts; attempt++)
             {
-                request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-                response = await _httpClient.SendAsync(request, ct);
+                // HttpRequestMessage cannot be sent twice, including on a transient retry.
+                using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+                request.Content = new StringContent(serializedBody, Encoding.UTF8, "application/json");
+                using var response = await _httpClient.SendAsync(request, ct);
 
                 if (response.IsSuccessStatusCode)
                 {
-                    break;
+                    var responseJson = await response.Content.ReadAsStringAsync(ct);
+                    using var doc = JsonDocument.Parse(responseJson);
+                    var choices = doc.RootElement.GetProperty("choices");
+                    return choices.GetArrayLength() == 0
+                        ? string.Empty
+                        : choices[0].GetProperty("message").GetProperty("content").GetString() ?? string.Empty;
                 }
 
                 var transient = response.StatusCode == System.Net.HttpStatusCode.TooManyRequests
@@ -86,9 +84,7 @@ namespace IFA.Infrastructure.AI
 
                 if (!transient || attempt == maxAttempts)
                 {
-                    var err = await response.Content.ReadAsStringAsync(ct);
-                    _logger.LogError("Groq API call failed: {StatusCode} - {Error}", response.StatusCode, err);
-                    throw new HttpRequestException($"Groq API error: {response.StatusCode} - {err}");
+                    throw new HttpRequestException($"Groq API returned HTTP {(int)response.StatusCode}.", null, response.StatusCode);
                 }
 
                 _logger.LogWarning("Groq API transient error {StatusCode} (attempt {Attempt}/{Max}); retrying.",
@@ -97,17 +93,7 @@ namespace IFA.Infrastructure.AI
                 await Task.Delay(TimeSpan.FromMilliseconds(400 * attempt), ct);
             }
 
-            var responseJson = await response.Content.ReadAsStringAsync(ct);
-            using var doc = JsonDocument.Parse(responseJson);
-
-            var choices = doc.RootElement.GetProperty("choices");
-            if (choices.GetArrayLength() == 0)
-            {
-                return string.Empty;
-            }
-
-            var content = choices[0].GetProperty("message").GetProperty("content").GetString();
-            return content ?? string.Empty;
+            throw new InvalidOperationException("Groq did not return a response.");
         }
     }
 }

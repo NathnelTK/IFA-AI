@@ -46,6 +46,15 @@ namespace IFA.Infrastructure.Data
                     ReviewCount = "0",
                     EstimatedDuration = "12 weeks",
                     IsPublic = true,
+                    IsPublished = true,
+                    Visibility = "Public",
+                    Level = "Advanced",
+                    Language = "English",
+                    LearningObjectives = new List<string>
+                    {
+                        "Review the selected entrance-exam subject domains using a structured study plan.",
+                        "Use practice assessments to identify topics that require further study."
+                    },
                     ShareCode = "ETH12STM",
                     CreatedAt = DateTime.UtcNow
                 };

@@ -21,7 +21,7 @@ namespace IFA.Infrastructure
             if (string.IsNullOrWhiteSpace(connectionString))
             {
                 throw new ArgumentException(
-                    "A database connection string is required to configure the IFA infrastructure layer.",
+                    "A database connection string is required to configure the Witforge infrastructure layer.",
                     nameof(connectionString));
             }
 
@@ -62,9 +62,8 @@ namespace IFA.Infrastructure
             services.AddScoped<IUnderstandingAgentService, UnderstandingAgentService>();
 
             // LLM Providers & Gateway
-            services.AddScoped<GeminiLlmProvider>();
-            services.AddScoped<GroqLlmProvider>();
-            services.AddScoped<FallbackLlmProvider>();
+            services.AddHttpClient<GeminiLlmProvider>(client => client.Timeout = TimeSpan.FromSeconds(30));
+            services.AddHttpClient<GroqLlmProvider>(client => client.Timeout = TimeSpan.FromSeconds(30));
             services.AddScoped<ILlmGateway, LlmGateway>();
 
             // Multi-provider academic research (OpenAlex, Semantic Scholar,
@@ -84,7 +83,16 @@ namespace IFA.Infrastructure
             {
                 client.Timeout = TimeSpan.FromSeconds(20);
                 client.DefaultRequestHeaders.UserAgent.ParseAdd(
-                    "IFA-AI/1.0 (educational source extraction)");
+                    "Witforge/1.0 (educational source extraction)");
+            }).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                AllowAutoRedirect = false,
+                UseProxy = false,
+                UseCookies = false,
+                ConnectTimeout = TimeSpan.FromSeconds(5),
+                MaxResponseHeadersLength = 32,
+                PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+                ConnectCallback = SourceIngestionService.ConnectToPublicAddressAsync
             });
 
             // Payments (Chapa)
@@ -108,9 +116,7 @@ namespace IFA.Infrastructure
             // Ollama LLM Provider with HTTP Client
             services.AddHttpClient<OllamaLlmProvider>(client =>
             {
-                var ollamaUrl = configuration["OLLAMA_BASE_URL"] ?? "http://localhost:11434";
-                client.BaseAddress = new Uri(ollamaUrl);
-                client.Timeout = TimeSpan.FromSeconds(120);
+                client.Timeout = TimeSpan.FromSeconds(60);
             });
 
             // Additional Services
@@ -132,5 +138,3 @@ namespace IFA.Infrastructure
         }
     }
 }
-
-

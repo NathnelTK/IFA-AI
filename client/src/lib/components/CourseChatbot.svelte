@@ -1,7 +1,8 @@
 <script lang="ts">
   import { browser } from '$app/environment';
   import { Bot, Send, Trash2, Loader2, Sparkles, Maximize2, Minimize2, History, Plus, ArrowLeft, X } from 'lucide-svelte';
-  import { aiApi } from '$lib/api';
+  import { aiApi, getAuthToken } from '$lib/api';
+  import { session } from '$lib/stores/sessionStore';
   import { renderMarkdown } from '$lib/utils/markdown';
 
   /**
@@ -41,10 +42,10 @@
   const MAX_ARCHIVED = 20;
 
   function storageKey(id: string): string {
-    return `ifa.courseChat.${id}`;
+    return `ifa.courseChat.${$session.learnerId}.${id}`;
   }
   function archiveKey(id: string): string {
-    return `ifa.courseChat.archive.${id}`;
+    return `ifa.courseChat.archive.${$session.learnerId}.${id}`;
   }
 
   function readHistory(id: string): ChatTurn[] {
@@ -107,14 +108,15 @@
 
   // (Re)load the transcript + archive whenever the course changes.
   let loadedFor = '';
-  $: if (courseId && loadedFor !== courseId) {
-    loadedFor = courseId;
+  $: if (browser && courseId && $session.learnerId && loadedFor !== `${$session.learnerId}:${courseId}`) {
+    loadedFor = `${$session.learnerId}:${courseId}`;
     const saved = readHistory(courseId);
     messages = saved.length > 0 ? saved : [greeting()];
     archive = readArchive(courseId);
     error = '';
     expanded = false;
     showHistory = false;
+    draft = '';
   }
 
   // Context label shown under the header — reflects the open lesson/module.
@@ -169,7 +171,9 @@
 
   async function send() {
     const text = draft.trim();
-    if (!text || sending) return;
+    if (!text || sending || !$session.authenticated) return;
+    const token = getAuthToken();
+    const context = loadedFor;
 
     const history = messages
       .slice(-MAX_CONTEXT)
@@ -190,9 +194,11 @@
         moduleId: moduleId ?? undefined,
         lessonId: lessonId ?? undefined
       });
+      if (token !== getAuthToken() || context !== loadedFor) return;
       const reply = response.replyMarkdown?.trim() || 'I could not find an answer for that.';
       messages = [...messages, { role: 'assistant', content: reply, at: Date.now() }];
     } catch (cause) {
+      if (token !== getAuthToken() || context !== loadedFor) return;
       error = cause instanceof Error ? cause.message : 'The assistant is unavailable right now.';
       messages = [
         ...messages,
@@ -204,8 +210,10 @@
       ];
     } finally {
       sending = false;
-      writeHistory(courseId, messages);
-      await scrollToBottom();
+      if (token === getAuthToken() && context === loadedFor) {
+        writeHistory(courseId, messages);
+        await scrollToBottom();
+      }
     }
   }
 

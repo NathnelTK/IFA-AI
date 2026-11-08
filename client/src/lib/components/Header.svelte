@@ -5,6 +5,8 @@
   import NotificationCenter from './NotificationCenter.svelte';
   import CommandPalette from './CommandPalette.svelte';
   import LearnerProfileMenu from './LearnerProfileMenu.svelte';
+  import { notificationsApi } from '$lib/api';
+  import { session } from '$lib/stores/sessionStore';
   import {
     notificationsOpen,
     commandPaletteOpen,
@@ -24,6 +26,17 @@
 
   function goToLanding() {
     goto('/');
+  }
+
+  let unreadCount = 0;
+  let notificationIdentity = '';
+  $: if (!$session.authenticated) { notificationIdentity = ''; unreadCount = 0; }
+  $: if ($session.authenticated && $session.learnerId && notificationIdentity !== $session.learnerId) {
+    notificationIdentity = $session.learnerId;
+    const requestedIdentity = notificationIdentity;
+    void notificationsApi.list(true).then((items) => {
+      if (requestedIdentity === notificationIdentity) unreadCount = items.length;
+    }).catch(() => { if (requestedIdentity === notificationIdentity) unreadCount = 0; });
   }
 </script>
 
@@ -47,6 +60,7 @@
     <button
       type="button"
       on:click={goToLanding}
+      aria-label="Go to Witforge landing page"
       title="Go to Landing Page"
       class="hidden sm:flex w-8 h-8 rounded-lg bg-ifa-card border border-ifa-border items-center justify-center text-ifa-text-secondary hover:text-ifa-pine hover:bg-ifa-card-muted transition shadow-soft shrink-0"
     >
@@ -98,11 +112,11 @@
       type="button"
       on:click={() => notificationsOpen.set(true)}
       title="Notifications"
-      aria-label="Notifications"
+      aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
       class="w-9 h-9 rounded-xl bg-ifa-card border border-ifa-border flex items-center justify-center text-ifa-text-secondary hover:text-ifa-pine hover:bg-ifa-card-muted transition shadow-soft relative"
     >
       <Bell class="w-4 h-4" />
-      <span class="absolute top-2 right-2 w-1.5 h-1.5 bg-ifa-accent-orange rounded-full"></span>
+      {#if unreadCount > 0}<span class="absolute top-2 right-2 w-1.5 h-1.5 bg-ifa-accent-orange rounded-full"></span>{/if}
     </button>
 
     <!-- Theme Mode Toggle -->
@@ -126,5 +140,5 @@
 </header>
 
 <!-- Overlays driven by the UI store -->
-<NotificationCenter isOpen={$notificationsOpen} on:close={() => notificationsOpen.set(false)} />
+<NotificationCenter isOpen={$notificationsOpen} on:change={(event) => (unreadCount = event.detail.unreadCount)} on:close={() => notificationsOpen.set(false)} />
 <CommandPalette isOpen={$commandPaletteOpen} on:close={() => commandPaletteOpen.set(false)} />

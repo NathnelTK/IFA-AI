@@ -5,6 +5,7 @@
     BookOpen,
     Globe2,
     Bot,
+    Sparkles,
     CheckCircle2,
     Search,
     TrendingUp,
@@ -37,9 +38,9 @@
 
   const educatorNavItems = [
     { id: 'studio', label: 'Home', icon: Home, href: '/studio' },
+    { id: 'studio-create', label: 'Create Course', icon: Sparkles, href: '/studio/create' },
     { id: 'studiodashboard', label: 'Studio Dashboard', icon: TrendingUp, href: '/studio/dashboard' },
     { id: 'studio-projects', label: 'Projects', icon: FolderOpen, href: '/studio/projects' },
-    { id: 'courses', label: 'My Courses', icon: BookOpen, href: '/courses' },
     { id: 'marketplace', label: 'Marketplace', icon: Globe2, href: '/marketplace' },
     { id: 'research', label: 'Research', icon: Search, href: '/research' },
     { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
@@ -55,9 +56,11 @@
       ? 'studio'
       : activeTab === 'studio/dashboard'
         ? 'studiodashboard'
-        : activeTab.startsWith('studio/')
-          ? 'studio-projects'
-          : activeTab;
+        : activeTab === 'studio/create'
+          ? 'studio-create'
+            : activeTab.startsWith('studio/')
+              ? 'studio-projects'
+              : activeTab;
 </script>
 
 <!-- Mobile backdrop: tap to close the drawer -->
@@ -84,9 +87,9 @@
         </div>
         <div>
           <div class="flex items-center gap-1.5 font-bold text-xl tracking-tight text-ifa-pine">
-            <span>IFA</span>
+            <span>Witforge</span>
           </div>
-          <p class="text-[11px] text-ifa-text-secondary font-medium tracking-wide">Your AI Learning Companion</p>
+          <p class="text-[11px] text-ifa-text-secondary font-medium tracking-wide">AI Course & Learning Platform</p>
         </div>
       </div>
       <!-- Close (mobile only) -->
@@ -134,7 +137,7 @@
       <p class="text-xs font-semibold text-ifa-pine leading-tight">Better Learning.<br />Bigger Dreams.</p>
       <div class="mt-2.5 flex items-center gap-1.5">
         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-        <span class="text-[10px] text-ifa-text-secondary font-medium">IFA AI Active</span>
+        <span class="text-[10px] text-ifa-text-secondary font-medium">Witforge AI Active</span>
       </div>
     </div>
   </div>

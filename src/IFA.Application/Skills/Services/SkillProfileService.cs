@@ -20,7 +20,7 @@ namespace IFA.Application.Skills.Services
         /// <summary>
         /// Builds a learner's skill profile from their OWN data:
         /// seeded/assessed <see cref="IFA.Domain.Entities.SkillMetric"/> rows plus
-        /// real quiz performance (QuizAnswer -> Question.TargetSkillName). No two
+        /// real quiz performance (AssessmentResponse -> Question.TargetSkillName). No two
         /// learners share a profile unless their activity is actually identical.
         /// </summary>
         public Task<GetLearnerSkillsQueryResult> GetLearnerSkillsAsync(Guid learnerId)
@@ -31,16 +31,27 @@ namespace IFA.Application.Skills.Services
 
             // Real performance signal: every answered question, its skill, and
             // when the attempt happened.
-            var answers = _context.QuizAnswers
+            var answers = _context.AssessmentResponses
+                .Where(a => a.Assessment!.LearnerId == learnerId)
+                .Select(a => new
+                {
+                    Skill = a.Question!.TargetSkillName,
+                    a.IsCorrect,
+                    AttemptId = a.AssessmentId,
+                    Date = a.Assessment!.SubmittedAt
+                })
+                .ToList();
+            var legacyAnswers = _context.QuizAnswers
                 .Where(a => a.QuizAttempt!.LearnerId == learnerId)
                 .Select(a => new
                 {
                     Skill = a.Question!.TargetSkillName,
                     a.IsCorrect,
-                    a.QuizAttemptId,
+                    AttemptId = a.QuizAttemptId,
                     Date = a.QuizAttempt!.CompletedAt ?? a.QuizAttempt.StartedAt
                 })
                 .ToList();
+            answers.AddRange(legacyAnswers);
 
             var answerGroups = answers
                 .GroupBy(a => string.IsNullOrWhiteSpace(a.Skill) ? "General" : a.Skill)
@@ -61,7 +72,7 @@ namespace IFA.Application.Skills.Services
                 answerGroups.TryGetValue(name, out var group);
 
                 var percentage = metric?.CompetencyPercentage ?? 0;
-                var improvement = 0;
+                int? improvement = null;
 
                 if (group is { Count: > 0 })
                 {
@@ -70,7 +81,7 @@ namespace IFA.Application.Skills.Services
 
                     // Trend across attempts (latest vs earliest) when we have both.
                     var perAttempt = group
-                        .GroupBy(a => a.QuizAttemptId)
+                        .GroupBy(a => a.AttemptId)
                         .Select(g => new
                         {
                             Date = g.Max(x => x.Date),
@@ -96,7 +107,9 @@ namespace IFA.Application.Skills.Services
                     Name = name,
                     Percentage = Math.Clamp(percentage, 0, 100),
                     Color = color!,
-                    Improvement = improvement >= 0 ? $"+{improvement}%" : $"{improvement}%"
+                    Improvement = improvement.HasValue
+                        ? improvement.Value >= 0 ? $"+{improvement.Value}%" : $"{improvement.Value}%"
+                        : string.Empty
                 });
             }
 

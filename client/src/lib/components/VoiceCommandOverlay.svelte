@@ -1,56 +1,54 @@
 <script lang="ts">
-  import { Mic, MicOff, X, Volume2, Loader2 } from 'lucide-svelte';
+  import { browser } from '$app/environment';
+  import { Mic, MicOff, X } from 'lucide-svelte';
 
   export let isActive = false;
   export let onClose = () => {};
   export let onVoiceInput = (text: string) => {};
 
   let isListening = false;
-  let isProcessing = false;
   let recognizedText = '';
-  let audioLevel = 0;
+  let error = '';
+  let recognition: any = null;
 
   function toggleListening() {
-    isListening = !isListening;
     if (isListening) {
-      // Simulate voice recognition
-      simulateVoiceRecognition();
+      recognition?.stop();
+      isListening = false;
+      return;
     }
+    error = '';
+    if (!browser) return;
+    const Recognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!Recognition) {
+      error = 'Voice recognition is not supported by this browser.';
+      return;
+    }
+    recognition = new Recognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+    recognition.onresult = (event: any) => {
+      const text = event.results?.[0]?.[0]?.transcript?.trim();
+      if (text) {
+        recognizedText = text;
+        isListening = false;
+        onVoiceInput(text);
+      }
+    };
+    recognition.onerror = () => {
+      error = 'Voice recognition could not complete. You can continue with typed controls.';
+      isListening = false;
+    };
+    recognition.onend = () => { isListening = false; };
+    recognition.start();
+    isListening = true;
   }
 
-  function simulateVoiceRecognition() {
-    const phrases = [
-      'Show my weak areas',
-      'Continue with REST APIs',
-      'Compare my progress with peers',
-      'Practice SQL joins',
-      'Generate a new course for Python'
-    ];
-
-    let progress = 0;
-    const interval = setInterval(() => {
-      if (!isListening) {
-        clearInterval(interval);
-        return;
-      }
-
-      progress += Math.random() * 15;
-      audioLevel = Math.random() * 100;
-
-      if (progress >= 100) {
-        clearInterval(interval);
-        recognizedText = phrases[Math.floor(Math.random() * phrases.length)];
-        isListening = false;
-        isProcessing = true;
-        audioLevel = 0;
-
-        setTimeout(() => {
-          onVoiceInput(recognizedText);
-          isProcessing = false;
-          recognizedText = '';
-        }, 1500);
-      }
-    }, 200);
+  function close() {
+    recognition?.stop();
+    isListening = false;
+    onClose();
   }
 </script>
 
@@ -63,8 +61,6 @@
           <div class="w-10 h-10 rounded-full bg-ifa-pine/10 flex items-center justify-center text-ifa-pine">
             {#if isListening}
               <Mic class="w-5 h-5 animate-pulse" />
-            {:else if isProcessing}
-              <Loader2 class="w-5 h-5 animate-spin" />
             {:else}
               <MicOff class="w-5 h-5" />
             {/if}
@@ -74,8 +70,6 @@
             <p class="text-xs text-ifa-text-secondary">
               {#if isListening}
                 Listening...
-              {:else if isProcessing}
-                Processing...
               {:else}
                 Ready to listen
               {/if}
@@ -84,22 +78,25 @@
         </div>
         <button
           type="button"
-          on:click={onClose}
+          on:click={close}
+          aria-label="Close voice command"
           class="text-ifa-text-muted hover:text-ifa-pine transition"
         >
           <X class="w-5 h-5" />
         </button>
       </div>
 
-      <!-- Audio Visualizer -->
-      <div class="flex items-center justify-center gap-1 mb-6 h-16">
+      <div class="flex items-center justify-center gap-1 mb-6 h-16" aria-hidden="true">
         {#each Array(20) as _}
           <div
-            class="w-1 bg-ifa-pine rounded-full transition-all duration-100"
-            style="height: {isListening ? Math.random() * 100 : 10}%"
+            class="w-1 h-4 bg-ifa-pine rounded-full transition-opacity {isListening ? 'animate-pulse opacity-80' : 'opacity-30'}"
           ></div>
         {/each}
       </div>
+
+      {#if error}
+        <p role="alert" class="mb-4 text-center text-xs text-red-600">{error}</p>
+      {/if}
 
       <!-- Recognized Text -->
       {#if recognizedText}
@@ -114,10 +111,9 @@
         <button
           type="button"
           on:click={toggleListening}
-          disabled={isProcessing}
           class="flex-1 py-3 rounded-xl {isListening
             ? 'bg-red-100 text-red-700 border border-red-200'
-            : 'bg-ifa-pine text-white hover:bg-emerald-800'} transition flex items-center justify-center gap-2 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            : 'bg-ifa-pine text-white hover:bg-emerald-800'} transition flex items-center justify-center gap-2 text-sm font-semibold"
         >
           {#if isListening}
             <MicOff class="w-4 h-4" />
@@ -132,10 +128,11 @@
           type="button"
           on:click={() => {
             isListening = false;
-            audioLevel = 0;
+            recognition?.stop();
+            recognizedText = '';
+            error = '';
           }}
-          disabled={isProcessing}
-          class="px-4 py-3 rounded-xl border border-ifa-border bg-ifa-card-muted hover:bg-white transition text-sm font-semibold text-ifa-text-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+          class="px-4 py-3 rounded-xl border border-ifa-border bg-ifa-card-muted hover:bg-white transition text-sm font-semibold text-ifa-text-secondary"
         >
           Clear
         </button>

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using IFA.Application.Common.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace IFA.API.Controllers
 {
@@ -20,17 +21,23 @@ namespace IFA.API.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> Search([FromQuery] string q)
+        public async Task<IActionResult> Search([FromQuery] string q, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(q))
             {
                 return Ok(new { courses = new List<object>(), lessons = new List<object>() });
             }
 
-            var clean = q.Trim().ToLower();
+            var clean = q.Trim().ToLowerInvariant();
+            if (clean.Length > 200) return BadRequest(new { message = "Search query is limited to 200 characters." });
+            var hasLearner = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var learnerId);
 
             var courses = await _context.Courses
-                .Where(c => c.Title.ToLower().Contains(clean) || c.Description.ToLower().Contains(clean))
+                .Where(c =>
+                    ((c.IsPublished && c.Visibility == "Public") ||
+                     (hasLearner && (c.CreatorLearnerId == learnerId ||
+                        (c.IsPublished && c.Enrollments.Any(e => e.LearnerId == learnerId && e.Status == "Active"))))) &&
+                    (c.Title.ToLower().Contains(clean) || c.Description.ToLower().Contains(clean)))
                 .Select(c => new
                 {
                     c.Id,
@@ -40,11 +47,15 @@ namespace IFA.API.Controllers
                     Type = "Course"
                 })
                 .Take(5)
-                .ToListAsync();
+                .ToListAsync(ct);
 
             var lessons = await _context.Lessons
                 .Include(l => l.Module)
-                .Where(l => l.Title.ToLower().Contains(clean) || l.Summary.ToLower().Contains(clean))
+                .Where(l =>
+                    ((l.Module!.Course!.IsPublished && l.Module.Course.Visibility == "Public") ||
+                     (hasLearner && (l.Module.Course.CreatorLearnerId == learnerId ||
+                        (l.Module.Course.IsPublished && l.Module.Course.Enrollments.Any(e => e.LearnerId == learnerId && e.Status == "Active"))))) &&
+                    (l.Title.ToLower().Contains(clean) || l.Summary.ToLower().Contains(clean)))
                 .Select(l => new
                 {
                     l.Id,
@@ -54,7 +65,7 @@ namespace IFA.API.Controllers
                     Type = "Lesson"
                 })
                 .Take(5)
-                .ToListAsync();
+                .ToListAsync(ct);
 
             return Ok(new { courses, lessons });
         }

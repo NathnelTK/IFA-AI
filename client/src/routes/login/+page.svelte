@@ -8,10 +8,10 @@
 
   // Optional ?redirect=/path — after a successful sign-in we send the learner
   // back where they started (e.g. a shared course link or the chat page).
-  $: redirectTarget = $page.url.searchParams.get('redirect') || '/home';
+  $: redirectTarget = $page.url.searchParams.get('redirect');
 
-  function safeRedirect(target: string): string {
-    return target.startsWith('/') && !target.startsWith('//') ? target : '/home';
+  function safeRedirect(target: string | null, role: string | null): string {
+    return target?.startsWith('/') && !target.startsWith('//') ? target : role === 'Educator' ? '/studio' : '/home';
   }
 
   let email = '';
@@ -40,8 +40,8 @@
     submitting = true;
     error = '';
     try {
-      await signIn(email.trim(), password);
-      await goto(safeRedirect(redirectTarget));
+      const signedIn = await signIn(email.trim(), password);
+      await goto(safeRedirect(redirectTarget, signedIn.role));
     } catch (cause) {
       error = cause instanceof Error ? cause.message : 'Sign in failed.';
     } finally {
@@ -60,8 +60,8 @@
     submitting = true;
     error = '';
     try {
-      await continueAsDemo();
-      await goto(safeRedirect(redirectTarget));
+      const signedIn = await continueAsDemo();
+      await goto(safeRedirect(redirectTarget, signedIn.role));
     } catch (cause) {
       error = cause instanceof Error ? cause.message : 'Demo sign in failed.';
     } finally {
@@ -78,25 +78,25 @@
         <div class="w-11 h-11 rounded-xl bg-ifa-pine flex items-center justify-center text-white">
           <Code2 class="w-6 h-6" />
         </div>
-        <span class="text-2xl font-bold text-ifa-pine">IFA</span>
+        <span class="text-2xl font-bold text-ifa-pine">Witforge</span>
       </div>
       <h1 class="text-4xl font-extrabold tracking-tight text-ifa-text-primary leading-tight mb-4">
         Welcome back to your <span class="text-ifa-pine">AI learning companion</span>
       </h1>
       <p class="text-ifa-text-secondary leading-relaxed mb-6">
-        Sign in to continue your adaptive learning path, generate new modules, and track your progress.
+        Sign in to continue learning or manage your courses in Educator Studio.
       </p>
       <ul class="space-y-3 text-sm text-ifa-text-secondary">
-        <li class="flex items-center gap-2"><CheckCircle2 class="w-4 h-4 text-ifa-pine" /> Chat with the AI advisor to scope a course</li>
-        <li class="flex gap-2"><CheckCircle2 class="w-4 h-4 text-ifa-pine shrink-0 mt-0.5" /> Research-grounded, just-in-time module generation</li>
-        <li class="flex gap-2"><CheckCircle2 class="w-4 h-4 text-ifa-pine shrink-0 mt-0.5" /> Personal progress, skills and recommendations</li>
+        <li class="flex items-center gap-2"><CheckCircle2 class="w-4 h-4 text-ifa-pine" /> Learners: courses, tutoring, research and progress</li>
+        <li class="flex gap-2"><CheckCircle2 class="w-4 h-4 text-ifa-pine shrink-0 mt-0.5" /> Educators: AI-assisted course authoring and review</li>
+        <li class="flex gap-2"><CheckCircle2 class="w-4 h-4 text-ifa-pine shrink-0 mt-0.5" /> Separate workspaces for each account role</li>
       </ul>
     </div>
 
     <!-- Auth card -->
     <div class="bg-ifa-card rounded-3xl border border-ifa-border shadow-elevated p-8">
       <h2 class="text-2xl font-bold text-ifa-text-primary mb-1">Sign in</h2>
-      <p class="text-sm text-ifa-text-secondary mb-6">Use your IFA account to continue.</p>
+      <p class="text-sm text-ifa-text-secondary mb-6">Use your Witforge account to continue.</p>
 
       {#if error}
         <p role="alert" class="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>
@@ -112,6 +112,8 @@
               type="email"
               bind:value={email}
               autocomplete="email"
+              maxlength="254"
+              required
               placeholder="you@example.com"
               class="w-full pl-10 pr-4 py-3 rounded-xl bg-ifa-card-muted border border-ifa-border text-sm text-ifa-text-primary placeholder-ifa-text-muted focus:outline-none focus:ring-2 focus:ring-ifa-pine/20 focus:border-ifa-pine"
             />
@@ -127,6 +129,8 @@
               type="password"
               bind:value={password}
               autocomplete="current-password"
+              maxlength="128"
+              required
               placeholder="••••••••"
               class="w-full pl-10 pr-4 py-3 rounded-xl bg-ifa-card-muted border border-ifa-border text-sm text-ifa-text-primary placeholder-ifa-text-muted focus:outline-none focus:ring-2 focus:ring-ifa-pine/20 focus:border-ifa-pine"
             />
@@ -197,9 +201,9 @@
       </div>
 
       <p class="text-sm text-ifa-text-secondary mt-6 text-center">
-        New to IFA?
+        New to Witforge?
         <a
-          href={redirectTarget !== '/home' ? `/register?redirect=${encodeURIComponent(redirectTarget)}` : '/register'}
+          href={redirectTarget ? `/register?redirect=${encodeURIComponent(redirectTarget)}` : '/register'}
           class="font-semibold text-ifa-pine hover:text-ifa-pine-dark"
         >Create an account</a>
       </p>

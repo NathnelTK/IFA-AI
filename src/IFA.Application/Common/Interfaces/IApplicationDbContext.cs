@@ -35,9 +35,14 @@ namespace IFA.Application.Common.Interfaces
         IQueryable<CourseBlueprint> CourseBlueprints { get; }
         IQueryable<GenerationJob> GenerationJobs { get; }
         IQueryable<Payment> Payments { get; }
+        IQueryable<LiveSession> LiveSessions { get; }
+        IQueryable<CourseDiscussion> Discussions { get; }
+        IQueryable<Assignment> Assignments { get; }
+        IQueryable<AssignmentSubmission> AssignmentSubmissions { get; }
 
         void Add<TEntity>(TEntity entity) where TEntity : class;
         void Remove<TEntity>(TEntity entity) where TEntity : class;
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+        Task ExecuteInTransactionAsync(Func<Task> operation, CancellationToken cancellationToken = default);
     }
 }

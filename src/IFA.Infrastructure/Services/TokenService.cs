@@ -66,8 +66,8 @@ namespace IFA.Infrastructure.Services
                 RefreshToken = Guid.NewGuid().ToString("N"),
                 ExpiresAt = expiresAt,
                 LearnerId = learner.Id,
-                Name = learner.Name,
-                Email = learner.Email,
+                Name = learner.Name ?? string.Empty,
+                Email = learner.Email ?? string.Empty,
                 Role = learner.Role
             };
         }

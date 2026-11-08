@@ -1,6 +1,6 @@
 import { writable, derived, get } from 'svelte/store';
 import type { Course, CourseStatus, Lesson, Module, Quiz } from '$lib/types';
-import { coursesApi, lessonsApi } from '$lib/api';
+import { coursesApi, lessonsApi, getAuthToken } from '$lib/api';
 import type {
 	BackendLessonDto,
 	BackendModuleDto,
@@ -14,22 +14,26 @@ import type {
  *
  * Starts empty so a brand-new learner sees only the courses they actually create
  * or enrol in. `loadCourses()` fills it from the learner's real enrollments; an
- * empty API response leaves it empty (no demo catalog is injected). Lesson/quiz
- * interactions update the store optimistically and are mirrored to the backend
- * when the ids are real GUIDs.
+ * empty API response leaves it empty. Completion is applied only after the
+ * server confirms it. Public course previews never become local enrollments.
  */
 
 export const courses = writable<Course[]>([]);
+export const courseDetails = writable<Record<string, Course>>({});
+export const coursesError = writable('');
 
 /** True while an API load is in flight (drives optional loading affordances). */
 export const coursesLoading = writable(false);
-/** Where the current rows came from — 'demo' until a successful API load. */
+/** Retained for existing consumers; no demo courses are injected. */
 export const coursesSource = writable<'demo' | 'api'>('demo');
+let loadVersion = 0;
 
-const GUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function isGuid(value: string): boolean {
-	return GUID_PATTERN.test(value);
+export function resetCourses() {
+  loadVersion += 1;
+  courses.set([]);
+  courseDetails.set({});
+  coursesError.set('');
+  coursesLoading.set(false);
 }
 
 /** Total lessons across a course's modules. */
@@ -85,14 +89,17 @@ export const bookmarkedCourses = derived(courses, ($c) => $c.filter((c) => c.isB
 
 /** The primary course shown in the home "Continue Learning" card. */
 export const activeCourse = derived(courses, ($c) => {
-  const inProgress = $c.filter((c) => c.status === 'inProgress');
-  return inProgress[0] ?? $c[0] ?? null;
+  const accessible = $c.filter((c) => !c.isOwner && c.enrollmentStatus === 'Active' && c.hasContentAccess !== false);
+  const inProgress = accessible.filter((c) => c.status === 'inProgress');
+  return inProgress[0] ?? accessible[0] ?? null;
 });
 
-/** Overall progress across all enrolled courses, weighted by lesson count. */
+/** Weight authoritative course progress by its lesson and required-quiz units. */
 export const overallProgress = derived(courses, ($c) => {
-  const total = $c.reduce((sum, c) => sum + totalLessons(c), 0);
-  const done = $c.reduce((sum, c) => sum + completedLessons(c), 0);
+  const active = $c.filter((course) => !course.isOwner && course.enrollmentStatus === 'Active');
+  const units = (course: Course) => Math.max(1, totalLessons(course) + (course.details?.requirePassingQuizzes ? course.modules.reduce((sum, module) => sum + module.quizzes.length, 0) : 0));
+  const total = active.reduce((sum, course) => sum + units(course), 0);
+  const done = active.reduce((sum, course) => sum + units(course) * courseProgress(course) / 100, 0);
   return total === 0 ? 0 : Math.round((done / total) * 100);
 });
 
@@ -109,55 +116,32 @@ function recomputeStatus(course: Course): CourseStatus {
   return course.status === 'notStarted' ? 'notStarted' : 'inProgress';
 }
 
-export function markLessonComplete(courseId: string, lessonId: string, completed = true) {
-  courses.update(($c) =>
-    $c.map((course) => {
-      if (course.id !== courseId) return course;
-      const updated: Course = {
-        ...course,
-        lastAccessed: 'Just now',
-        modules: course.modules.map((m) => ({
-          ...m,
-          lessons: m.lessons.map((l) => (l.id === lessonId ? { ...l, completed } : l))
-        }))
-      };
-      updated.status = recomputeStatus(updated);
-      return updated;
-    })
-  );
-
-  // Mirror to the backend for real (GUID) lessons; demo ids stay local-only.
-  if (completed && isGuid(lessonId)) {
-    void lessonsApi.complete(lessonId).catch(() => {
-      /* keep the optimistic local state */
-    });
-  }
-}
-
-export function recordQuizScore(courseId: string, quizId: string, score: number) {
-  courses.update(($c) =>
-    $c.map((course) => {
-      if (course.id !== courseId) return course;
-      return {
-        ...course,
-        lastAccessed: 'Just now',
-        modules: course.modules.map((m) => ({
-          ...m,
-          quizzes: m.quizzes.map((q) =>
-            q.id === quizId
-              ? { ...q, bestScore: Math.max(score, q.bestScore ?? 0) }
-              : q
-          )
-        }))
-      };
-    })
-  );
+export async function markLessonComplete(courseId: string, lessonId: string): Promise<void> {
+  const token = getAuthToken();
+  const result = await lessonsApi.complete(lessonId);
+  if (token !== getAuthToken()) return;
+  const update = (course: Course): Course => {
+    if (course.id !== courseId) return course;
+    const updated = {
+      ...course,
+      progressPercent: result.progressPercentage,
+      lastAccessed: 'Just now',
+      modules: course.modules.map((module) => ({
+        ...module,
+        lessons: module.lessons.map((lesson) => lesson.id === lessonId ? { ...lesson, completed: result.isCompleted } : lesson)
+      }))
+    };
+    return { ...updated, status: recomputeStatus(updated) };
+  };
+  courses.update((rows) => rows.map(update));
+  courseDetails.update((rows) => rows[courseId] ? { ...rows, [courseId]: update(rows[courseId]) } : rows);
 }
 
 export function toggleBookmark(courseId: string) {
   courses.update(($c) =>
     $c.map((c) => (c.id === courseId ? { ...c, isBookmarked: !c.isBookmarked } : c))
   );
+  courseDetails.update((rows) => rows[courseId] ? { ...rows, [courseId]: { ...rows[courseId], isBookmarked: !rows[courseId].isBookmarked } } : rows);
 }
 
 export function pauseCourse(courseId: string) {
@@ -210,7 +194,7 @@ function relativeTime(iso?: string): string {
 /** Short gradient-thumbnail label derived from the title (no image assets). */
 function deriveThumbnail(title: string): string {
   const words = title.trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return 'IFA';
+  if (words.length === 0) return 'W';
   if (words.length === 1) return words[0].slice(0, 4);
   return words
     .slice(0, 2)
@@ -231,7 +215,7 @@ function mapSummary(dto: CourseSummaryDto): Course {
   return {
     id: dto.id,
     title: dto.title,
-    provider: dto.providerName || 'IFA AI',
+    provider: dto.providerName || 'Witforge',
     description: dto.description,
     thumbnail: deriveThumbnail(dto.title),
     category: dto.category,
@@ -242,11 +226,15 @@ function mapSummary(dto: CourseSummaryDto): Course {
     lastAccessed: relativeTime(dto.lastAccessedAt),
     modules: [],
     progressPercent: dto.progressPercentage,
-    moduleInfoLabel: `Module ${active} of ${total}`
+    moduleInfoLabel: `Module ${active} of ${total}`,
+    enrollmentStatus: dto.enrollmentStatus,
+    isOwner: dto.isOwner,
+    hasContentAccess: dto.hasContentAccess,
+    isPublished: dto.isPublished
   };
 }
 
-function mapLesson(dto: BackendLessonDto, existing?: Lesson): Lesson {
+function mapLesson(dto: BackendLessonDto): Lesson {
   const markdown = dto.contentMarkdown ?? '';
   return {
     id: dto.id,
@@ -260,29 +248,34 @@ function mapLesson(dto: BackendLessonDto, existing?: Lesson): Lesson {
     youTubeVideoId: dto.youTubeVideoId ?? undefined,
     youTubeVideoTitle: dto.youTubeVideoTitle ?? undefined,
     duration: `${dto.readingTimeMinutes ?? 10} min`,
-    completed: existing?.completed ?? false
+    completed: dto.isCompleted === true
   };
 }
 
-function mapQuiz(dto: BackendQuizDto, existing?: Quiz | null): Quiz {
+function mapQuiz(dto: BackendQuizDto): Quiz {
   return {
     id: dto.id,
     title: dto.title,
     isExam: (dto.kind ?? 1) === 1,
     orderIndex: dto.orderIndex ?? 0,
-    bestScore: existing?.bestScore ?? null,
+    bestScore: dto.latestAttempt?.scorePercentage ?? null,
+    latestAttempt: dto.latestAttempt ?? null,
+    attemptCount: dto.attemptCount ?? 0,
+    passingScorePercentage: dto.passingScorePercentage,
+    maxAttempts: dto.maxAttempts,
+    isPassed: dto.isPassed ?? false,
+    questionCount: dto.questionCount ?? dto.questions?.length ?? 0,
     questions: (dto.questions ?? []).map((q) => ({
       id: q.id,
       prompt: q.prompt,
       options: q.options ?? [],
-      correctIndex: q.correctOptionIndex ?? 0,
-      explanation: q.explanation ?? ''
+      correctIndex: q.correctOptionIndex,
+      explanation: q.explanation
     }))
   };
 }
 
-function mapModule(dto: BackendModuleDto, existing?: Module): Module {
-  const existingLessons = existing?.lessons ?? [];
+function mapModule(dto: BackendModuleDto): Module {
   return {
     id: dto.id,
     title: dto.title,
@@ -290,42 +283,48 @@ function mapModule(dto: BackendModuleDto, existing?: Module): Module {
     lessons: (dto.lessons ?? [])
       .slice()
       .sort((a, b) => a.lessonNumber - b.lessonNumber)
-      .map((l) => mapLesson(l, existingLessons.find((x) => x.id === l.id))),
+      .map(mapLesson),
     quizzes: (dto.quizzes ?? [])
       .slice()
       .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
-      .map((q) => mapQuiz(q, existing?.quizzes?.find((x) => x.id === q.id)))
+      .map(mapQuiz)
   };
 }
 
 /** Merge a full course detail response into an existing store row. */
 function mergeDetail(base: Course, detail: CourseDetailDto): Course {
-  const existingModules = base.modules ?? [];
   return {
     ...base,
+    title: detail.title,
     provider: detail.providerName || base.provider,
-    description: detail.description || base.description,
-    category: detail.category || base.category,
-    duration: detail.estimatedDuration || base.duration,
-    modules:
-      detail.modules?.length > 0
-        ? detail.modules
-            .slice()
-            .sort((a, b) => a.moduleNumber - b.moduleNumber)
-            .map((m) => mapModule(m, existingModules.find((x) => x.id === m.id)))
-        : existingModules
+    description: detail.description,
+    category: detail.category,
+    duration: detail.estimatedDuration,
+    progressPercent: detail.progressPercentage ?? 0,
+    status: statusFromProgress(detail.progressPercentage ?? 0),
+    moduleInfoLabel: undefined,
+    isOwner: detail.isOwner,
+    hasContentAccess: detail.hasContentAccess,
+    isPublished: detail.isPublished,
+    enrollmentStatus: detail.enrollmentStatus,
+    details: detail,
+    modules: (detail.modules ?? []).slice().sort((a, b) => a.moduleNumber - b.moduleNumber).map(mapModule)
   };
 }
 
 /**
  * Load the learner's enrolled courses from the API and enrich each with its
- * module/lesson detail. Falls back silently to the demo catalog on any failure
- * (e.g. the API or database is not running).
+ * module/lesson detail. Identity checks keep delayed responses from a previous
+ * account out of the current learner's library.
  */
 export async function loadCourses(): Promise<void> {
+  const token = getAuthToken();
+  const version = ++loadVersion;
   coursesLoading.set(true);
+  coursesError.set('');
   try {
     const summaries = await coursesApi.listMine();
+    if (version !== loadVersion || token !== getAuthToken()) return;
     if (!summaries || summaries.length === 0) {
       // No enrollments — a new learner's library stays empty.
       courses.set([]);
@@ -345,28 +344,29 @@ export async function loadCourses(): Promise<void> {
       })
     );
 
+    if (version !== loadVersion || token !== getAuthToken()) return;
     courses.set(enriched);
     coursesSource.set('api');
-  } catch {
-    // API unreachable — keep the demo catalog so the UI stays usable.
+  } catch (cause) {
+    if (version !== loadVersion || token !== getAuthToken()) return;
+    coursesError.set(cause instanceof Error ? cause.message : 'Could not load your courses.');
   } finally {
-    coursesLoading.set(false);
+    if (version === loadVersion) coursesLoading.set(false);
   }
 }
 
 /** Fetch a single course's full detail and merge it into the store. */
-export async function loadCourseDetail(courseId: string): Promise<void> {
+export async function loadCourseDetail(courseId: string): Promise<Course | null> {
+    const token = getAuthToken();
     const detail = await coursesApi.getById(courseId);
-    courses.update(($c) => {
-      const existing = $c.find((c) => c.id === courseId);
-      if (existing) {
-        return $c.map((c) => (c.id === courseId ? mergeDetail(c, detail) : c));
-      }
-      const mapped = mergeDetail(
+    if (token !== getAuthToken()) return null;
+    const existing = get(courses).find((c) => c.id === courseId);
+    const mapped = mergeDetail(
+      existing ??
         {
           id: detail.id,
           title: detail.title,
-          provider: detail.providerName || 'IFA AI',
+          provider: detail.providerName || 'Witforge',
           description: detail.description,
           thumbnail: deriveThumbnail(detail.title),
           category: detail.category,
@@ -379,6 +379,9 @@ export async function loadCourseDetail(courseId: string): Promise<void> {
         },
         detail
       );
-      return [...$c, mapped];
-    });
+    courseDetails.update((rows) => ({ ...rows, [courseId]: mapped }));
+    if (!mapped.isOwner && mapped.enrollmentStatus === 'Active') {
+      courses.update((rows) => rows.some((c) => c.id === courseId) ? rows.map((c) => c.id === courseId ? mapped : c) : [...rows, mapped]);
+    }
+    return mapped;
 }

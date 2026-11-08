@@ -17,6 +17,9 @@
       </div>
       <button
         type="button"
+        role="switch"
+        aria-checked={settings.courseReminders}
+        aria-label="Course reminders"
         on:click={() => settings.courseReminders = !settings.courseReminders}
         class="relative w-12 h-6 rounded-full transition-colors {settings.courseReminders ? 'bg-ifa-pine' : 'bg-gray-300'}"
       >
@@ -33,6 +36,9 @@
       </div>
       <button
         type="button"
+        role="switch"
+        aria-checked={settings.assessmentResults}
+        aria-label="Assessment result notifications"
         on:click={() => settings.assessmentResults = !settings.assessmentResults}
         class="relative w-12 h-6 rounded-full transition-colors {settings.assessmentResults ? 'bg-ifa-pine' : 'bg-gray-300'}"
       >
@@ -46,12 +52,15 @@
       <div>
         <h3 class="text-sm font-semibold text-ifa-text-primary flex items-center gap-2">
           <Zap class="w-4 h-4" />
-          IFA Recommendations
+          Witforge Recommendations
         </h3>
         <p class="text-xs text-ifa-text-secondary">Personalized learning suggestions</p>
       </div>
       <button
         type="button"
+        role="switch"
+        aria-checked={settings.recommendations}
+        aria-label="Learning recommendations"
         on:click={() => settings.recommendations = !settings.recommendations}
         class="relative w-12 h-6 rounded-full transition-colors {settings.recommendations ? 'bg-ifa-pine' : 'bg-gray-300'}"
       >
@@ -62,17 +71,16 @@
     </div>
 
     <div>
-      <label class="block text-sm font-semibold text-ifa-text-primary mb-2 flex items-center gap-2">
+      <label for="email-digest" class="block text-sm font-semibold text-ifa-text-primary mb-2 flex items-center gap-2">
         <Mail class="w-4 h-4" />
         Email Digest
       </label>
       <select
+        id="email-digest"
         bind:value={settings.emailDigest}
         class="w-full px-4 py-2.5 rounded-lg bg-ifa-card-muted border border-ifa-border text-sm text-ifa-text-primary focus:outline-none focus:ring-1 focus:ring-ifa-pine"
       >
-        <option value="daily">Daily</option>
         <option value="weekly">Weekly</option>
-        <option value="monthly">Monthly</option>
         <option value="never">Never</option>
       </select>
     </div>

@@ -1,8 +1,11 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using IFA.Application.Common.Exceptions;
 using IFA.Application.Common.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -14,124 +17,130 @@ namespace IFA.Infrastructure.AI
         private readonly GeminiLlmProvider _gemini;
         private readonly GroqLlmProvider _groq;
         private readonly OllamaLlmProvider _ollama;
-        private readonly FallbackLlmProvider _fallback;
         private readonly IConfiguration _config;
         private readonly ILogger<LlmGateway> _logger;
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true,
+            MaxDepth = 32
+        };
 
         public LlmGateway(
             GeminiLlmProvider gemini,
             GroqLlmProvider groq,
             OllamaLlmProvider ollama,
-            FallbackLlmProvider fallback,
             IConfiguration config,
             ILogger<LlmGateway> logger)
         {
             _gemini = gemini;
             _groq = groq;
             _ollama = ollama;
-            _fallback = fallback;
             _config = config;
             _logger = logger;
         }
 
-        public async Task<string> CompleteAsync(string systemPrompt, string userPrompt, LlmRole role = LlmRole.General, CancellationToken ct = default)
+        public Task<string> CompleteAsync(string systemPrompt, string userPrompt, LlmRole role = LlmRole.General, CancellationToken ct = default) =>
+            CompleteWithProvidersAsync(systemPrompt, userPrompt, role, response => response, ct);
+
+        private async Task<T> CompleteWithProvidersAsync<T>(string systemPrompt, string userPrompt, LlmRole role, Func<string, T> parse, CancellationToken ct)
         {
-            // Every role resolves through the same ordered attempt list. A missing
-            // or invalid key for the preferred provider must never fail the whole
-            // request: we try the remaining hosted providers and finally the
-            // deterministic offline provider. This keeps the AI pipeline working
-            // on a fresh checkout with no keys configured.
+            ct.ThrowIfCancellationRequested();
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(TimeSpan.FromSeconds(90));
             var preferredProvider = GetProviderForRole(role);
             var providersToTry = GetProviderOrder(preferredProvider);
 
             foreach (var providerName in providersToTry)
             {
+                ct.ThrowIfCancellationRequested();
+                if (timeout.IsCancellationRequested) break;
+
                 try
                 {
+                    // A role's model belongs only to its selected provider, not its failover providers.
+                    var model = providerName.Equals(preferredProvider, StringComparison.OrdinalIgnoreCase)
+                        ? _config[$"Ai:Pipelines:{GetRoleKey(role)}:Model"]
+                        : null;
+                    string response;
                     if (providerName.Equals("Gemini", StringComparison.OrdinalIgnoreCase) && _gemini.IsConfigured)
                     {
                         _logger.LogInformation("Invoking Gemini LLM for role {Role}", role);
-                        var model = _config[$"Ai:Pipelines:{role}:Model"] ?? _config["Ai:Gemini:Model"];
-                        return await _gemini.GenerateAsync(systemPrompt, userPrompt, model, ct);
+                        response = await _gemini.GenerateAsync(systemPrompt, userPrompt, model, timeout.Token);
                     }
-                    if (providerName.Equals("Groq", StringComparison.OrdinalIgnoreCase) && _groq.IsConfigured)
+                    else if (providerName.Equals("Groq", StringComparison.OrdinalIgnoreCase) && _groq.IsConfigured)
                     {
                         _logger.LogInformation("Invoking Groq LLM for role {Role}", role);
-                        var model = _config[$"Ai:Pipelines:{role}:Model"] ?? _config["Ai:Groq:Model"];
-                        return await _groq.GenerateAsync(systemPrompt, userPrompt, model, ct);
+                        response = await _groq.GenerateAsync(systemPrompt, userPrompt, model, timeout.Token);
                     }
-                    if (providerName.Equals("Ollama", StringComparison.OrdinalIgnoreCase))
+                    else if (providerName.Equals("Ollama", StringComparison.OrdinalIgnoreCase) && _ollama.IsConfigured)
                     {
                         _logger.LogInformation("Invoking Ollama LLM for role {Role}", role);
-                        var model = _config[$"Ai:Pipelines:{role}:Model"] ?? _config["Ai:Ollama:Model"];
-                        return await _ollama.GenerateAsync(systemPrompt, userPrompt, model, ct);
+                        response = await _ollama.GenerateAsync(systemPrompt, userPrompt, model, timeout.Token);
                     }
+                    else continue;
+
+                    ct.ThrowIfCancellationRequested();
+                    if (string.IsNullOrWhiteSpace(response) || response.Length > 100_000)
+                        throw new InvalidOperationException("The AI provider returned an empty or oversized response.");
+
+                    // JSON validation is part of each attempt, so malformed output can fail over too.
+                    return parse(response);
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    throw;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Provider {Provider} failed for role {Role}. Falling back to next provider.", providerName, role);
+                    _logger.LogWarning("Provider {Provider} failed for role {Role} ({ErrorType}); trying the next configured provider.",
+                        providerName, role, ex.GetType().Name);
                 }
             }
 
-            // Fallback provider
-            _logger.LogInformation("Using deterministic Fallback LLM provider for role {Role}", role);
-            return await _fallback.CompleteAsync(systemPrompt, userPrompt, role, ct);
+            ct.ThrowIfCancellationRequested();
+            throw new AiUnavailableException("AI is unavailable or returned an unusable response. Check provider configuration or try again later. Manual course editing remains available.");
         }
 
         public async Task<T?> CompleteJsonAsync<T>(string systemPrompt, string userPrompt, LlmRole role = LlmRole.General, CancellationToken ct = default)
         {
-            var response = await CompleteAsync(systemPrompt, userPrompt, role, ct);
-            var json = ExtractJson(response);
-
-            if (string.IsNullOrWhiteSpace(json))
+            return await CompleteWithProvidersAsync<T?>(systemPrompt, userPrompt, role, response =>
             {
-                throw new InvalidOperationException($"The selected AI provider returned no JSON for role {role}.");
-            }
-
-            try
-            {
-                var options = new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                };
-                return JsonSerializer.Deserialize<T>(json, options);
-            }
-            catch (JsonException ex)
-            {
-                _logger.LogError(ex, "Failed to deserialize AI JSON response for role {Role}", role);
-                throw new InvalidOperationException($"The selected AI provider returned invalid JSON for role {role}.", ex);
-            }
+                var value = JsonSerializer.Deserialize<T>(ExtractJson(response), JsonOptions);
+                if (value is null) throw new JsonException("The AI provider returned null JSON.");
+                return value;
+            }, ct);
         }
 
         public async Task<LlmCompletionResult> CompleteAsync(LlmCompletionRequest request, CancellationToken ct = default)
         {
-            try
+            var response = await CompleteAsync(request.SystemPrompt, request.UserPrompt, LlmRole.General, ct);
+            return new LlmCompletionResult
             {
-                var response = await CompleteAsync(request.SystemPrompt, request.UserPrompt, LlmRole.General, ct);
-                return new LlmCompletionResult
-                {
-                    Success = true,
-                    RawText = response
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error completing LLM request");
-                return new LlmCompletionResult
-                {
-                    Success = false,
-                    ErrorMessage = ex.Message
-                };
-            }
+                Success = true,
+                RawText = response
+            };
+        }
+
+        internal static bool IsConfiguredKey(string? key)
+        {
+            key = key?.Trim();
+            return !string.IsNullOrWhiteSpace(key)
+                && !key.Equals("change_me", StringComparison.OrdinalIgnoreCase)
+                && !key.Equals("changeme", StringComparison.OrdinalIgnoreCase)
+                && !key.StartsWith("your_", StringComparison.OrdinalIgnoreCase)
+                && !key.StartsWith("your-", StringComparison.OrdinalIgnoreCase)
+                && !key.StartsWith("replace", StringComparison.OrdinalIgnoreCase)
+                && !key.Contains("placeholder", StringComparison.OrdinalIgnoreCase)
+                && !key.StartsWith('<');
         }
 
         private string GetProviderForRole(LlmRole role)
         {
             var roleKey = GetRoleKey(role);
 
-            return _config[$"Ai:Pipelines:{roleKey}:Provider"] 
-                ?? _config["AI_DEFAULT_PROVIDER"] 
-                ?? _config["Ai:DefaultProvider"] 
+            return _config["AI_DEFAULT_PROVIDER"]
+                ?? _config["Ai:DefaultProvider"]
+                ?? _config[$"Ai:Pipelines:{roleKey}:Provider"]
                 ?? "Gemini";
         }
 
@@ -146,12 +155,14 @@ namespace IFA.Infrastructure.AI
 
         private string[] GetProviderOrder(string preferred)
         {
-            if (preferred.Equals("Groq", StringComparison.OrdinalIgnoreCase))
-                return new[] { "Groq", "Gemini", "Ollama" };
-            if (preferred.Equals("Ollama", StringComparison.OrdinalIgnoreCase))
-                return new[] { "Ollama", "Gemini", "Groq" };
-            
-            return new[] { "Gemini", "Groq", "Ollama" };
+            var providers = new List<string> { preferred };
+            var allowCrossProviderFailover = bool.TryParse(
+                _config["AI_ALLOW_CROSS_PROVIDER_FAILOVER"] ?? _config["Ai:AllowCrossProviderFailover"], out var enabled) && enabled;
+            if (allowCrossProviderFailover) providers.AddRange(new[] { "Gemini", "Groq" });
+            // Local Ollama is a safe last resort for hosted preferred providers;
+            // switching between hosted vendors requires explicit deployment opt-in.
+            if (!preferred.Equals("Ollama", StringComparison.OrdinalIgnoreCase)) providers.Add("Ollama");
+            return providers.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         }
 
         private static string ExtractJson(string text)

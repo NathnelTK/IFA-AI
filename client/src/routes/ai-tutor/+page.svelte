@@ -124,7 +124,7 @@
       {#if sending}
         <div class="flex items-center gap-2 text-sm text-ifa-text-muted">
           <Loader2 class="w-4 h-4 animate-spin" />
-          <span>IFA is preparing an answer…</span>
+          <span>Witforge is preparing an answer…</span>
         </div>
       {/if}
     </div>

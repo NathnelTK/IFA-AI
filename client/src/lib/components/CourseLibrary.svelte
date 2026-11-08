@@ -5,6 +5,15 @@
   export let viewMode = 'grid'; // 'grid' | 'list'
   export let onToggleBookmark = (id: string) => {};
   export let onContinue = (id: string) => {};
+
+  const canOpen = (course: any) => course.isOwner || course.enrollmentStatus === 'Active';
+  const accessLabel = (course: any) => course.enrollmentStatus === 'Rejected'
+    ? 'Request Rejected'
+    : course.enrollmentStatus === 'PendingApproval'
+      ? 'Awaiting Approval'
+      : course.enrollmentStatus === 'PendingPayment'
+        ? 'Continue Checkout'
+        : course.isOwner ? 'Preview' : course.status === 'completed' ? 'Review Course' : 'Continue';
 </script>
 
 <!-- Grid View -->
@@ -20,6 +29,7 @@
           </div>
           <button
             type="button"
+            aria-label={course.isBookmarked ? `Remove ${course.title} bookmark` : `Bookmark ${course.title}`}
             on:click={() => onToggleBookmark(course.id)}
             class="text-ifa-text-muted hover:text-ifa-accent-purple transition"
           >
@@ -33,7 +43,12 @@
 
         <!-- Status Badge -->
         <div class="flex items-center gap-2 mb-3">
-          {#if course.status === 'completed'}
+          {#if course.enrollmentStatus === 'Rejected' || course.enrollmentStatus === 'PendingApproval' || course.enrollmentStatus === 'PendingPayment'}
+            <div class="flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold text-amber-700 bg-amber-100">
+              <Clock class="w-3 h-3" />
+              <span>{accessLabel(course)}</span>
+            </div>
+          {:else if course.status === 'completed'}
             <div class="flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold text-emerald-600 bg-emerald-100">
               <CheckCircle class="w-3 h-3" />
               <span>Completed</span>
@@ -82,13 +97,10 @@
         <button
           type="button"
           on:click={() => onContinue(course.id)}
-          class="w-full py-2.5 bg-ifa-pine text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-emerald-800 transition group-hover:shadow-soft"
+          disabled={!canOpen(course) && course.enrollmentStatus !== 'PendingPayment'}
+          class="w-full py-2.5 bg-ifa-pine text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-emerald-800 transition group-hover:shadow-soft disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {#if course.status === 'completed'}
-            <span>Review Course</span>
-          {:else}
-            <span>Continue</span>
-          {/if}
+          <span>{accessLabel(course)}</span>
           <ArrowRight class="w-3 h-3" />
         </button>
       </div>
@@ -113,6 +125,7 @@
             </div>
             <button
               type="button"
+              aria-label={course.isBookmarked ? `Remove ${course.title} bookmark` : `Bookmark ${course.title}`}
               on:click={() => onToggleBookmark(course.id)}
               class="text-ifa-text-muted hover:text-ifa-accent-purple transition shrink-0"
             >
@@ -161,13 +174,10 @@
         <button
           type="button"
           on:click={() => onContinue(course.id)}
-          class="px-4 py-2 bg-ifa-pine text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 hover:bg-emerald-800 transition shrink-0"
+          disabled={!canOpen(course) && course.enrollmentStatus !== 'PendingPayment'}
+          class="px-4 py-2 bg-ifa-pine text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 hover:bg-emerald-800 transition shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {#if course.status === 'completed'}
-            <span>Review</span>
-          {:else}
-            <span>Continue</span>
-          {/if}
+          <span>{accessLabel(course)}</span>
           <ArrowRight class="w-3 h-3" />
         </button>
       </div>

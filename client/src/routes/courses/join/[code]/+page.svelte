@@ -1,61 +1,67 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
   import { CheckCircle, AlertCircle, Loader2, ArrowRight, UserPlus } from 'lucide-svelte';
-  import { coursesApi } from '$lib/api';
+  import { apiErrorMessage, coursesApi, paymentsApi, type CourseInvitePreviewDto } from '$lib/api';
   import { initSession, session } from '$lib/stores/sessionStore';
 
-  export let code: string;
-
-  interface PreviewCourse {
-    id: string;
-    title: string;
-    description: string;
-    moduleCount: number;
-    estimatedDuration: string;
-  }
+  $: code = $page.params.code ?? '';
 
   let loading = true;
   let error = false;
   let errorMessage = '';
-  let courseInfo: PreviewCourse | null = null;
+  let courseInfo: CourseInvitePreviewDto | null = null;
   let enrolling = false;
   let authReady = false;
+  let requestedCode = '';
+  let enrollmentStatus = '';
 
   onMount(async () => {
     // Establish the session first so we know whether to render the enroll
     // button or the "create an account" CTA.
     await initSession().catch(() => {});
     authReady = true;
-
-    try {
-      const course = await coursesApi.previewJoin(code);
-      courseInfo = {
-        id: course.id,
-        title: course.title,
-        description: course.description || 'Join this course and start learning.',
-        moduleCount: course.moduleCount,
-        estimatedDuration: course.estimatedDuration
-      };
-    } catch {
-      // The preview endpoint may require auth (or the code may be invalid).
-      // Anonymous visitors still get a generic invitation card.
-      error = true;
-    } finally {
-      loading = false;
-    }
   });
 
+  $: if (authReady && code && code !== requestedCode) {
+    requestedCode = code;
+    void loadPreview();
+  }
+
+  async function loadPreview() {
+    loading = true; error = false; errorMessage = ''; courseInfo = null; enrollmentStatus = '';
+    const requested = code;
+    try {
+      const course = await coursesApi.previewJoin(requested);
+      if (code === requested) courseInfo = course;
+    } catch (cause) {
+      if (code === requested) { error = true; errorMessage = apiErrorMessage(cause, 'This invitation is unavailable.'); }
+    } finally {
+      if (code === requested) loading = false;
+    }
+  }
+
   async function handleEnroll() {
-    if (enrolling) return;
+    if (enrolling || !courseInfo || !$session.authenticated || $session.role !== 'Learner') return;
     enrolling = true;
     errorMessage = '';
     try {
       const result = await coursesApi.join(code);
       // Paid courses answer with { paymentRequired: true } instead of enrolling —
       // send the learner to checkout.
-      if ((result as { paymentRequired?: boolean; courseId?: string })?.paymentRequired && courseInfo?.id) {
-        await goto(`/marketplace?course=${courseInfo.id}`);
+      enrollmentStatus = result.status;
+      if (result.paymentRequired) {
+        const payment = await paymentsApi.initialize(courseInfo.id, `${window.location.origin}/marketplace`);
+        if (payment.enrollmentStatus === 'PendingApproval') {
+          enrollmentStatus = payment.enrollmentStatus;
+          return;
+        }
+        if (!payment.checkoutUrl) throw new Error('The payment provider did not return a checkout URL.');
+        window.location.assign(payment.checkoutUrl);
+        return;
+      }
+      if (result.status === 'PendingApproval') {
         return;
       }
       const targetId = result?.courseId || courseInfo?.id;
@@ -77,18 +83,19 @@
         <Loader2 class="w-8 h-8 text-ifa-pine mx-auto mb-4 animate-spin" />
         <p class="text-ifa-text-secondary">Validating share code...</p>
       </div>
-    {:else if error && $session.authenticated}
+    {:else if error}
       <div class="bg-ifa-card rounded-2xl border border-ifa-border p-8 text-center">
         <AlertCircle class="w-12 h-12 text-red-500 mx-auto mb-4" />
-        <h2 class="text-xl font-bold text-ifa-text-primary mb-2">Invalid or Expired Link</h2>
-        <p class="text-ifa-text-secondary mb-6">This share link is invalid or has expired. Please contact the person who shared it with you.</p>
+        <h2 class="text-xl font-bold text-ifa-text-primary mb-2">Invitation Unavailable</h2>
+        <p role="alert" class="text-ifa-text-secondary mb-6">{errorMessage}</p>
         <a
-          href="/home"
+          href="/marketplace"
           class="inline-flex items-center gap-2 px-4 py-2 bg-ifa-pine text-white rounded-lg text-sm font-semibold hover:bg-emerald-800 transition"
         >
-          <span>Go to IFA</span>
+          <span>Browse Courses</span>
           <ArrowRight class="w-4 h-4" />
         </a>
+        <button type="button" on:click={loadPreview} class="ml-3 text-sm text-ifa-pine underline">Retry</button>
       </div>
     {:else}
       <div class="bg-ifa-card rounded-2xl border border-ifa-border p-8">
@@ -112,7 +119,7 @@
             {courseInfo?.title ?? "You've been invited to a course"}
           </h3>
           <p class="text-sm text-ifa-text-secondary mb-4">
-            {courseInfo?.description ?? 'Someone shared an IFA course with you. Create an account (or sign in) to enroll with one click and start learning.'}
+            {courseInfo?.description ?? 'Someone shared a Witforge course with you. Create an account or sign in to request access and start learning.'}
           </p>
           {#if courseInfo}
             <div class="flex items-center gap-4 text-xs text-ifa-text-muted">
@@ -120,6 +127,8 @@
               <span>•</span>
               <span>{courseInfo.estimatedDuration}</span>
             </div>
+            {#if courseInfo.isPaid}<p class="mt-3 text-sm font-semibold text-ifa-text-primary">{courseInfo.currency} {courseInfo.priceAmount} through secure checkout</p>{/if}
+            {#if courseInfo.expiresAt}<p class="mt-2 text-xs text-ifa-text-muted">Invitation expires {new Date(courseInfo.expiresAt).toLocaleString()}.</p>{/if}
           {/if}
         </div>
 
@@ -127,7 +136,11 @@
           <p role="alert" class="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{errorMessage}</p>
         {/if}
 
-        {#if $session.authenticated}
+        {#if enrollmentStatus === 'PendingApproval'}
+          <p role="status" class="rounded-xl border border-ifa-border bg-ifa-card-muted p-4 text-sm text-ifa-text-primary">Enrollment requested. Your educator must approve it before course content becomes available.</p>
+        {:else if $session.authenticated && $session.role !== 'Learner'}
+          <p class="text-sm text-ifa-text-secondary">Enrollment is for learner accounts. Educators can preview their saved courses in Studio.</p>
+        {:else if $session.authenticated}
           <button
             type="button"
             on:click={handleEnroll}
@@ -138,7 +151,7 @@
               <Loader2 class="w-4 h-4 animate-spin" />
               <span>Enrolling…</span>
             {:else}
-              <span>Enroll Now</span>
+              <span>{courseInfo?.isPaid ? 'Continue to Checkout' : courseInfo?.enrollmentMode === 'ApprovalRequired' ? 'Request Enrollment' : 'Enroll Now'}</span>
               <ArrowRight class="w-4 h-4" />
             {/if}
           </button>
@@ -157,7 +170,7 @@
         {/if}
 
         <p class="text-xs text-ifa-text-muted text-center mt-4">
-          By enrolling, you agree to IFA's terms of service
+          By enrolling, you agree to Witforge's terms of service
         </p>
       </div>
     {/if}

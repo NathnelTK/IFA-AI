@@ -40,7 +40,8 @@ const FONT_SCALE: Record<FontSize, string> = {
 	'extra-large': '19px'
 };
 
-const STORAGE_KEY = 'ifa-preferences';
+const DEVICE_STORAGE_KEY = 'witforge-preferences:device';
+let storageKey = DEVICE_STORAGE_KEY;
 
 const defaults: Preferences = {
 	theme: 'system',
@@ -50,10 +51,10 @@ const defaults: Preferences = {
 	reducedMotion: false
 };
 
-function readInitial(): Preferences {
+function readInitial(key = storageKey): Preferences {
 	if (!browser) return { ...defaults };
 	try {
-		const raw = localStorage.getItem(STORAGE_KEY);
+		const raw = localStorage.getItem(key) ?? (key === DEVICE_STORAGE_KEY ? localStorage.getItem('ifa-preferences') : null);
 		if (!raw) return { ...defaults };
 		const parsed = JSON.parse(raw) as Partial<Preferences>;
 		return { ...defaults, ...parsed };
@@ -101,7 +102,7 @@ export function applyPreferences(value: Preferences = get(preferences)): void {
 	root.dataset.accent = value.accentColor;
 
 	try {
-		localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+		localStorage.setItem(storageKey, JSON.stringify(value));
 	} catch {
 		/* storage may be unavailable (private mode) — apply in-memory only */
 	}
@@ -123,6 +124,13 @@ export function hydratePreferences(patch: Partial<Preferences>): void {
 		applyPreferences(next);
 		return next;
 	});
+}
+
+export function setPreferenceScope(learnerId: string | null): void {
+	storageKey = learnerId ? `witforge-preferences:${learnerId}` : DEVICE_STORAGE_KEY;
+	const value = readInitial(storageKey);
+	preferences.set(value);
+	applyPreferences(value);
 }
 
 let mediaBound = false;

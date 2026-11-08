@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { BookOpen, Search, Youtube, ExternalLink, Image as ImageIcon, BarChart3, Loader2 } from 'lucide-svelte';
-  import { researchApi, coursesApi, type ResearchPackageDto, type CourseSummaryDto } from '$lib/api';
-  import { initSession } from '$lib/stores/sessionStore';
+  import { ApiError, researchApi, coursesApi, type ResearchPackageDto, type CourseSummaryDto } from '$lib/api';
+  import { initSession, session } from '$lib/stores/sessionStore';
 
   let myCourses: CourseSummaryDto[] = [];
   let selectedCourseId = '';
@@ -12,34 +12,45 @@
   let loading = false;      // ad-hoc "research again"
   let courseLoading = false; // loading a course's existing research
   let error = '';
+  let requestSequence = 0;
 
   $: academicSources = results?.sources.filter((s) => s.sourceType === 'Academic') ?? [];
   $: videoSources = results?.sources.filter((s) => s.sourceType === 'Video') ?? [];
   $: imageSources = results?.sources.filter((s) => s.sourceType === 'Image' || s.sourceType === 'Graph') ?? [];
+  $: webSources = results?.sources.filter((s) => ['Web', 'Website', 'Document', 'Pdf'].includes(s.sourceType)) ?? [];
+  $: isEducator = $session.role === 'Educator';
 
   onMount(async () => {
     try {
       await initSession();
-      myCourses = await coursesApi.listMine().catch(() => []);
+      myCourses = (await coursesApi.listMine()).filter((course) => course.isOwner || course.hasContentAccess);
       if (myCourses.length > 0) {
         selectedCourseId = myCourses[0].id;
         await loadCourseResearch();
       }
-    } catch {
-      /* no-op */
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : 'Could not load your courses.';
     }
   });
 
   async function loadCourseResearch() {
     if (!selectedCourseId) return;
+    const requestedCourseId = selectedCourseId;
+    const sequence = ++requestSequence;
     courseLoading = true;
+    loading = false;
     error = '';
+    results = null;
     try {
-      results = await researchApi.forCourse(selectedCourseId);
+      const packageResult = await researchApi.forCourse(requestedCourseId);
+      if (sequence === requestSequence && selectedCourseId === requestedCourseId) results = packageResult;
     } catch (cause) {
-      error = cause instanceof Error ? cause.message : 'Could not load research for this course.';
+      if (sequence !== requestSequence || selectedCourseId !== requestedCourseId) return;
+      error = cause instanceof ApiError && cause.status === 404
+        ? 'No saved research package exists for this course yet.'
+        : cause instanceof Error ? cause.message : 'Could not load research for this course.';
     } finally {
-      courseLoading = false;
+      if (sequence === requestSequence) courseLoading = false;
     }
   }
 
@@ -48,15 +59,22 @@
     if (!topic || loading) return;
     loading = true;
     error = '';
+    const requestedCourseId = selectedCourseId;
+    const sequence = ++requestSequence;
+    courseLoading = false;
     try {
-      // Attaches to the selected course so it is added to the research the
-      // system uses to (re)generate that course's modules.
-      results = await researchApi.conduct(topic, selectedCourseId || undefined);
-      searchQuery = '';
+      // Only course owners may attach new research to a draft. Learner ad-hoc
+      // research remains personal and does not mutate an enrolled course.
+      const packageResult = await researchApi.conduct(topic, isEducator ? requestedCourseId || undefined : undefined);
+      if (sequence === requestSequence && selectedCourseId === requestedCourseId) {
+        results = packageResult;
+        searchQuery = '';
+      }
     } catch (cause) {
+      if (sequence !== requestSequence || selectedCourseId !== requestedCourseId) return;
       error = cause instanceof Error ? cause.message : 'Research request failed.';
     } finally {
-      loading = false;
+      if (sequence === requestSequence) loading = false;
     }
   }
 </script>
@@ -65,11 +83,10 @@
   <div>
     <h1 class="text-2xl font-bold text-ifa-text-primary">Research</h1>
     <p class="text-sm text-ifa-text-secondary mt-1">
-      These are the sources IFA used to build your courses — papers, videos, images and diagrams.
-      You can run more research to add to what powers a course's modules.
+      Review the real sources attached to a course, or run a separate research query for deeper study.
     </p>
     <p class="text-xs text-ifa-text-muted mt-1.5 font-medium">
-      Source stack: OpenAlex · Semantic Scholar · arXiv · Tavily · Wikimedia Commons
+      Available when configured: OpenAlex · Semantic Scholar · arXiv · Tavily · Wikimedia Commons
     </p>
   </div>
 
@@ -80,7 +97,7 @@
       <select
         id="course-select"
         bind:value={selectedCourseId}
-        on:change={loadCourseResearch}
+        on:change={() => void loadCourseResearch()}
         class="flex-1 max-w-md px-4 py-2.5 rounded-lg bg-ifa-card border border-ifa-border text-sm text-ifa-text-primary focus:outline-none focus:ring-1 focus:ring-ifa-pine"
       >
         {#each myCourses as course}
@@ -93,7 +110,7 @@
     </div>
   {/if}
 
-  <!-- Run new research (adds to the selected course's sources) -->
+  <!-- Educator queries may attach to a draft; learner queries stay personal. -->
   <form class="flex gap-3" on:submit|preventDefault={searchResearch}>
     <input
       type="search"
@@ -126,6 +143,7 @@
       <div class="flex flex-wrap gap-x-6 gap-y-1 text-sm text-ifa-text-secondary">
         <span>{academicSources.length} papers</span>
         <span>{videoSources.length} videos</span>
+        <span>{webSources.length} web sources</span>
         <span>{imageSources.length} images &amp; diagrams</span>
       </div>
 
@@ -167,7 +185,7 @@
 
         <!-- Papers & videos -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {#each [...academicSources, ...videoSources] as source (source.id)}
+          {#each [...academicSources, ...webSources, ...videoSources] as source (source.id)}
             <article class="bg-ifa-card rounded-xl border border-ifa-border p-5">
               <div class="flex items-center gap-2 text-xs uppercase font-semibold text-ifa-text-secondary mb-2">
                 {#if source.sourceType === 'Video'}

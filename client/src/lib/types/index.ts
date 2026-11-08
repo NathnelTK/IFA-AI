@@ -69,9 +69,9 @@ export interface QuizQuestion {
   id: string;
   prompt: string;
   options: string[];
-  /** Index into `options`. */
-  correctIndex: number;
-  explanation: string;
+  /** Answer keys are available only in the owner preview. */
+  correctIndex?: number;
+  explanation?: string;
 }
 
 export interface Quiz {
@@ -84,6 +84,12 @@ export interface Quiz {
   orderIndex: number;
   /** Best score the learner has achieved, 0-100, or null if never attempted. */
   bestScore: number | null;
+  passingScorePercentage?: number;
+  attemptCount?: number;
+  maxAttempts?: number;
+  isPassed?: boolean;
+  latestAttempt?: import('$lib/api/types').QuizAttemptDto | null;
+  questionCount?: number;
 }
 
 export interface Module {
@@ -115,6 +121,11 @@ export interface Course {
   progressPercent?: number;
   /** API-provided "Module N of M" label, used when modules are not loaded yet. */
   moduleInfoLabel?: string;
+  isOwner?: boolean;
+  hasContentAccess?: boolean;
+  isPublished?: boolean;
+  enrollmentStatus?: string | null;
+  details?: import('$lib/api/types').CourseDetailDto;
 }
 
 export interface PipelineModuleProposal {

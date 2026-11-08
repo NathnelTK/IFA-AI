@@ -40,7 +40,7 @@ namespace IFA.Infrastructure.Services
             {
                 using var request = new HttpRequestMessage(HttpMethod.Get, url);
                 // Wikimedia requires a descriptive User-Agent or it returns 403.
-                request.Headers.UserAgent.ParseAdd("IFA-Learning/1.0 (https://ifa.ai; educational course generation)");
+                request.Headers.UserAgent.ParseAdd("Witforge-Learning/1.0 (educational course generation)");
 
                 using var response = await _httpClient.SendAsync(request, cancellationToken);
                 if (!response.IsSuccessStatusCode)

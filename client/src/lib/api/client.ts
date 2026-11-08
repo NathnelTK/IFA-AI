@@ -18,6 +18,17 @@ export class ApiError extends Error {
 	}
 }
 
+/** Include server validation details rather than hiding them behind a generic title. */
+export function apiErrorMessage(cause: unknown, fallback = 'The request failed.'): string {
+	const message = cause instanceof Error ? cause.message : fallback;
+	if (!(cause instanceof ApiError) || !cause.body || typeof cause.body !== 'object' || !('errors' in cause.body)) return message;
+	const errors = cause.body.errors;
+	const details = Array.isArray(errors)
+		? errors
+		: errors && typeof errors === 'object' ? Object.values(errors).flat() : [];
+	return [message, ...details.filter((detail): detail is string => typeof detail === 'string')].join('\n');
+}
+
 const TOKEN_STORAGE_KEY = 'ifa.accessToken';
 let inMemoryToken: string | null = null;
 
@@ -71,7 +82,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 			signal: options.signal
 		});
 	} catch (cause) {
-		throw new ApiError(0, `Cannot reach the IFA API at ${API_BASE_URL}.`, cause);
+		throw new ApiError(0, `Cannot reach the Witforge API at ${API_BASE_URL}.`, cause);
 	}
 
 	if (!response.ok) {

@@ -34,7 +34,7 @@ namespace IFA.API.Controllers
             var learnerId = await GetCurrentLearnerIdAsync(_context);
 
             var enrollments = await _context.CourseEnrollments
-                .Where(e => e.LearnerId == learnerId)
+                .Where(e => e.LearnerId == learnerId && e.Status == "Active" && e.Course!.CreatorLearnerId != learnerId)
                 .Include(e => e.Course)
                 .ToListAsync();
 
@@ -75,7 +75,11 @@ namespace IFA.API.Controllers
             var weeklyStudyHours = Math.Round(weeklyBuckets.Sum(b => b.hours), 1);
 
             // ---- Assessment history from real Assessment rows. ----
-            var totalQuestions = await _context.Questions.CountAsync();
+            var totalQuestions = await _context.AssessmentResponses
+                .Where(response => response.Assessment!.LearnerId == learnerId)
+                .Select(response => response.QuestionId)
+                .Distinct()
+                .CountAsync();
 
             var assessments = await _context.Assessments
                 .Where(a => a.LearnerId == learnerId)
@@ -122,8 +126,7 @@ namespace IFA.API.Controllers
                 .Select(s => new
                 {
                     skill = s.Name,
-                    currentLevel = s.Percentage,
-                    targetLevel = Math.Min(100, s.Percentage + 30)
+                    currentLevel = s.Percentage
                 })
                 .ToList();
 

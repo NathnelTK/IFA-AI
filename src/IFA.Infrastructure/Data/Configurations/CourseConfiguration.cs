@@ -28,6 +28,18 @@ namespace IFA.Infrastructure.Data.Configurations
             builder.Property(c => c.EstimatedDuration).HasMaxLength(64);
             builder.Property(c => c.ShareCode).HasMaxLength(64);
             builder.Property(c => c.ExternalMaterials).HasMaxLength(4000);
+            builder.Property(c => c.Visibility).HasMaxLength(16).HasDefaultValue("Public");
+            builder.Property(c => c.Level).HasMaxLength(64).HasDefaultValue("Beginner");
+            builder.Property(c => c.Language).HasMaxLength(64).HasDefaultValue("English");
+            builder.Property(c => c.LearningObjectives).HasColumnType("text[]");
+            builder.Property(c => c.RequirePassingQuizzes).HasDefaultValue(true);
+            builder.Property(c => c.AccentColor).HasMaxLength(16).HasDefaultValue("#1B3D2F");
+            builder.Property(c => c.ThemeMode).HasMaxLength(32).HasDefaultValue("pine");
+            builder.Property(c => c.EnrollmentMode).HasMaxLength(32).HasDefaultValue("Open");
+            builder.Property(c => c.PassingScorePercentage).HasDefaultValue(70);
+            builder.Property(c => c.MaxQuizAttempts).HasDefaultValue(3);
+            builder.Property(c => c.Prerequisites).HasMaxLength(2000);
+            builder.Property(c => c.InstructorTitle).HasMaxLength(200);
 
             // Monetization + cover image
             builder.Property(c => c.PriceAmount).HasPrecision(12, 2);
@@ -38,6 +50,7 @@ namespace IFA.Infrastructure.Data.Configurations
 
             builder.HasIndex(c => c.ShareCode);
             builder.HasIndex(c => c.IsPublic);
+            builder.HasIndex(c => new { c.IsPublished, c.Visibility });
 
             builder.HasOne(c => c.CreatorLearner)
                 .WithMany(l => l.AuthoredCourses)

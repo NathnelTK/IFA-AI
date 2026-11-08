@@ -181,11 +181,11 @@
       icon: MessageSquare,
       accent: 'green',
       summary:
-        'You chat. IFA asks the questions that actually matter and turns your answers into a learner profile instead of guessing.',
+        'Educators share the topic, audience, and teaching goals. Witforge turns those inputs into a course brief without taking control away from the author.',
       points: [
-        'Understands your goal in plain language — no course codes',
-        'Captures hours per week, preferred creators, existing materials',
-        'Only proposes a course once your profile is complete'
+        'Describe the course and intended learners in plain language',
+        'Capture level, learning outcomes, duration, and materials',
+        'Review the course brief before generating a blueprint'
       ]
     },
     {
@@ -234,8 +234,8 @@
     {
       icon: MessageSquare,
       accent: 'green',
-      title: 'Full-screen AI advisor',
-      body: 'A dedicated chat page where the advisor scopes your goal, drafts the setup and proposes a course blueprint you approve.'
+      title: 'AI-assisted course authoring',
+      body: 'Educators can describe a course in chat, review its proposed blueprint, and save an editable draft in Studio.'
     },
     {
       icon: Users,
@@ -259,7 +259,7 @@
       icon: Mic,
       accent: 'pink',
       title: 'Voxide voice control',
-      body: 'Talk to the app: jump to a section, start a course, or open the tutor. Voice maps to real capabilities, not a mock transcript.'
+      body: 'Talk to the app: jump to a section, open educator course creation, or ask the learner tutor for help.'
     },
     {
       icon: BarChart3,
@@ -278,9 +278,9 @@
     },
     {
       icon: Rocket,
-      trigger: '“I want to learn GraphQL”',
-      title: 'Create a course',
-      body: 'Runs the real course creation flow with your topic and weekly hours, then opens the generated course.'
+      trigger: '“Create a GraphQL course”',
+      title: 'Create with AI',
+      body: 'Educators can start a course draft from a topic; learners are directed to the AI tutor to study it.'
     },
     {
       icon: GraduationCap,
@@ -317,25 +317,25 @@
   ];
 
   const checkpoints = [
-    { icon: MessageSquare, label: 'Chat your goal' },
+    { icon: MessageSquare, label: 'Describe your course' },
     { icon: Route, label: 'Review the blueprint' },
     { icon: FlaskConical, label: 'Sources are researched' },
     { icon: ListChecks, label: 'Lessons & quizzes built' }
   ];
 
   const stats = [
-    { value: '3', label: 'AI models in the pipeline' },
-    { value: '9', label: 'learning surfaces in-app' },
-    { value: '5', label: 'domains supported' },
-    { value: 'JIT', label: 'module-by-module generation' }
+    { value: 'Manual', label: 'course creation without AI' },
+    { value: 'Templates', label: 'reusable starting structures' },
+    { value: 'Optional AI', label: 'reviewed, editable proposals' },
+    { value: 'Persisted', label: 'progress and server grading' }
   ];
 </script>
 
 <svelte:head>
-  <title>IFA — Your AI Learning Companion</title>
+  <title>Witforge - Learning and Course Creation</title>
   <meta
     name="description"
-    content="IFA turns a conversation into a personalized course: a conversational advisor learns your goal, a course architect drafts a blueprint you approve, and a builder writes research-backed lessons — grounded in academic research from OpenAlex, Semantic Scholar and arXiv, with hands-free Voxide voice navigation and an Educator Studio for course authors."
+    content="Witforge gives learners a course marketplace, AI tutoring, research, and evidence-based progress tools. Educators can create and refine courses in an editable Studio workflow grounded in attributed research sources."
   />
 </svelte:head>
 
@@ -348,7 +348,7 @@
           <GraduationCap class="w-5 h-5" />
         </span>
         <span class="text-left leading-tight">
-          <span class="block text-lg font-extrabold tracking-tight text-ifa-text-primary">IFA</span>
+          <span class="block text-lg font-extrabold tracking-tight text-ifa-text-primary">Witforge</span>
           <span class="block text-[10px] font-semibold uppercase tracking-wider text-ifa-text-muted">
             AI Learning Companion
           </span>
@@ -439,16 +439,14 @@
           <h1
             class="text-4xl md:text-5xl lg:text-[3.35rem] font-extrabold tracking-tight leading-[1.06] text-ifa-text-primary"
           >
-            Tell IFA your goal.<br />
-            Get a course <span class="lp-underline">built around it</span>.
+            Learn with clarity.<br />
+            Teach with <span class="lp-underline">confidence</span>.
           </h1>
 
           <p class="text-lg text-ifa-text-secondary max-w-xl leading-relaxed">
-            IFA runs a three-model pipeline: a conversational advisor learns what you are trying to achieve, a course
-            architect drafts a blueprint you approve, and a builder writes the lessons — grounded in
-            <strong class="text-ifa-text-primary">academic research</strong> and YouTube, generated one module at a
-            time. Educators get a full Studio to turn their materials into courses. Then run the whole app hands-free
-            with <strong class="text-ifa-text-primary">Voxide</strong> voice navigation.
+            Learners discover courses, research topics, and track progress. Educators use Witforge Studio to turn their
+            knowledge and materials into editable courses, with AI-assisted research and a blueprint they review
+            before publishing.
           </p>
 
           <div class="flex flex-wrap items-center gap-3">
@@ -468,6 +466,13 @@
               <Play class="w-4 h-4" />
               Explore the live demo
             </button>
+            <button
+              type="button"
+              on:click={() => goto('/register?role=Educator')}
+              class="px-6 py-3.5 rounded-xl text-sm font-bold text-ifa-pine hover:bg-ifa-card/70 transition"
+            >
+              Create as an educator
+            </button>
           </div>
 
           <p class="text-xs text-ifa-text-muted">
@@ -476,10 +481,10 @@
 
           <div class="flex flex-wrap gap-2 pt-1">
             {#each [
-              { icon: Layers, label: '3-model pipeline' },
-              { icon: FlaskConical, label: 'Academic research' },
-              { icon: Mic, label: 'Voxide voice' },
-              { icon: Zap, label: 'JIT modules' }
+              { icon: Layers, label: 'Manual course builder' },
+              { icon: FlaskConical, label: 'Optional research tools' },
+              { icon: ListChecks, label: 'Reusable templates' },
+              { icon: Zap, label: 'Persisted learner progress' }
             ] as chip}
               <span
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-ifa-border bg-ifa-card/90 backdrop-blur text-[11px] font-semibold text-ifa-text-secondary"
@@ -500,10 +505,7 @@
               <span class="w-2.5 h-2.5 rounded-full bg-ifa-accent-pink"></span>
               <span class="w-2.5 h-2.5 rounded-full bg-ifa-accent-amber"></span>
               <span class="w-2.5 h-2.5 rounded-full bg-ifa-accent-green"></span>
-              <span class="ml-2 text-[11px] font-semibold text-ifa-text-muted">IFA Studio · live pipeline</span>
-              <span class="ml-auto flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-ifa-pine">
-                <span class="lp-live-dot"></span> live
-              </span>
+              <span class="ml-2 text-[11px] font-semibold text-ifa-text-muted">Witforge Studio · workflow preview</span>
             </div>
 
             <div class="grid grid-cols-4 gap-1.5 p-3">
@@ -524,20 +526,20 @@
                 <div class="lp-stage-body h-full flex flex-col">
                   {#if stage === 0}
                     <div class="space-y-2.5 flex-1">
-                      <div class="lp-bubble lp-bubble-user">I want to prepare for my exit exam — C# backend APIs.</div>
+                      <div class="lp-bubble lp-bubble-user">I teach backend APIs and want a beginner course.</div>
                       <div class="lp-bubble lp-bubble-ai">
                         <Bot class="w-3.5 h-3.5 text-ifa-pine shrink-0 mt-0.5" />
-                        <span>Got it. How many hours a week can you realistically study?</span>
+                        <span>Who are your learners, and what should they be able to do?</span>
                       </div>
-                      <div class="lp-bubble lp-bubble-user">About 6 hours.</div>
+                      <div class="lp-bubble lp-bubble-user">Beginners should build a REST API.</div>
                       <div class="lp-bubble lp-bubble-ai">
                         <Bot class="w-3.5 h-3.5 text-ifa-pine shrink-0 mt-0.5" />
-                        <span>Perfect — any material I should build from?</span>
+                        <span>Great. Add any materials you want included.</span>
                       </div>
                     </div>
                     <div class="flex items-center gap-2 text-[11px] text-ifa-text-muted pt-3">
                       <span class="lp-typing"><i></i><i></i><i></i></span>
-                      Model 1 is assembling your learner profile
+                      Witforge is organizing the course brief
                     </div>
                   {:else if stage === 1}
                     <div class="space-y-2 flex-1">
@@ -578,7 +580,7 @@
                       {/each}
                     </div>
                     <p class="pt-3 text-[11px] text-ifa-text-muted">
-                      Cited in every lesson under <span class="font-semibold text-ifa-text-secondary">Course Sources</span>.
+                      Selected sources stay attached to the project for educator review.
                     </p>
                   {:else}
                     <div class="space-y-3 flex-1">
@@ -630,7 +632,7 @@
   <!-- ================= Partners marquee ================= -->
   <section class="py-8 border-y border-ifa-border bg-ifa-bg-warm overflow-hidden">
     <p class="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-ifa-text-muted mb-6">
-      Real integrations — not mock data
+      Integrations activate only when configured
     </p>
     <div class="lp-marquee-mask">
       <div class="lp-marquee">
@@ -651,11 +653,11 @@
       <div class="max-w-3xl mb-14" use:reveal>
         <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-ifa-pine mb-3">How it works</p>
         <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight text-ifa-text-primary mb-4">
-          Three models, three jobs, one course that fits you
+          A clear course workflow, with the educator in control
         </h2>
         <p class="text-ifa-text-secondary leading-relaxed">
-          Instead of asking a single prompt to invent a curriculum, IFA splits the work. Each stage hands a clean,
-          inspectable artifact to the next one — and you sit in the middle of it.
+          AI helps with research, structure, and drafting; educators review and edit each step before learners see a
+          published course.
         </p>
       </div>
 
@@ -708,8 +710,8 @@
           Everything you need after the course exists
         </h2>
         <p class="text-ifa-text-secondary leading-relaxed">
-          IFA is a learning companion, not a content dump: courses you can actually enrol in, skills you can measure,
-          research you can revisit, and peers you can compare against.
+          Witforge is a learning companion, not a content dump: courses you can actually enrol in, skills you can measure,
+          research you can revisit, and peer comparisons that clearly handle insufficient data.
         </p>
       </div>
 
@@ -736,14 +738,14 @@
           Turn your materials into a course students finish
         </h2>
         <p class="text-ifa-text-secondary leading-relaxed mb-6">
-          Drop in the links you already teach from — PDFs, videos, websites, articles, slides. IFA extracts each one,
+          Add the links you already teach from: supported PDFs, videos, websites, and articles. Witforge extracts supported text,
           suggests additional academic sources, and flags conflicts before a single lesson is written.
         </p>
         <ul class="space-y-3">
           {#each [
-            { icon: Link2, text: 'Add any link — PDFs, videos, websites, articles and slides are auto-detected.' },
-            { icon: Search, text: 'AI research suggestions fill the gaps with academic sources.' },
-            { icon: Shield, text: 'Conflict analysis surfaces duplicates and contradictions you can resolve.' },
+            { icon: Link2, text: 'Add supported public PDF, text, and web links with bounded extraction.' },
+            { icon: Search, text: 'Configured research providers can suggest additional sources for review.' },
+            { icon: Shield, text: 'Conflict analysis is shown only when the configured AI service completes it.' },
             { icon: ListChecks, text: 'Review the blueprint module by module, then generate in the background.' }
           ] as item}
             <li class="flex items-start gap-3">
@@ -760,7 +762,7 @@
             on:click={() => goto('/register?role=Educator')}
             class="lp-btn-primary px-5 py-3 rounded-xl bg-ifa-pine text-white text-sm font-bold transition shadow-elevated flex items-center gap-2"
           >
-            <span class="relative z-10">Start teaching with IFA</span>
+            <span class="relative z-10">Start teaching with Witforge</span>
             <ArrowRight class="relative z-10 w-4 h-4" />
           </button>
           <button
@@ -779,7 +781,7 @@
         <div class="flex items-center justify-between mb-5">
           <span class="flex items-center gap-2 text-sm font-bold text-ifa-text-primary">
             <GraduationCap class="w-5 h-5 text-ifa-pine" />
-            Course project · Introduction to Databases
+            Example project · Introduction to Databases
           </span>
           <span class="lp-badge-ready">12 sources</span>
         </div>
@@ -822,7 +824,7 @@
         </h2>
         <p class="text-ifa-text-secondary leading-relaxed mb-6">
           Voxide maps your speech onto capabilities the app registers — so a spoken request runs the same code path as a
-          click. No fake transcripts, no dead ends: if IFA cannot do it, it tells you.
+          click. No fake transcripts, no dead ends: if Witforge cannot do it, it tells you.
         </p>
 
         <div class="space-y-3">
@@ -863,7 +865,7 @@
         <div class="flex items-center justify-between mb-8">
           <span class="flex items-center gap-2">
             <AudioLines class="w-5 h-5 text-ifa-pine" />
-            <span class="text-sm font-bold text-ifa-text-primary">IFA voice console</span>
+            <span class="text-sm font-bold text-ifa-text-primary">Witforge voice console</span>
           </span>
           <span class="lp-live-pill"><span class="lp-live-dot"></span> listening</span>
         </div>
@@ -1093,7 +1095,7 @@
           <span class="w-9 h-9 rounded-xl bg-ifa-pine text-white flex items-center justify-center">
             <GraduationCap class="w-5 h-5" />
           </span>
-          <span class="text-lg font-extrabold tracking-tight text-ifa-text-primary">IFA</span>
+          <span class="text-lg font-extrabold tracking-tight text-ifa-text-primary">Witforge</span>
         </div>
         <p class="text-sm text-ifa-text-secondary leading-relaxed max-w-xs">
           Your AI learning companion. Personalized courses, research-backed lessons and hands-free navigation.
@@ -1161,7 +1163,7 @@
     <div
       class="max-w-7xl mx-auto mt-12 pt-6 border-t border-ifa-border flex flex-col sm:flex-row items-center justify-between gap-3"
     >
-      <p class="text-xs text-ifa-text-muted">© 2026 IFA. All rights reserved.</p>
+      <p class="text-xs text-ifa-text-muted">© 2026 Witforge. All rights reserved.</p>
       <p class="text-xs text-ifa-text-muted flex items-center gap-2">
         <Compass class="w-3.5 h-3.5" /> Academic research from OpenAlex, Semantic Scholar, arXiv, Tavily &amp; Wikimedia Commons · Voice by Voxide
       </p>

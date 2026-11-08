@@ -11,8 +11,9 @@
   </h2>
   <div class="space-y-6">
     <div>
-      <label class="block text-sm font-semibold text-ifa-text-primary mb-2">Preferred Language</label>
+      <label for="preferred-language" class="block text-sm font-semibold text-ifa-text-primary mb-2">Preferred Language</label>
       <select
+        id="preferred-language"
         bind:value={settings.preferredLanguage}
         class="w-full px-4 py-2.5 rounded-lg bg-ifa-card-muted border border-ifa-border text-sm text-ifa-text-primary focus:outline-none focus:ring-1 focus:ring-ifa-pine"
       >
@@ -24,8 +25,9 @@
     </div>
 
     <div>
-      <label class="block text-sm font-semibold text-ifa-text-primary mb-2">Learning Style</label>
+      <label for="learning-style" class="block text-sm font-semibold text-ifa-text-primary mb-2">Learning Style</label>
       <select
+        id="learning-style"
         bind:value={settings.learningStyle}
         class="w-full px-4 py-2.5 rounded-lg bg-ifa-card-muted border border-ifa-border text-sm text-ifa-text-primary focus:outline-none focus:ring-1 focus:ring-ifa-pine"
       >
@@ -38,11 +40,12 @@
     </div>
 
     <div>
-      <label class="block text-sm font-semibold text-ifa-text-primary mb-2 flex items-center gap-2">
+      <label for="study-hours" class="block text-sm font-semibold text-ifa-text-primary mb-2 flex items-center gap-2">
         <Clock class="w-4 h-4" />
         Weekly Study Hours
       </label>
       <input
+        id="study-hours"
         type="number"
         bind:value={settings.studyHours}
         min="1"
@@ -53,18 +56,19 @@
     </div>
 
     <div>
-      <label class="block text-sm font-semibold text-ifa-text-primary mb-2 flex items-center gap-2">
+      <label for="difficulty-preference" class="block text-sm font-semibold text-ifa-text-primary mb-2 flex items-center gap-2">
         <Target class="w-4 h-4" />
         Difficulty Preference
       </label>
       <select
+        id="difficulty-preference"
         bind:value={settings.difficultyPreference}
         class="w-full px-4 py-2.5 rounded-lg bg-ifa-card-muted border border-ifa-border text-sm text-ifa-text-primary focus:outline-none focus:ring-1 focus:ring-ifa-pine"
       >
         <option value="beginner">Beginner</option>
         <option value="intermediate">Intermediate</option>
         <option value="advanced">Advanced</option>
-        <option value="adaptive">Adaptive (IFA Decides)</option>
+        <option value="adaptive">Adaptive (Witforge decides)</option>
       </select>
     </div>
 
@@ -78,6 +82,9 @@
       </div>
       <button
         type="button"
+        role="switch"
+        aria-checked={settings.videoPreference === 'enabled'}
+        aria-label="Include video content"
         on:click={() => settings.videoPreference = settings.videoPreference === 'enabled' ? 'disabled' : 'enabled'}
         class="relative w-12 h-6 rounded-full transition-colors {settings.videoPreference === 'enabled' ? 'bg-ifa-pine' : 'bg-gray-300'}"
       >

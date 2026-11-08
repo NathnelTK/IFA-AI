@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using IFA.Application.Common.Interfaces;
@@ -89,27 +88,39 @@ namespace IFA.Infrastructure.Services
             using (var scope = _scopeFactory.CreateScope())
             {
                 var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                jobIds = await db.GenerationJobs
-                    .Where(j => j.Status == "Queued")
-                    .OrderBy(j => j.CreatedAt)
-                    .Take(MaxInFlight)
-                    .Select(j => j.Id)
-                    .ToListAsync(stoppingToken);
+                var staleBefore = DateTime.UtcNow.AddHours(-1);
+                await db.GenerationJobs.Where(job => job.Status == "Running" && job.StartedAt < staleBefore)
+                    .ExecuteUpdateAsync(update => update
+                        .SetProperty(job => job.Status, "Queued")
+                        .SetProperty(job => job.StartedAt, (DateTime?)null)
+                        .SetProperty(job => job.Error, "Recovered after an interrupted generation worker."), stoppingToken);
 
-                // Claim guard: mark Running before dispatch so a second poll
-                // (or a second host) never picks the same job up again.
-                if (jobIds.Count > 0)
+                await using var transaction = await db.Database.BeginTransactionAsync(stoppingToken);
+                List<GenerationJob> jobs;
+                if (db.Database.IsNpgsql())
                 {
-                    var jobs = await db.GenerationJobs
-                        .Where(j => jobIds.Contains(j.Id))
+                    jobs = await db.GenerationJobs.FromSqlRaw("""
+                        SELECT * FROM "GenerationJobs"
+                        WHERE "Status" = 'Queued'
+                        ORDER BY "CreatedAt"
+                        FOR UPDATE SKIP LOCKED
+                        LIMIT {0}
+                        """, MaxInFlight)
                         .ToListAsync(stoppingToken);
-                    foreach (var job in jobs)
-                    {
-                        job.Status = "Running";
-                        job.StartedAt = DateTime.UtcNow;
-                    }
-                    await db.SaveChangesAsync(stoppingToken);
                 }
+                else
+                {
+                    jobs = await db.GenerationJobs.Where(job => job.Status == "Queued")
+                        .OrderBy(job => job.CreatedAt).Take(MaxInFlight).ToListAsync(stoppingToken);
+                }
+                foreach (var job in jobs)
+                {
+                    job.Status = "Running";
+                    job.StartedAt = DateTime.UtcNow;
+                }
+                await db.SaveChangesAsync(stoppingToken);
+                await transaction.CommitAsync(stoppingToken);
+                jobIds = jobs.Select(job => job.Id).ToList();
             }
 
             if (jobIds.Count == 0) return;
@@ -122,6 +133,7 @@ namespace IFA.Infrastructure.Services
 
         private async Task RunJobAsync(Guid jobId, CancellationToken stoppingToken)
         {
+            Guid? targetModuleId = null;
             try
             {
                 using var scope = _scopeFactory.CreateScope();
@@ -129,7 +141,7 @@ namespace IFA.Infrastructure.Services
                 var generationService = scope.ServiceProvider.GetRequiredService<CourseGenerationService>();
 
                 var job = await db.GenerationJobs.FirstOrDefaultAsync(j => j.Id == jobId, stoppingToken);
-                if (job == null) return;
+                if (job?.Status != "Running") return;
 
                 var project = await db.EducatorProjects
                     .Include(p => p.Sources)
@@ -141,62 +153,45 @@ namespace IFA.Infrastructure.Services
                     .Include(c => c.Modules)
                     .ThenInclude(m => m.Quizzes)
                     .FirstOrDefaultAsync(c => c.Id == job.CourseId, stoppingToken);
-                var module = course?.Modules
-                    .OrderBy(m => m.ModuleNumber)
-                    .Skip(job.ModuleIndex)
-                    .FirstOrDefault();
+                if (project?.Blueprint?.ApprovedAt == null || course == null || project.CourseId != course.Id || course.IsPublished)
+                    throw new InvalidOperationException("The approved project must still refer to this unpublished course.");
 
-                if (project?.Blueprint == null || course == null || module == null)
-                {
-                    job.Status = "Failed";
-                    job.Error = "Project, blueprint, course or module row was missing.";
-                    job.CompletedAt = DateTime.UtcNow;
-                    await db.SaveChangesAsync(stoppingToken);
-                    return;
-                }
+                var blueprint = BlueprintService.Parse(project.Blueprint.Json, project.Sources);
+                if (blueprint == null || job.ModuleIndex < 0 || job.ModuleIndex >= blueprint.Modules.Count)
+                    throw new InvalidOperationException("The approved blueprint or its extracted sources are no longer valid. Complete the draft manually.");
 
-                var blueprint = JsonSerializer.Deserialize<CourseBlueprintDocument>(
-                    project.Blueprint.Json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                var blueprintModule = blueprint?.Modules.Skip(job.ModuleIndex).FirstOrDefault();
+                var blueprintModule = blueprint.Modules[job.ModuleIndex];
+                // The editor locks structure while jobs are active. Refuse stale ordering/titles instead of guessing a row.
+                var module = course.Modules.SingleOrDefault(m => m.ModuleNumber == job.ModuleIndex + 1 && m.Title == job.ModuleTitle);
+                if (module == null || blueprintModule.Title != job.ModuleTitle)
+                    throw new InvalidOperationException("The module no longer matches its approved generation job. No content was appended.");
+                if (module.Lessons.Any() || module.Quizzes.Any())
+                    throw new InvalidOperationException("This module already has content. Automatic append retries are disabled; complete the existing draft manually.");
+                targetModuleId = module.Id;
 
-                var includedSources = project.Sources
-                    .Where(s => s.Included)
-                    .OrderBy(s => s.CreatedAt)
-                    .ToList();
-
-                var researchContext = string.Join("\n\n", includedSources.Select(s =>
-                {
-                    var content = string.IsNullOrWhiteSpace(s.ExtractedContent)
-                        ? "(metadata only)"
-                        : s.ExtractedContent![..Math.Min(3000, s.ExtractedContent.Length)];
-                    return $"[SOURCE] Title: {s.Title}\nURL: {s.Url}\nExtracted: {content.ReplaceLineEndings(" ")}";
-                }));
-
-                var materials = string.IsNullOrWhiteSpace(course.ExternalMaterials)
-                    ? new List<string>()
-                    : course.ExternalMaterials
-                        .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                        .Where(m => m.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                        .Distinct(StringComparer.OrdinalIgnoreCase)
-                        .ToList();
+                var moduleUrls = blueprintModule.Sources.Select(s => s.Url).ToHashSet(StringComparer.Ordinal);
+                var includedSources = SourceAnalysisService.GetAcceptedSources(project.Sources)
+                    .Where(s => moduleUrls.Contains(s.Url)).ToList();
+                var researchContext = SourceAnalysisService.BuildDigest(includedSources);
 
                 var request = new JitModuleGenerationRequest
                 {
                     CourseTitle = course.Title,
-                    ModuleNumber = job.ModuleIndex + 1,
+                    ModuleNumber = module.ModuleNumber,
                     ModuleTitle = module.Title,
-                    TargetGoal = blueprintModule?.Description ?? module.Summary,
-                    KeyTopics = blueprintModule?.Chapters
+                    TargetGoal = blueprintModule.Description,
+                    KeyTopics = blueprintModule.Chapters
                         .Select(c => c.Title)
                         .Where(t => !string.IsNullOrWhiteSpace(t))
-                        .ToList() ?? new List<string>(),
-                    ResearchContext = researchContext.Length > 0
-                        ? researchContext
-                        : $"No extracted source text available. Build the lessons from the blueprint chapter plan for: {module.Title}.",
-                    ExternalMaterials = materials
+                        .ToList(),
+                    ResearchContext = researchContext,
+                    ExternalMaterials = includedSources.Select(s => s.Url).Distinct(StringComparer.Ordinal).ToList()
                 };
 
+                module.GenerationStatus = ModuleGenerationStatus.Generating;
+                await db.SaveChangesAsync(stoppingToken);
                 var generated = await generationService.GenerateJitModuleAsync(request, stoppingToken);
+                stoppingToken.ThrowIfCancellationRequested();
 
                 // The builder returns a throwaway Module graph; only the lessons
                 // and quizzes belong to the tracked module (same detach pattern
@@ -224,7 +219,7 @@ namespace IFA.Infrastructure.Services
                 job.Status = "Done";
                 job.Error = null;
                 job.CompletedAt = DateTime.UtcNow;
-                await db.SaveChangesAsync(CancellationToken.None);
+                await db.SaveChangesAsync(stoppingToken);
             }
             catch (Exception ex)
             {
@@ -237,9 +232,22 @@ namespace IFA.Infrastructure.Services
                     if (job != null)
                     {
                         job.Status = "Failed";
-                        var message = ex.Message;
+                        var message = ex is OperationCanceledException
+                            ? "Generation was interrupted. Complete this draft manually."
+                            : ex is InvalidOperationException
+                                ? ex.Message
+                                : "Module generation failed. No replacement content was saved; complete the draft manually.";
                         job.Error = message.Length > 500 ? message[..500] : message;
                         job.CompletedAt = DateTime.UtcNow;
+                        if (targetModuleId.HasValue)
+                        {
+                            var module = await db.Modules.FirstOrDefaultAsync(m => m.Id == targetModuleId.Value, CancellationToken.None);
+                            if (module?.GenerationStatus == ModuleGenerationStatus.Generating)
+                            {
+                                module.GenerationStatus = ModuleGenerationStatus.Failed;
+                                module.GeneratedAt = null;
+                            }
+                        }
                         await db.SaveChangesAsync(CancellationToken.None);
                     }
                 }
@@ -272,61 +280,34 @@ namespace IFA.Infrastructure.Services
                     if (project == null) continue;
 
                     var jobs = project.GenerationJobs;
-                    var anyQueuedOrRunning = jobs.Any(j => j.Status is "Queued" or "Running");
+                    var anyQueuedOrRunning = jobs.Any(j => j.Status is "Pending" or "Queued" or "Running");
                     if (anyQueuedOrRunning) continue;
                     if (jobs.Count == 0) continue;
 
                     var allDone = jobs.All(j => j.Status == "Done");
                     var anyDone = jobs.Any(j => j.Status == "Done");
 
-                    if (allDone)
+                    var nextStatus = allDone ? "ReadyForReview" : "GenerationFailed";
+                    if (project.Status == nextStatus) continue;
+                    // Generation only prepares a draft. Publication is a separate educator action.
+                    project.Status = nextStatus;
+                    project.UpdatedAt = DateTime.UtcNow;
+                    await db.SaveChangesAsync(ct);
+                    try
                     {
-                        // Only flip + notify when transitioning.
-                        if (project.Status != "ReadyForReview")
-                        {
-                            project.Status = "ReadyForReview";
-                            project.UpdatedAt = DateTime.UtcNow;
-                            await db.SaveChangesAsync(ct);
-                            try
-                            {
-                                await notifications.SendNotificationAsync(
-                                    project.EducatorLearnerId,
-                                    "course_generation_complete",
-                                    "Course generation complete",
-                                    $"All modules for '{project.Title}' were generated. Review and publish when ready.",
-                                    $"/educator/projects/{project.Id}",
-                                    ct);
-                            }
-                            catch (Exception notifyEx)
-                            {
-                                _logger.LogWarning(notifyEx, "Completion notification failed for project {ProjectId}.", projectId);
-                            }
-                        }
+                        await notifications.SendNotificationAsync(
+                            project.EducatorLearnerId,
+                            allDone ? "course_generation_complete" : "course_generation_failed",
+                            allDone ? "Course generation complete" : anyDone ? "Some modules failed to generate" : "Course generation failed",
+                            allDone
+                                ? $"All modules for '{project.Title}' were generated. Review the saved draft before publishing."
+                                : $"Generation for '{project.Title}' could not finish. The draft and any completed modules are saved; finish the remaining content manually in the editor.",
+                            $"/studio/{project.Id}",
+                            ct);
                     }
-                    else if (anyDone && jobs.Any(j => j.Status == "Failed"))
+                    catch (Exception notifyEx)
                     {
-                        // Some modules failed but none are pending: notify once by
-                        // stamping a sentinel on the first failed job's Error.
-                        var firstFailed = jobs.First(j => j.Status == "Failed");
-                        if (firstFailed.Error is null || !firstFailed.Error.Contains("[notified]", StringComparison.Ordinal))
-                        {
-                            firstFailed.Error = "[notified] " + (firstFailed.Error ?? "Generation failed.");
-                            await db.SaveChangesAsync(ct);
-                            try
-                            {
-                                await notifications.SendNotificationAsync(
-                                    project.EducatorLearnerId,
-                                    "course_generation_partial_failure",
-                                    "Some modules failed to generate",
-                                    $"Some modules for '{project.Title}' failed to generate. You can retry them from the project page.",
-                                    $"/educator/projects/{project.Id}",
-                                    ct);
-                            }
-                            catch (Exception notifyEx)
-                            {
-                                _logger.LogWarning(notifyEx, "Failure notification failed for project {ProjectId}.", projectId);
-                            }
-                        }
+                        _logger.LogWarning(notifyEx, "Generation notification failed for project {ProjectId}.", projectId);
                     }
                 }
             }

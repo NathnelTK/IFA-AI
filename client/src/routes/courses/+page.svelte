@@ -63,6 +63,8 @@
       <div class="flex items-center gap-1 bg-ifa-card-muted rounded-lg p-1">
         <button
           type="button"
+          aria-label="Grid view"
+          aria-pressed={viewMode === 'grid'}
           on:click={() => viewMode = 'grid'}
           class="p-2 rounded-md {viewMode === 'grid' ? 'bg-white text-ifa-pine shadow-soft' : 'text-ifa-text-muted hover:text-ifa-pine'}"
         >
@@ -70,6 +72,8 @@
         </button>
         <button
           type="button"
+          aria-label="List view"
+          aria-pressed={viewMode === 'list'}
           on:click={() => viewMode = 'list'}
           class="p-2 rounded-md {viewMode === 'list' ? 'bg-white text-ifa-pine shadow-soft' : 'text-ifa-text-muted hover:text-ifa-pine'}"
         >
@@ -86,6 +90,7 @@
       <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ifa-text-muted" />
       <input
         type="text"
+        aria-label="Search your courses"
         bind:value={searchQuery}
         placeholder="Search courses..."
         class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-ifa-card-muted border border-ifa-border text-sm text-ifa-text-primary placeholder-ifa-text-muted focus:outline-none focus:ring-1 focus:ring-ifa-pine"

@@ -4,8 +4,10 @@
 
   export let course: any;
   export let onEnroll = () => {};
-  export let onBookmark = () => {};
+  export let onBookmark: (() => void) | undefined = undefined;
   export let isEnrolled = false;
+  export let busy = false;
+  export let enrollmentLabel = '';
 
   let bookmarked = false;
   $: cover = resolveCover(course.thumbnail, course.title);
@@ -24,10 +26,11 @@
       on:error={(e) => ((e.currentTarget as HTMLImageElement).src = courseCover(course.title))}
       class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
     />
-    <div class="absolute top-3 right-3">
+    {#if onBookmark}<div class="absolute top-3 right-3">
       <button
         type="button"
-        on:click={() => { bookmarked = !bookmarked; onBookmark(); }}
+        aria-label="Bookmark course"
+        on:click={() => { bookmarked = !bookmarked; onBookmark?.(); }}
         class="p-2 bg-white/90 backdrop-blur rounded-lg text-ifa-text-secondary hover:text-ifa-pine transition"
       >
         {#if bookmarked}
@@ -36,7 +39,7 @@
           <Bookmark class="w-4 h-4" />
         {/if}
       </button>
-    </div>
+    </div>{/if}
     <div class="absolute bottom-3 left-3 flex items-center gap-2">
       <span class="px-2 py-1 bg-black/70 text-white text-xs font-semibold rounded-full">
         {course.level}
@@ -51,16 +54,16 @@
 
   <!-- Content -->
   <div class="p-4">
-    <h3 class="text-sm font-bold text-ifa-text-primary line-clamp-2 mb-2">{course.title}</h3>
+    <h3 class="text-sm font-bold text-ifa-text-primary line-clamp-2 mb-2"><a href={`/courses/${course.id}`} class="hover:underline">{course.title}</a></h3>
     <p class="text-xs text-ifa-text-secondary mb-3">{course.instructor}</p>
 
     <!-- Stats -->
     <div class="flex items-center gap-3 text-xs text-ifa-text-muted mb-3">
-      <div class="flex items-center gap-1">
+      {#if course.reviews > 0}<div class="flex items-center gap-1">
         <Star class="w-3 h-3 text-yellow-500 fill-yellow-500" />
         <span class="font-semibold text-ifa-text-primary">{course.rating}</span>
         <span>({course.reviews})</span>
-      </div>
+      </div>{:else}<span>No reviews yet</span>{/if}
       {#if course.enrolled > 0}
         <div class="flex items-center gap-1">
           <Users class="w-3 h-3" />
@@ -92,9 +95,10 @@
     <button
       type="button"
       on:click={onEnroll}
-      class="w-full py-2.5 bg-ifa-pine text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-emerald-800 transition"
+      disabled={busy || course.enrollmentStatus === 'PendingApproval' || course.enrollmentStatus === 'Rejected'}
+      class="w-full py-2.5 bg-ifa-pine text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-emerald-800 transition disabled:opacity-50"
     >
-      <span>{isEnrolled ? 'Continue' : course.isPaid ? 'Buy & Enroll' : 'Enroll Now'}</span>
+      <span>{enrollmentLabel || (isEnrolled ? 'Continue' : course.isPaid ? 'Buy & Enroll' : 'Enroll Now')}</span>
       <ArrowRight class="w-3 h-3" />
     </button>
   </div>

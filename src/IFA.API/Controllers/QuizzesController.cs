@@ -4,12 +4,15 @@ using System.Linq;
 using System.Threading.Tasks;
 using IFA.Application.Common.Interfaces;
 using IFA.Domain.Entities;
+using IFA.Infrastructure.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace IFA.API.Controllers
 {
     [ApiController]
+    [Authorize]
     [Route("api/[controller]")]
     public class QuizzesController : BaseApiController
     {
@@ -33,33 +36,16 @@ namespace IFA.API.Controllers
             var quiz = await _context.Quizzes
                 .Include(q => q.Questions)
                 .Include(q => q.Module)
+                .ThenInclude(m => m!.Course)
                 .FirstOrDefaultAsync(q => q.Id == id);
 
             if (quiz == null) return NotFound(new { message = "Quiz not found." });
 
             var learnerId = await GetCurrentLearnerIdAsync(_context);
-            var lastAttempt = await _context.Assessments
-                .Where(a => a.QuizId == id && a.LearnerId == learnerId)
-                .OrderByDescending(a => a.SubmittedAt)
-                .FirstOrDefaultAsync();
-
-            return Ok(new
-            {
-                quiz.Id,
-                quiz.ModuleId,
-                quiz.Title,
-                quiz.PassingScorePercentage,
-                LastScorePercentage = lastAttempt?.ScorePercentage,
-                IsPassed = lastAttempt?.IsPassed ?? false,
-                Questions = quiz.Questions.Select(q => new
-                {
-                    q.Id,
-                    q.Prompt,
-                    q.Options,
-                    q.TargetSkillName,
-                    q.BloomTaxonomyLevel
-                })
-            });
+            var access = await CourseAccess.GetAsync(_context, quiz.Module!.CourseId, learnerId, HttpContext.RequestAborted);
+            access.RequireContent();
+            var progress = await CourseProgress.GetAsync(_context, access.Course, access.IsOwner ? null : learnerId, HttpContext.RequestAborted);
+            return Ok(CourseProgress.QuizDto(quiz, access.Course, access.IsOwner, progress));
         }
 
         [HttpPost("{id}/submit")]
@@ -73,8 +59,30 @@ namespace IFA.API.Controllers
                 Answers = dto.Answers ?? new Dictionary<Guid, int>()
             };
 
-            var result = await _adaptiveEngine.EvaluateAndAdaptAsync(learnerId, request);
-            return Ok(result);
+            var ct = HttpContext.RequestAborted;
+            var result = await _adaptiveEngine.EvaluateAndAdaptAsync(learnerId, request, ct);
+            var quiz = await _context.Quizzes.Include(q => q.Module).ThenInclude(m => m!.Course).SingleAsync(q => q.Id == id, ct);
+            var course = quiz.Module!.Course!;
+            var progress = await CourseProgress.GetAsync(_context, course, learnerId, ct);
+            var attempts = progress.AttemptsFor(id);
+            return Ok(new
+            {
+                result.AssessmentId,
+                result.ScorePercentage,
+                result.IsPassed,
+                result.TotalQuestions,
+                result.CorrectAnswersCount,
+                result.QuestionFeedbacks,
+                result.MasteredSkills,
+                result.WeakSkillsToReinforce,
+                result.AdaptiveNextAction,
+                CourseId = course.Id,
+                AttemptNumber = attempts.Single(a => a.Id == result.AssessmentId).AttemptNumber,
+                AttemptCount = attempts.Count,
+                MaxAttempts = course.MaxQuizAttempts,
+                ProgressPercentage = progress.Percentage,
+                Progress = progress
+            });
         }
     }
 }

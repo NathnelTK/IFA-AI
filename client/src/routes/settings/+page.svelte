@@ -6,18 +6,20 @@
   import NotificationPreferences from '$lib/components/NotificationPreferences.svelte';
   import ThemePreferences from '$lib/components/ThemePreferences.svelte';
   import { settingsApi, learnerApi, authApi } from '$lib/api';
-  import { initSession } from '$lib/stores/sessionStore';
-  import { get } from 'svelte/store';
-  import { preferences } from '$lib/stores/preferencesStore';
+  import { initSession, refreshSession } from '$lib/stores/sessionStore';
+  import { hydratePreferences, type ThemeMode, type AccentColor, type FontSize } from '$lib/stores/preferencesStore';
 
   let activeTab = 'learning'; // 'learning' | 'resources' | 'notifications' | 'theme' | 'account'
   let saving = false;
   let loading = true;
   let saveError = '';
+  let loadError = '';
   let saveSuccess = false;
+  let loadedSlices = { account: false, profile: false, settings: false };
+  $: canSave = loadedSlices.account && loadedSlices.profile && loadedSlices.settings;
 
-  // These values are the ones the IFA advisor already set during course
-  // creation; this page edits them rather than defining new ones.
+  // Defaults render the form while loading; save remains disabled until every
+  // backend slice succeeds so defaults cannot overwrite unavailable data.
   const userSettings = {
     learning: {
       preferredLanguage: 'English',
@@ -70,19 +72,22 @@
   onMount(async () => {
     try {
       await initSession();
-      const [me, profile, settings] = await Promise.all([
-        authApi.me().catch(() => null),
-        learnerApi.profile().catch(() => null),
-        settingsApi.get().catch(() => null)
+      const [meResult, profileResult, settingsResult] = await Promise.allSettled([
+        authApi.me(),
+        learnerApi.profile(),
+        settingsApi.get()
       ]);
 
-      if (me) {
+      if (meResult.status === 'fulfilled') {
+        const me = meResult.value;
         userSettings.account.name = me.name ?? '';
         userSettings.account.email = me.email ?? '';
         userSettings.account.avatarUrl = me.avatarUrl ?? '';
+        loadedSlices.account = true;
       }
 
-      if (profile) {
+      if (profileResult.status === 'fulfilled') {
+        const profile = profileResult.value;
         userSettings.learning.preferredLanguage = LANG_TO_UI[profile.preferredLanguage] ?? profile.preferredLanguage ?? 'English';
         userSettings.learning.learningStyle = STYLE_TO_UI[(profile.learningStyle ?? '').toLowerCase()] ?? 'practical';
         if (profile.weeklyStudyHours > 0) userSettings.learning.studyHours = profile.weeklyStudyHours;
@@ -90,34 +95,41 @@
         if (['beginner', 'intermediate', 'advanced', 'adaptive'].includes(level)) {
           userSettings.learning.difficultyPreference = level;
         }
+        loadedSlices.profile = true;
       }
 
-      if (settings) {
+      if (settingsResult.status === 'fulfilled') {
+        const settings = settingsResult.value;
         userSettings.notifications.courseReminders = settings.dailyReminders;
         userSettings.notifications.assessmentResults = settings.assessmentResults;
         userSettings.notifications.recommendations = settings.courseRecommendations;
         userSettings.notifications.emailDigest = settings.weeklyDigest ? 'weekly' : 'never';
         userSettings.resources.preferredTopics = parseJsonArray(settings.preferredTopicsJson);
+        const appearance = {
+          theme: (['light', 'dark', 'system'].includes(settings.theme) ? settings.theme : 'system') as ThemeMode,
+          accentColor: (['pine', 'blue', 'purple', 'orange'].includes(settings.accentColor) ? settings.accentColor : 'pine') as AccentColor,
+          fontSize: (['small', 'medium', 'large', 'extra-large'].includes(settings.fontSize) ? settings.fontSize : 'medium') as FontSize,
+          compactMode: settings.compactMode,
+          reducedMotion: settings.reducedMotion
+        };
+        hydratePreferences(appearance);
+        Object.assign(userSettings.theme, appearance);
+        loadedSlices.settings = true;
+      }
+      loadedSlices = { ...loadedSlices };
+      if (!loadedSlices.account || !loadedSlices.profile || !loadedSlices.settings) {
+        loadError = 'Some settings could not be loaded. Saving is disabled to protect your existing preferences.';
       }
 
-      // Reflect the appearance that is ACTUALLY applied on this device (the
-      // localStorage-backed preferences store) in the form. Opening Settings must
-      // never re-apply a stored value and flip the live theme — that was the bug
-      // where simply visiting Settings switched the app into night mode on its own.
-      const applied = get(preferences);
-      userSettings.theme.theme = applied.theme;
-      userSettings.theme.accentColor = applied.accentColor;
-      userSettings.theme.fontSize = applied.fontSize;
-      userSettings.theme.compactMode = applied.compactMode;
-      userSettings.theme.reducedMotion = applied.reducedMotion;
-    } catch {
-      /* keep defaults */
+    } catch (cause) {
+      loadError = cause instanceof Error ? cause.message : 'Settings could not be loaded.';
     } finally {
       loading = false;
     }
   });
 
   async function handleSaveSettings() {
+    if (!canSave) return;
     saving = true;
     saveError = '';
     saveSuccess = false;
@@ -143,6 +155,7 @@
         }),
         authApi.updateMe({ name: userSettings.account.name, avatarUrl: userSettings.account.avatarUrl })
       ]);
+      await refreshSession();
       saveSuccess = true;
       setTimeout(() => (saveSuccess = false), 2500);
     } catch (cause) {
@@ -171,7 +184,7 @@
     <div>
       <h1 class="text-2xl font-bold text-ifa-text-primary">Settings</h1>
       <p class="text-sm text-ifa-text-secondary mt-1">
-        Edit the preferences your IFA advisor set up — changes apply to future course generation.
+        Edit your learning preferences — they inform recommendations and future learning support.
       </p>
     </div>
     <div class="flex items-center gap-3">
@@ -183,7 +196,7 @@
       <button
         type="button"
         on:click={handleSaveSettings}
-        disabled={saving || loading}
+        disabled={saving || loading || !canSave}
         class="px-4 py-2 bg-ifa-pine text-white rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-emerald-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {#if saving}
@@ -198,6 +211,9 @@
 
   {#if saveError}
     <p role="alert" class="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{saveError}</p>
+  {/if}
+  {#if loadError}
+    <p role="alert" class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">{loadError}</p>
   {/if}
 
   <!-- Tab Navigation -->

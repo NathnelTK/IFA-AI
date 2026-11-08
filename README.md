@@ -1,14 +1,14 @@
-# IFA — AI-Powered Adaptive Learning Companion
+# Witforge - AI-Assisted Learning and Course Creation
 
-IFA turns a conversation into a personalized course. You describe what you're trying to achieve, a
-conversational advisor asks the questions that matter, a course architect drafts a blueprint you
-approve, and a builder writes the lessons — grounded in academic research from **OpenAlex,
-Semantic Scholar, arXiv, Tavily and Wikimedia Commons**, generated **one module at a time**. The
-whole app can be driven hands-free with **Voxide** voice navigation.
+Witforge (formerly IFA) is a persisted learning platform for educators and learners. Educators can
+create a course manually, start from one of seven reusable templates, save a reviewed AI proposal,
+or build from supported public source links. Every path leads to the same editable Studio draft,
+preview, validation, and publish workflow.
 
-Educators and content creators get the **Educator Studio**: turn linked learning materials (PDFs,
-videos, websites, articles, slides) into structured online courses, publish them free or paid
-(**Telebirr / Chapa**), and track learner progress from a dedicated dashboard.
+Learners can discover public courses, request or complete enrollment, study authorized lesson
+content, submit server-graded quizzes and text assignments, attend scheduled external-link classes,
+and see progress backed by PostgreSQL data. AI, research, payment, image, YouTube, and voice tools
+remain optional and fail clearly when their credentials or services are unavailable.
 
 ## Live Demo
 
@@ -18,50 +18,47 @@ videos, websites, articles, slides) into structured online courses, publish them
 | **API** | https://ifa-api-8kgf.onrender.com/api/health |
 | **Demo learner** | `nathnel@ifa.local` / `ifa12345` |
 
-Sign in with the demo account (or use the one-click demo login on the sign-in page) — the catalog,
-skills, progress and research data are seeded automatically, so every surface has real content.
+Demo accounts and catalog data are seeded in Development. A production deployment exposes demo
+login only when `DEMO_DATA_ENABLED=true` is explicitly configured.
 
 > The API runs on Render's free tier and sleeps after ~15 minutes idle. The first request afterwards
 > takes about a minute to wake; the health endpoint above is the quickest way to warm it up.
 
 ## How It Works
 
-The pipeline is deliberately split across separate models. Each stage hands a clean, inspectable
-artifact to the next one, and the learner sits in the middle of it.
+Manual authoring is a first-class path and does not require an AI provider. When AI is configured,
+its proposal remains an inspectable draft that the educator must review and edit.
 
+```text
+Manual | Template | Reviewed AI | Supported Sources
+                       |
+                       v
+             Persisted Studio Draft
+                       |
+                Preview + Validate
+                       |
+                       v
+        Published Delivery + Saved Progress
 ```
-  Conversation            Blueprint              Research + Build
- ┌──────────────┐      ┌──────────────┐      ┌──────────────────────┐
- │   Model 1    │      │   Model 2    │      │       Model 3        │
- │  Learning    │ ───► │   Course     │ ───► │   JIT Course Builder │
- │  Advisor     │      │  Architect   │      │                      │
- └──────────────┘      └──────────────┘      └──────────────────────┘
-   intake chat            approve gate           Module 1 written now
-   → learner profile      → modules, topics      → later modules on demand
-                          → hours, editable      → research reused
-```
 
-1. **Model 1 — Learning Advisor.** A real conversation, not a search box. It asks about hours per
-   week and creator preferences, and only advances to course setup once the learner profile is
-   complete. One-word or off-topic input stays in conversation rather than generating a course.
-2. **Model 2 — Course Architect.** Produces a reviewable blueprint: modules, the topics inside them
-   and hour estimates. Nothing is generated until you approve it.
-3. **Research.** On approval, academic search (OpenAlex, Semantic Scholar, arXiv), web/Tavily and
-   Wikimedia Commons run alongside YouTube lookups, and the results are saved as a **reusable
-   research package** on the course — so later modules don't pay for the search again.
-4. **Model 3 — JIT Course Builder.** Writes **Module 1 immediately**: lessons plus exam-style quizzes.
-   You are auto-enrolled and the course appears in **My Courses**. Every subsequent module is
-   generated on demand from the course page.
-5. **Adaptive engine & AI Tutor.** Assessment results feed back as flagged weak skills, which shape
-   recommendations and what later modules emphasise. The AI Tutor is a Socratic learning assistant.
+1. **Choose a creation path.** Blank manual draft, reusable template, reviewed topic proposal,
+   conversation brief, or supported public PDF/text/web sources.
+2. **Edit one shared course.** Configure course information, access rules, modules, lessons, MCQs,
+   assignments, branding, and external-link live sessions in Studio.
+3. **Preview and validate.** Preview reads the actual saved course. Publishing rejects missing
+   objectives, incomplete lessons, invalid assessments, unfinished generation, and invalid access settings.
+4. **Enroll and learn.** Public, unlisted, private, open, approval, invite, date, capacity, and paid
+   pending states are enforced by the API rather than only hidden in the UI.
+5. **Persist evidence.** Lesson completion, quiz attempts, assignments, feedback, skills,
+   recommendations, and educator metrics derive from saved learner actions.
 
-Any links you supply (docs, repos, slides) are stored per-course and enforced into lesson content
-under a `## Course Sources` section — the model is told to cite them, and IFA guarantees they appear.
+Source extraction is bounded and source metadata stays attached to the educator project. Witforge
+does not claim that model-generated text is a verified citation merely because a source URL exists.
 
 ## Features
 
 ### Learning experience
-- **Home dashboard** with hero goal suggestions and AI-recommended goals
+- **Home dashboard** with progress and assessment-backed learning suggestions
 - **My Courses** (`/courses`) — enrolled, created and completed courses in one library
 - **Courses Library** with search, filter and sort
 - **My Skills & Skill Profile** with radar charts and per-skill breakdowns
@@ -69,12 +66,12 @@ under a `## Course Sources` section — the model is told to cite them, and IFA 
 - **Research Workspace** with academic (OpenAlex, Semantic Scholar, arXiv), web and YouTube sources
 - **Settings & Preferences** for learning, resources, notifications and theme
 - **Global Search Command Palette** (⌘K / Ctrl+K) for keyboard-driven navigation
-- **Notification Center** and learner profile menu
+- **Notification Center** backed by persisted API notifications and a learner profile menu
 
 ### AI-powered
-- **Three-model pipeline** — conversational advisor, course architect, JIT course builder
-- **Full-screen advisor chat** (`/chat`) with properly rendered markdown responses
-- **Academic research** via OpenAlex, Semantic Scholar, arXiv, Tavily and Wikimedia Commons
+- **Optional model pipeline** — conversational brief, course architect, and content builder
+- **Shared Studio creation** — `/chat` routes educators to Studio and learners to the course-aware tutor
+- **Configured research providers** — OpenAlex, Semantic Scholar, arXiv, Tavily and Wikimedia Commons
 - **Educator Studio** — turn linked materials into structured courses: source panel, AI research
   suggestions, conflict/duplicate resolution, blueprint review, background module-by-module
   generation with per-module jobs and notifications
@@ -82,26 +79,25 @@ under a `## Course Sources` section — the model is told to cite them, and IFA 
 - **Voxide voice navigation** — spoken requests map onto the same capabilities the UI calls
 - **AI Tutor** — Socratic learning assistant, course-aware
 - **Adaptive engine** — assessment-driven content shaping
-- **Recommendation engine** — personalized course suggestions, including remediation courses
+- **Recommendation engine** — actions linked to persisted weak-skill evidence and matching published metadata
 
 ### Social learning
-- **Course sharing** with shareable links — friends with an account enroll in one click, visitors
-  are guided to create an account first
+- **Course sharing** with expiring links and backend-enforced visibility/enrollment rules
 - **Course marketplace** for discovering educator-published courses
-- **Paid courses** via **Chapa** (Telebirr supported) with educator enrollment approval
+- **Paid-course handoff** via configured **Chapa** checkout and webhook verification; payment is never simulated
 - **Activity stream** for peer activity
 - **Peer progress comparison** for skill benchmarking
 
 ### Landing page
-A standalone marketing page (`client/src/routes/+page.svelte`) with an animated hero, a live pipeline
-demo, and dedicated sections for Educator Studio, academic research and Voxide voice. Fully
+A standalone marketing page (`client/src/routes/+page.svelte`) with an animated hero, a labeled workflow
+preview, and dedicated sections for Educator Studio, academic research and optional Voxide voice. Fully
 theme-aware (light/dark) and reduced-motion aware.
 
 ## Technology Stack
 
 ### Frontend
 - **SvelteKit 2** (Svelte 5) with **TypeScript**
-- **Tailwind CSS** with the custom IFA design system
+- **Tailwind CSS** with the existing design tokens (internal `ifa-*` names retained for compatibility)
 - **Lucide Svelte** icons
 - **Voxide** browser SDK for voice
 
@@ -109,7 +105,7 @@ theme-aware (light/dark) and reduced-motion aware.
 - **ASP.NET Core** (.NET 10) — Clean/Onion Architecture
 - **Entity Framework Core** with **PostgreSQL**
 - **Gemini** — `gemini-3.5-flash` (conversation, architecture, tutor)
-- **Groq** — `openai/gpt-oss-120b` (fast inference, automatic failover)
+- **Groq** — configured hosted inference; cross-hosted-provider failover is opt-in
 - **Ollama** — optional, zero-cost local provider
 
 ### DevOps
@@ -142,8 +138,8 @@ theme-aware (light/dark) and reduced-motion aware.
    cd src/IFA.API
    dotnet run                                # http://localhost:5011
    ```
-   The schema and demo data are created automatically on first start (see
-   [Database & Schema](#database--schema)).
+    Development schema and demo data are created automatically on first start (see
+    [Database & Schema](#database--schema)). Production demo data is opt-in.
 
 3. **Frontend**
    ```bash
@@ -155,9 +151,9 @@ theme-aware (light/dark) and reduced-motion aware.
 
 4. **Free / local AI (Ollama)** — optional, no API key required
 
-   The LLM gateway supports Ollama as a zero-cost provider. If no provider is
-   reachable it falls back to a deterministic template provider, so course
-   creation still works offline.
+   The LLM gateway supports Ollama as a zero-cost provider. If no AI provider is
+   reachable, AI routes return `503 ai_unavailable`; manual and template course
+   creation continue to work without synthetic fallback content.
 
    ```powershell
    # from the repository root
@@ -192,6 +188,7 @@ JWT_SECRET=replace_with_a_unique_random_secret_of_at_least_32_characters
 
 # LLM providers
 AI_DEFAULT_PROVIDER=Groq
+AI_ALLOW_CROSS_PROVIDER_FAILOVER=false
 GEMINI_API_KEY=your_gemini_api_key
 GROQ_API_KEY=your_groq_api_key
 OLLAMA_BASE_URL=http://localhost:11434
@@ -206,9 +203,11 @@ CHAPA_SECRET_KEY=your_chapa_secret_key
 CHAPA_BASE_URL=https://api.chapa.co/v1
 CHAPA_WEBHOOK_SECRET=your_chapa_webhook_secret
 
-# Set to true to apply EF migrations at startup instead of the
-# create-if-empty schema flow (recommended for existing databases).
-DB_USE_MIGRATIONS=false
+# Apply EF migrations at startup (recommended for existing and production databases).
+DB_USE_MIGRATIONS=true
+
+# Development seeds demo data automatically. Production requires explicit opt-in.
+DEMO_DATA_ENABLED=false
 
 # CORS — comma-separated frontend origins. Required; the API uses
 # AllowCredentials(), so a wildcard origin is not accepted.
@@ -272,25 +271,16 @@ gets its own hostname, so add any preview domains you intend to use.
 
 ## Database & Schema
 
-By default the API checks `information_schema` for base tables in the `public` schema and, if the
-schema is empty, creates it from `Database.GenerateCreateScript()`, then seeds the entrance-exam
-catalog and demo data.
+Set `DB_USE_MIGRATIONS=true` for existing and production databases. Migration
+`20261029110932_AddWitforgeCourseWorkflow` adds publication/access settings, live sessions,
+discussions, assignments, and submissions while preserving legacy course visibility and user data.
 
-For existing databases, set `DB_USE_MIGRATIONS=true` to apply EF Core migrations at startup instead
-(e.g. `AddEducatorStudioAndPayments`, which adds the Educator Studio, payments and enrollment
-tables). Migrations are the recommended path for production — Render sets this flag in
-`render.yaml`.
+For local empty databases the create-if-empty path remains available. It also reconciles the known
+pre-migration Witforge startup schema before stamping migration history. Do not reset or drop a
+schema to adopt these changes; take a normal database backup and apply the migrations.
 
-Consequence of the default flow: **`EnsureCreated` cannot alter existing tables.** After a model
-change that adds or changes columns (without `DB_USE_MIGRATIONS=true`), reset the schema and restart
-the API:
-
-```sql
-DROP SCHEMA public CASCADE;
-CREATE SCHEMA public;
-```
-
-Until that is done, reads touching the new columns will fail.
+Development seeds demo accounts and catalog data. Production does not seed or expose demo login
+unless `DEMO_DATA_ENABLED=true` is intentionally set.
 
 ## Project Structure
 
@@ -351,7 +341,8 @@ npm run check             # Type-check with svelte-check
 
 ## Documentation
 
-- [Demo script](docs/DEMO_SCRIPT.md) — a single end-to-end use case for presenting IFA
+- [Upgrade audit and delivery](docs/WITFORGE_UPGRADE.md) — implemented slice, verification, and remaining dependencies
+- [Demo script](docs/DEMO_SCRIPT.md) — a single end-to-end use case for presenting Witforge
 - [Pitch deck](docs/PITCH_DECK.md) — problem, solution, architecture, roadmap
 - [Changelog](docs/stark-changelog.md) — milestone history
 - [Implementation plan](IFA_AI_Learning_Companion_Implementation_Plan_v3.md) — design and PR tracking

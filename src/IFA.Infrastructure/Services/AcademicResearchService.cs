@@ -113,7 +113,7 @@ namespace IFA.Infrastructure.Services
         private async Task<string> GetStringAsync(string url, CancellationToken ct)
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.UserAgent.ParseAdd("IFA-AI/1.0 (educational research aggregation)");
+            request.Headers.UserAgent.ParseAdd("Witforge/1.0 (educational research aggregation)");
             using var response = await _httpClient.SendAsync(request, ct);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadAsStringAsync(ct);
@@ -185,7 +185,7 @@ namespace IFA.Infrastructure.Services
             var url = "https://api.semanticscholar.org/graph/v1/paper/search" +
                       $"?query={Uri.EscapeDataString(query)}&limit={max}&fields=title,abstract,url,year,authors";
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.UserAgent.ParseAdd("IFA-AI/1.0");
+            request.Headers.UserAgent.ParseAdd("Witforge/1.0");
 
             var apiKey = _configuration["SEMANTIC_SCHOLAR_API_KEY"];
             if (!string.IsNullOrWhiteSpace(apiKey) && apiKey != "change_me")
@@ -231,7 +231,7 @@ namespace IFA.Infrastructure.Services
                         Url = string.IsNullOrWhiteSpace(paperUrl)
                             ? $"https://semanticscholar.org/search?q={Uri.EscapeDataString(title!)}"
                             : paperUrl!,
-                        Summary = item.TryGetProperty("abstract", out var ab) ? Truncate(ab.GetString(), 800) : null,
+                        Summary = item.TryGetProperty("abstract", out var ab) ? Truncate(ab.GetString(), 800) ?? string.Empty : string.Empty,
                         Source = "SemanticScholar",
                         PublishedDate = published,
                         Authors = string.Join(", ", authors)
@@ -244,7 +244,7 @@ namespace IFA.Infrastructure.Services
 
         private async Task<List<AcademicSearchResult>> SearchArxivAsync(string query, int max, CancellationToken ct)
         {
-            var url = $"http://export.arxiv.org/api/query?search_query=all:{Uri.EscapeDataString(query)}&max_results={max}";
+            var url = $"https://export.arxiv.org/api/query?search_query=all:{Uri.EscapeDataString(query)}&max_results={max}";
             var xml = await GetStringAsync(url, ct);
             var doc = XDocument.Parse(xml);
             var ns = "http://www.w3.org/2005/Atom";
@@ -273,7 +273,7 @@ namespace IFA.Infrastructure.Services
                 {
                     Title = title!,
                     Url = link!,
-                    Summary = Truncate(summary, 800),
+                    Summary = Truncate(summary, 800) ?? string.Empty,
                     Source = "arXiv",
                     PublishedDate = published,
                     Authors = string.Join(", ", authors)
@@ -308,7 +308,7 @@ namespace IFA.Infrastructure.Services
                     {
                         Title = title!,
                         Url = url2!,
-                        Summary = item.TryGetProperty("content", out var c) ? Truncate(c.GetString(), 800) : null,
+                        Summary = item.TryGetProperty("content", out var c) ? Truncate(c.GetString(), 800) ?? string.Empty : string.Empty,
                         Source = "Tavily"
                     });
                 }

@@ -47,6 +47,10 @@ namespace IFA.Infrastructure.Data
         public DbSet<CourseBlueprint> CourseBlueprints => Set<CourseBlueprint>();
         public DbSet<GenerationJob> GenerationJobs => Set<GenerationJob>();
         public DbSet<Payment> Payments => Set<Payment>();
+        public DbSet<LiveSession> LiveSessions => Set<LiveSession>();
+        public DbSet<CourseDiscussion> Discussions => Set<CourseDiscussion>();
+        public DbSet<Assignment> Assignments => Set<Assignment>();
+        public DbSet<AssignmentSubmission> AssignmentSubmissions => Set<AssignmentSubmission>();
 
         public DbSet<LessonProgress> LessonProgress => Set<LessonProgress>();
 
@@ -82,10 +86,22 @@ namespace IFA.Infrastructure.Data
         IQueryable<CourseBlueprint> IApplicationDbContext.CourseBlueprints => CourseBlueprints;
         IQueryable<GenerationJob> IApplicationDbContext.GenerationJobs => GenerationJobs;
         IQueryable<Payment> IApplicationDbContext.Payments => Payments;
+        IQueryable<LiveSession> IApplicationDbContext.LiveSessions => LiveSessions;
+        IQueryable<CourseDiscussion> IApplicationDbContext.Discussions => Discussions;
+        IQueryable<Assignment> IApplicationDbContext.Assignments => Assignments;
+        IQueryable<AssignmentSubmission> IApplicationDbContext.AssignmentSubmissions => AssignmentSubmissions;
 
 
         public new void Add<TEntity>(TEntity entity) where TEntity : class => Set<TEntity>().Add(entity);
         public new void Remove<TEntity>(TEntity entity) where TEntity : class => Set<TEntity>().Remove(entity);
+        public Task ExecuteInTransactionAsync(Func<Task> operation, CancellationToken cancellationToken = default) =>
+            Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+            {
+                await using var transaction = await Database.BeginTransactionAsync(cancellationToken);
+                await operation();
+                await transaction.CommitAsync(cancellationToken);
+            });
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);

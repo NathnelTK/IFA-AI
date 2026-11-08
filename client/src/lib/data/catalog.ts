@@ -12,7 +12,7 @@ export const demoCourses: Course[] = [
   {
     id: 'csharp-backend',
     title: 'C# Backend Development',
-    provider: 'IFA Generated',
+    provider: 'Witforge',
     description:
       'Master backend development with C# and ASP.NET Core — from language fundamentals to building and securing production REST APIs.',
     thumbnail: 'C#',
@@ -344,7 +344,7 @@ export const demoCourses: Course[] = [
   {
     id: 'sql-developers',
     title: 'SQL for Developers',
-    provider: 'IFA Generated',
+    provider: 'Witforge',
     description: 'Query and model relational data with confidence — SELECTs, JOINs, indexes, and transactions.',
     thumbnail: 'SQL',
     category: 'Backend',

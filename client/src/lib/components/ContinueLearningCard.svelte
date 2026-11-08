@@ -6,8 +6,6 @@
   export let onShare = () => {};
   export let onCompareToggle = () => {};
 
-  let copySuccess = false;
-
   // Derive display fields from the live course in the store.
   $: course = $activeCourse;
   $: progress = course ? courseProgress(course) : 0;
@@ -16,8 +14,6 @@
 
   function handleShareClick() {
     onShare();
-    copySuccess = true;
-    setTimeout(() => (copySuccess = false), 2000);
   }
 </script>
 
@@ -94,7 +90,7 @@
             class="px-3 py-2 rounded-full bg-ifa-card-muted hover:bg-ifa-bg text-ifa-text-secondary hover:text-ifa-pine border border-ifa-border text-xs font-semibold transition flex items-center gap-1.5"
           >
             <Share2 class="w-3.5 h-3.5" />
-            <span>{copySuccess ? 'Link Copied!' : 'Share'}</span>
+            <span>Share</span>
           </button>
 
           <!-- Peer Progress Compare Button (User Feature) -->

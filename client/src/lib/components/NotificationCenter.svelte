@@ -1,79 +1,104 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, tick } from 'svelte';
   import { goto } from '$app/navigation';
   import { Bell, X, BookOpen, Award, Zap, Clock } from 'lucide-svelte';
+  import { notificationsApi, type NotificationDto } from '$lib/api';
+  import { session } from '$lib/stores/sessionStore';
 
   export let isOpen = false;
 
   const dispatch = createEventDispatcher();
 
-  const notifications = [
-    {
-      id: 'notif-1',
-      type: 'course',
-      title: 'New Module Available',
-      message: 'Module 2: REST API Design is now available in C# Backend Development',
-      time: '2 hours ago',
-      read: false,
-      icon: BookOpen,
-      href: '/courses/csharp-backend'
-    },
-    {
-      id: 'notif-2',
-      type: 'achievement',
-      title: 'Achievement Unlocked',
-      message: 'You completed C# Fundamentals with a score of 85%',
-      time: '5 hours ago',
-      read: false,
-      icon: Award,
-      href: '/progress'
-    },
-    {
-      id: 'notif-3',
-      type: 'recommendation',
-      title: 'IFA Recommendation',
-      message: 'Based on your progress, we recommend learning Database Optimization',
-      time: '1 day ago',
-      read: true,
-      icon: Zap,
-      href: '/recommendations'
-    },
-    {
-      id: 'notif-4',
-      type: 'reminder',
-      title: 'Study Reminder',
-      message: 'Time to continue your learning journey! You have 2 courses in progress.',
-      time: '2 days ago',
-      read: true,
-      icon: Clock,
-      href: '/courses'
-    }
-  ];
+  let notifications: NotificationDto[] = [];
+  let unreadCount = 0;
+  let loaded = false;
+  let loading = false;
+  let error = '';
+  let panel: HTMLElement | null = null;
+  let returnFocus: HTMLElement | null = null;
+  let wasOpen = false;
+  let loadedFor: string | null = null;
 
-  let unreadCount = notifications.filter(n => !n.read).length;
+  $: unreadCount = notifications.filter((notification) => !notification.isRead).length;
+  $: if ($session.learnerId !== loadedFor) {
+    loadedFor = $session.learnerId;
+    notifications = [];
+    loaded = false;
+    error = '';
+  }
+  $: dispatch('change', { unreadCount });
+  $: if (isOpen && !loaded && !loading) void loadNotifications();
+  $: if (isOpen && !wasOpen) {
+    wasOpen = true;
+    returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    void tick().then(() => panel?.focus());
+  } else if (!isOpen && wasOpen) {
+    wasOpen = false;
+    returnFocus?.focus();
+  }
+
+  async function loadNotifications() {
+    loading = true;
+    error = '';
+    try {
+      notifications = await notificationsApi.list();
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : 'Could not load notifications.';
+    } finally {
+      loaded = true;
+      loading = false;
+    }
+  }
 
   function handleClose() {
     isOpen = false;
     dispatch('close');
   }
 
-  function markAsRead(id: string) {
-    const notification = notifications.find(n => n.id === id);
-    if (notification) {
-      notification.read = true;
-      unreadCount = notifications.filter(n => !n.read).length;
+  function handleDialogKeydown(event: KeyboardEvent) {
+    event.stopPropagation();
+    if (event.key === 'Escape') { event.preventDefault(); handleClose(); return; }
+    if (event.key !== 'Tab' || !panel) return;
+    const focusable = Array.from(panel.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'));
+    if (focusable.length === 0) { event.preventDefault(); return; }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  }
+
+  async function markAsRead(id: string) {
+    const notification = notifications.find((item) => item.id === id);
+    if (!notification || notification.isRead) return;
+    await notificationsApi.markRead(id);
+    notifications = notifications.map((item) => item.id === id ? { ...item, isRead: true } : item);
+  }
+
+  async function markAllAsRead() {
+    if (unreadCount === 0) return;
+    try {
+      await notificationsApi.markAllRead();
+      notifications = notifications.map((item) => ({ ...item, isRead: true }));
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : 'Could not update notifications.';
     }
   }
 
-  function markAllAsRead() {
-    notifications.forEach(n => n.read = true);
-    unreadCount = 0;
+  async function handleNotificationClick(notification: NotificationDto) {
+    try { await markAsRead(notification.id); } catch { /* Navigation remains available if read-state persistence fails. */ }
+    if (notification.linkUrl) await goto(notification.linkUrl);
+    handleClose();
   }
 
-  function handleNotificationClick(notification: any) {
-    markAsRead(notification.id);
-    if (notification.href) goto(notification.href);
-    handleClose();
+  function formatTime(value: string) {
+    const elapsed = Date.now() - new Date(value).getTime();
+    if (!Number.isFinite(elapsed) || elapsed < 0) return 'Recently';
+    const minutes = Math.floor(elapsed / 60_000);
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
   }
 
   function getTypeColor(type: string) {
@@ -93,10 +118,16 @@
 </script>
 
 {#if isOpen}
-  <div class="fixed inset-0 bg-black/50 flex items-start justify-end pt-16 pr-4 z-50" on:click={handleClose}>
+  <div class="fixed inset-0 bg-black/50 flex items-start justify-end pt-16 pr-4 z-50" role="presentation" on:click={handleClose}>
     <div
+      bind:this={panel}
       class="w-full max-w-md bg-ifa-card rounded-2xl border border-ifa-border shadow-2xl overflow-hidden"
+      role="dialog"
+      tabindex="-1"
+      aria-modal="true"
+      aria-label="Notifications"
       on:click|stopPropagation={() => {}}
+      on:keydown={handleDialogKeydown}
     >
       <!-- Header -->
       <div class="flex items-center justify-between px-4 py-4 border-b border-ifa-border">
@@ -121,6 +152,7 @@
           {/if}
           <button
             type="button"
+            aria-label="Close notifications"
             on:click={handleClose}
             class="p-2 text-ifa-text-muted hover:text-ifa-text-primary transition"
           >
@@ -131,7 +163,14 @@
 
       <!-- Notifications List -->
       <div class="max-h-96 overflow-y-auto">
-        {#if notifications.length === 0}
+        {#if loading}
+          <div class="p-8 text-center text-sm text-ifa-text-secondary">Loading notifications…</div>
+        {:else if error}
+          <div class="p-6 text-center">
+            <p role="alert" class="text-sm text-red-600">{error}</p>
+            <button type="button" class="mt-3 text-xs font-semibold text-ifa-pine" on:click={() => { loaded = false; void loadNotifications(); }}>Retry</button>
+          </div>
+        {:else if notifications.length === 0}
           <div class="p-8 text-center">
             <Bell class="w-12 h-12 text-ifa-text-muted mx-auto mb-2" />
             <p class="text-ifa-text-secondary text-sm">No notifications</p>
@@ -142,19 +181,19 @@
               <button
                 type="button"
                 on:click={() => handleNotificationClick(notification)}
-                class="w-full p-4 text-left hover:bg-ifa-card-muted transition {notification.read
+                class="w-full p-4 text-left hover:bg-ifa-card-muted transition {notification.isRead
                   ? 'opacity-60'
                   : 'bg-ifa-pine/5'}"
               >
                 <div class="flex items-start gap-3">
                   <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 {getTypeColor(notification.type)}">
-                    {#if notification.icon === BookOpen}
+                    {#if notification.type === 'course' || notification.type.includes('lesson')}
                       <BookOpen class="w-5 h-5" />
-                    {:else if notification.icon === Award}
+                    {:else if notification.type.includes('graded') || notification.type === 'achievement'}
                       <Award class="w-5 h-5" />
-                    {:else if notification.icon === Zap}
+                    {:else if notification.type === 'recommendation'}
                       <Zap class="w-5 h-5" />
-                    {:else if notification.icon === Clock}
+                    {:else if notification.type.includes('session') || notification.type === 'reminder'}
                       <Clock class="w-5 h-5" />
                     {:else}
                       <Bell class="w-5 h-5" />
@@ -163,12 +202,12 @@
                   <div class="flex-1 min-w-0">
                     <div class="flex items-start justify-between gap-2">
                       <h4 class="text-sm font-semibold text-ifa-text-primary">{notification.title}</h4>
-                      {#if !notification.read}
+                      {#if !notification.isRead}
                         <div class="w-2 h-2 rounded-full bg-red-500 shrink-0 mt-1.5"></div>
                       {/if}
                     </div>
                     <p class="text-xs text-ifa-text-secondary mt-1 line-clamp-2">{notification.message}</p>
-                    <p class="text-[10px] text-ifa-text-muted mt-2">{notification.time}</p>
+                    <p class="text-[10px] text-ifa-text-muted mt-2">{formatTime(notification.createdAt)}</p>
                   </div>
                 </div>
               </button>
@@ -181,6 +220,7 @@
       <div class="px-4 py-3 border-t border-ifa-border flex items-center justify-between">
         <button
           type="button"
+          disabled={unreadCount === 0}
           on:click={markAllAsRead}
           class="text-xs font-semibold text-ifa-pine hover:text-emerald-700 transition"
         >

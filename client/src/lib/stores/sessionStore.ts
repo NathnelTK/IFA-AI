@@ -1,5 +1,6 @@
 import { writable, get } from 'svelte/store';
-import { authApi, getAuthToken, setAuthToken, type LearnerMeDto } from '$lib/api';
+import { ApiError, authApi, getAuthToken, setAuthToken, type LearnerMeDto, type TokenResult } from '$lib/api';
+import { setPreferenceScope } from './preferencesStore';
 
 export interface SessionState {
 	/** True once the bootstrap attempt has finished. */
@@ -34,6 +35,7 @@ const initialState: SessionState = {
 export const session = writable<SessionState>({ ...initialState });
 
 let bootstrapPromise: Promise<SessionState> | null = null;
+let authenticationVersion = 0;
 
 /**
  * Establish a session exactly once per page load by validating any stored token
@@ -45,14 +47,30 @@ export function initSession(): Promise<SessionState> {
 	return bootstrapPromise;
 }
 
+export function refreshSession(): Promise<SessionState> {
+	bootstrapPromise = null;
+	return initSession();
+}
+
 async function bootstrap(): Promise<SessionState> {
+	const version = authenticationVersion;
 	const storedToken = getAuthToken();
 	if (storedToken) {
 		try {
 			const me = await authApi.me();
+			if (version !== authenticationVersion || getAuthToken() !== storedToken) return get(session);
 			return applyMe(me, storedToken, false);
-		} catch {
-			setAuthToken(null);
+		} catch (cause) {
+			if (cause instanceof ApiError && (cause.status === 401 || cause.status === 403)) {
+				if (version === authenticationVersion && getAuthToken() === storedToken) setAuthToken(null);
+			} else {
+				if (version !== authenticationVersion || getAuthToken() !== storedToken) return get(session);
+				const current = get(session);
+				if (current.authenticated && current.token === storedToken) {
+					return apply({ ...current, ready: true, offline: true });
+				}
+				return apply({ ...initialState, ready: true, offline: true, token: storedToken });
+			}
 		}
 	}
 
@@ -65,6 +83,7 @@ function apply(next: SessionState): SessionState {
 }
 
 function applyMe(me: LearnerMeDto, token: string, demo: boolean): SessionState {
+	setPreferenceScope(me.id);
 	return apply({
 		ready: true,
 		offline: false,
@@ -79,53 +98,59 @@ function applyMe(me: LearnerMeDto, token: string, demo: boolean): SessionState {
 	});
 }
 
-/** Sign in with email + password and hydrate the session. */
-export async function signIn(email: string, password: string): Promise<SessionState> {
-	const result = await authApi.login({ email, password });
-	setAuthToken(result.accessToken);
-	const me = await authApi.me();
-	return applyMe(me, result.accessToken, false);
+function applyToken(result: TokenResult, demo: boolean): SessionState {
+	setPreferenceScope(result.learnerId);
+	return apply({
+		ready: true,
+		offline: false,
+		demo,
+		authenticated: true,
+		learnerId: result.learnerId,
+		token: result.accessToken,
+		name: result.name || null,
+		email: result.email || null,
+		role: result.role || null,
+		avatarUrl: null
+	});
 }
 
-/** Register a new learner (optionally as an Educator) and hydrate the session. */
+/** Sign in with email + password and hydrate the session. */
+export async function signIn(email: string, password: string): Promise<SessionState> {
+	const version = ++authenticationVersion;
+	const result = await authApi.login({ email, password });
+	if (version !== authenticationVersion) return get(session);
+	setAuthToken(result.accessToken);
+	return applyToken(result, false);
+}
+
+/** Register a new learner or educator and hydrate the session. */
 export async function register(
 	name: string,
 	email: string,
 	password: string,
 	role: 'Learner' | 'Educator' = 'Learner'
 ): Promise<SessionState> {
+	const version = ++authenticationVersion;
 	const result = await authApi.register({ name, email, password, role });
+	if (version !== authenticationVersion) return get(session);
 	setAuthToken(result.accessToken);
-	const me = await authApi.me();
-	return applyMe(me, result.accessToken, false);
+	return applyToken(result, false);
 }
 
 /** One-click access to the seeded demo learner. */
 export async function continueAsDemo(): Promise<SessionState> {
+	const version = ++authenticationVersion;
 	const token = await authApi.demoLogin();
+	if (version !== authenticationVersion) return get(session);
 	setAuthToken(token.accessToken);
-	try {
-		const me = await authApi.me();
-		return applyMe(me, token.accessToken, true);
-	} catch {
-		return apply({
-			ready: true,
-			offline: false,
-			demo: true,
-			authenticated: true,
-			learnerId: token.learnerId,
-			token: token.accessToken,
-			name: token.name || null,
-			email: token.email || null,
-			role: token.role || null,
-			avatarUrl: null
-		});
-	}
+	return applyToken(token, true);
 }
 
 /** Clear the session; the layout will route back to `/login`. */
 export function signOut(): void {
+	authenticationVersion++;
 	setAuthToken(null);
+	setPreferenceScope(null);
 	bootstrapPromise = null;
 	apply({ ...initialState, ready: true });
 }

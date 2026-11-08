@@ -1,5 +1,6 @@
 
 using IFA.API.Endpoints;
+using IFA.Application.Common.Exceptions;
 using IFA.Infrastructure;
 using IFA.Infrastructure.Configuration;
 using IFA.Infrastructure.Data;
@@ -10,6 +11,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Linq;
+using Microsoft.AspNetCore.Diagnostics;
 
 // Load local secrets (see .env.example) before configuration is built so the
 // PostgreSQL password never has to be committed. Missing file is a no-op.
@@ -34,9 +36,9 @@ builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "IFA API",
+        Title = "Witforge API",
         Version = "v1",
-        Description = "Backend API for IFA — the AI-powered adaptive learning companion with 3-model pipeline architecture."
+        Description = "Backend API for Witforge learning, persisted course creation, delivery, and optional AI workflows."
     });
 });
 
@@ -123,18 +125,63 @@ using (var scope = app.Services.CreateScope())
         // create-if-empty flow by setting DB_USE_MIGRATIONS=true. This applies
         // pending migrations (e.g. AddEducatorStudioAndPayments) to an existing
         // database without a manual schema reset.
-        var useMigrations = string.Equals(
-            builder.Configuration["DB_USE_MIGRATIONS"] ?? Environment.GetEnvironmentVariable("DB_USE_MIGRATIONS"),
-            "true", StringComparison.OrdinalIgnoreCase);
+        var migrationSetting = builder.Configuration["DB_USE_MIGRATIONS"] ?? Environment.GetEnvironmentVariable("DB_USE_MIGRATIONS");
+        var useMigrations = migrationSetting == null
+            ? !db.Database.IsSqlite()
+            : string.Equals(migrationSetting, "true", StringComparison.OrdinalIgnoreCase);
 
         var dbConnection = db.Database.GetDbConnection();
         await dbConnection.OpenAsync();
 
-        if (useMigrations)
+        static async Task<bool> HasTableAsync(System.Data.Common.DbConnection connection, string tableName)
         {
-            logger.LogInformation("Applying EF Core migrations...");
-            await db.Database.MigrateAsync();
-            logger.LogInformation("Migrations applied.");
+            await using var cmd = connection.CreateCommand();
+            cmd.CommandText = "SELECT to_regclass('public.' || quote_ident(@name)) IS NOT NULL";
+            var parameter = cmd.CreateParameter(); parameter.ParameterName = "@name"; parameter.Value = tableName; cmd.Parameters.Add(parameter);
+            return (bool)(await cmd.ExecuteScalarAsync())!;
+        }
+
+        static async Task<bool> HasColumnAsync(System.Data.Common.DbConnection connection, string tableName, string columnName)
+        {
+            await using var cmd = connection.CreateCommand();
+            cmd.CommandText = """
+                SELECT EXISTS (SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = @table AND column_name = @column)
+                """;
+            var table = cmd.CreateParameter(); table.ParameterName = "@table"; table.Value = tableName; cmd.Parameters.Add(table);
+            var column = cmd.CreateParameter(); column.ParameterName = "@column"; column.Value = columnName; cmd.Parameters.Add(column);
+            return (bool)(await cmd.ExecuteScalarAsync())!;
+        }
+
+        if (db.Database.IsSqlite())
+        {
+            await db.Database.EnsureCreatedAsync();
+        }
+        else if (useMigrations)
+        {
+            var migrations = db.Database.GetMigrations().ToArray();
+            var pending = (await db.Database.GetPendingMigrationsAsync()).ToArray();
+            var latest = migrations.LastOrDefault();
+            // An earlier startup path created the first Witforge tables manually
+            // and stamped the old migration history. Reconcile that known state
+            // instead of replaying CREATE TABLE/ADD COLUMN over user data.
+            var manuallyProvisionedWitforge = pending.Length == 1 && pending[0] == latest &&
+                (await HasTableAsync(dbConnection, "LiveSessions") || await HasColumnAsync(dbConnection, "Courses", "AccentColor"));
+            if (manuallyProvisionedWitforge)
+            {
+                logger.LogInformation("Reconciling the pre-migration Witforge schema...");
+                var hadPublicationColumn = await HasColumnAsync(dbConnection, "Courses", "IsPublished");
+                await EnsureStudioSchemaAsync(dbConnection, logger);
+                if (!hadPublicationColumn) await BackfillLegacyPublicationAsync(dbConnection);
+                await RotateLegacyShareCodesAsync(dbConnection);
+                await StampMigrationHistoryAsync(dbConnection, pending, logger);
+            }
+            else
+            {
+                logger.LogInformation("Applying EF Core migrations...");
+                await db.Database.MigrateAsync();
+                logger.LogInformation("Migrations applied.");
+            }
         }
         else
         {
@@ -159,35 +206,18 @@ using (var scope = app.Services.CreateScope())
             // Stamp the migration history so a later MigrateAsync() (or a flip of
             // DB_USE_MIGRATIONS) treats this freshly created schema as current
             // instead of replaying CREATE TABLE statements over existing tables.
-            await StampMigrationHistoryAsync(dbConnection, logger);
+            await StampMigrationHistoryAsync(dbConnection, db.Database.GetMigrations(), logger);
         }
         else
         {
-            // Existing database that predates the Educator Studio. The DB was
-            // created by GenerateCreateScript (no migration history), so
-            // replaying old migrations would collide with existing tables.
-            // Instead, apply idempotent DDL for exactly the studio objects,
-            // then stamp the migration history so MigrateAsync stays a no-op.
-            var hasStudioTables = await HasTableAsync(dbConnection, "GenerationJobs");
-            if (!hasStudioTables)
-            {
-                logger.LogInformation("Pre-studio schema detected; adding studio tables and columns...");
-                await EnsureStudioSchemaAsync(dbConnection, logger);
-            }
+            // Legacy explicit non-migration mode keeps its idempotent schema path,
+            // but does not claim unapplied migrations in EF history.
+            logger.LogInformation("Ensuring additive studio and Witforge schema objects...");
+            var hadPublicationColumn = await HasColumnAsync(dbConnection, "Courses", "IsPublished");
+            await EnsureStudioSchemaAsync(dbConnection, logger);
+            if (!hadPublicationColumn) await BackfillLegacyPublicationAsync(dbConnection);
+            await RotateLegacyShareCodesAsync(dbConnection);
         }
-        }
-
-        static async Task<bool> HasTableAsync(System.Data.Common.DbConnection connection, string tableName)
-        {
-            await using var cmd = connection.CreateCommand();
-            cmd.CommandText =
-                "SELECT count(*) FROM information_schema.tables " +
-                "WHERE table_schema = 'public' AND table_type = 'BASE TABLE' AND table_name = @name";
-            var p = cmd.CreateParameter();
-            p.ParameterName = "@name";
-            p.Value = tableName;
-            cmd.Parameters.Add(p);
-            return (long)(await cmd.ExecuteScalarAsync())! > 0;
         }
 
         static async Task ExecuteAsync(System.Data.Common.DbConnection connection, string sql)
@@ -202,7 +232,9 @@ using (var scope = app.Services.CreateScope())
         /// database state: IF NOT EXISTS everywhere, so nothing collides with
         /// tables/columns that already exist.
         /// </summary>
-        static async Task EnsureStudioSchemaAsync(System.Data.Common.DbConnection connection, Microsoft.Extensions.Logging.ILogger logger)
+        static async Task EnsureStudioSchemaAsync(
+            System.Data.Common.DbConnection connection,
+            Microsoft.Extensions.Logging.ILogger logger)
         {
             // New studio tables.
             await ExecuteAsync(connection, """
@@ -300,6 +332,89 @@ using (var scope = app.Services.CreateScope())
                     CONSTRAINT "FK_Payments_Courses_CourseId" FOREIGN KEY ("CourseId") REFERENCES "Courses" ("Id") ON DELETE CASCADE);
                 """);
 
+            // Witforge tables: LiveSessions, Discussions, Assignments, AssignmentSubmissions
+            await ExecuteAsync(connection, """
+                CREATE TABLE IF NOT EXISTS "LiveSessions" (
+                    "Id" uuid NOT NULL,
+                    "CourseId" uuid NOT NULL,
+                    "Title" character varying(200) NOT NULL,
+                    "Description" character varying(2000) NOT NULL,
+                    "StartTime" timestamp with time zone NOT NULL,
+                    "DurationMinutes" integer NOT NULL DEFAULT 60,
+                    "TimeZone" character varying(64) NOT NULL DEFAULT 'UTC',
+                    "MeetingUrl" character varying(2048) NOT NULL DEFAULT '',
+                    "Status" character varying(32) NOT NULL DEFAULT 'Scheduled',
+                    "CreatedAt" timestamp with time zone NOT NULL,
+                    CONSTRAINT "PK_LiveSessions" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_LiveSessions_Courses_CourseId" FOREIGN KEY ("CourseId") REFERENCES "Courses" ("Id") ON DELETE CASCADE);
+                """);
+
+            await ExecuteAsync(connection, """
+                DO $$
+                BEGIN
+                    IF to_regclass('public."CourseDiscussions"') IS NULL
+                       AND to_regclass('public."Discussions"') IS NOT NULL THEN
+                        ALTER TABLE "Discussions" RENAME TO "CourseDiscussions";
+                    END IF;
+                END $$;
+
+                CREATE TABLE IF NOT EXISTS "CourseDiscussions" (
+                    "Id" uuid NOT NULL,
+                    "CourseId" uuid NOT NULL,
+                    "LessonId" uuid NULL,
+                    "LearnerId" uuid NOT NULL,
+                    "ParentId" uuid NULL,
+                    "Title" character varying(200) NOT NULL,
+                    "Content" text NOT NULL,
+                    "IsInstructorReply" boolean NOT NULL DEFAULT false,
+                    "CreatedAt" timestamp with time zone NOT NULL,
+                    "UpdatedAt" timestamp with time zone NOT NULL,
+                    CONSTRAINT "PK_CourseDiscussions" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_CourseDiscussions_Courses_CourseId" FOREIGN KEY ("CourseId") REFERENCES "Courses" ("Id") ON DELETE CASCADE,
+                    CONSTRAINT "FK_CourseDiscussions_Lessons_LessonId" FOREIGN KEY ("LessonId") REFERENCES "Lessons" ("Id") ON DELETE SET NULL,
+                    CONSTRAINT "FK_CourseDiscussions_Learners_LearnerId" FOREIGN KEY ("LearnerId") REFERENCES "Learners" ("Id") ON DELETE CASCADE,
+                    CONSTRAINT "FK_CourseDiscussions_CourseDiscussions_ParentId" FOREIGN KEY ("ParentId") REFERENCES "CourseDiscussions" ("Id") ON DELETE CASCADE);
+                """);
+
+            await ExecuteAsync(connection, """
+                CREATE TABLE IF NOT EXISTS "Assignments" (
+                    "Id" uuid NOT NULL,
+                    "CourseId" uuid NOT NULL,
+                    "ModuleId" uuid NULL,
+                    "LessonId" uuid NULL,
+                    "Title" character varying(200) NOT NULL,
+                    "InstructionsMarkdown" text NOT NULL,
+                    "DueDaysAfterEnrollment" integer NOT NULL DEFAULT 7,
+                    "RubricCriteriaJson" text NOT NULL DEFAULT '[]',
+                    "MaxScore" integer NOT NULL DEFAULT 100,
+                    "AllowedFileTypes" character varying(256) NOT NULL DEFAULT '.pdf,.zip,.docx,.txt',
+                    "MaxFileSizeMb" integer NOT NULL DEFAULT 25,
+                    "CreatedAt" timestamp with time zone NOT NULL,
+                    CONSTRAINT "PK_Assignments" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_Assignments_Courses_CourseId" FOREIGN KEY ("CourseId") REFERENCES "Courses" ("Id") ON DELETE CASCADE,
+                    CONSTRAINT "FK_Assignments_Modules_ModuleId" FOREIGN KEY ("ModuleId") REFERENCES "Modules" ("Id") ON DELETE SET NULL,
+                    CONSTRAINT "FK_Assignments_Lessons_LessonId" FOREIGN KEY ("LessonId") REFERENCES "Lessons" ("Id") ON DELETE SET NULL);
+                """);
+
+            await ExecuteAsync(connection, """
+                CREATE TABLE IF NOT EXISTS "AssignmentSubmissions" (
+                    "Id" uuid NOT NULL,
+                    "AssignmentId" uuid NOT NULL,
+                    "LearnerId" uuid NOT NULL,
+                    "SubmissionText" text NOT NULL,
+                    "FileUrl" character varying(2048) NULL,
+                    "FileName" character varying(256) NULL,
+                    "SubmittedAt" timestamp with time zone NOT NULL,
+                    "Status" character varying(32) NOT NULL DEFAULT 'Submitted',
+                    "Score" integer NULL,
+                    "Feedback" text NULL,
+                    "GradedAt" timestamp with time zone NULL,
+                    "GradedByEducatorId" uuid NULL,
+                    CONSTRAINT "PK_AssignmentSubmissions" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_AssignmentSubmissions_Assignments_AssignmentId" FOREIGN KEY ("AssignmentId") REFERENCES "Assignments" ("Id") ON DELETE CASCADE,
+                    CONSTRAINT "FK_AssignmentSubmissions_Learners_LearnerId" FOREIGN KEY ("LearnerId") REFERENCES "Learners" ("Id") ON DELETE CASCADE);
+                """);
+
             // Studio columns on pre-existing tables.
             await ExecuteAsync(connection, """
                 ALTER TABLE "Courses" ADD COLUMN IF NOT EXISTS "IsPaid" boolean NOT NULL DEFAULT false;
@@ -309,6 +424,23 @@ using (var scope = app.Services.CreateScope())
                 ALTER TABLE "Courses" ADD COLUMN IF NOT EXISTS "CoverImageUrl" character varying(2048) NULL;
                 ALTER TABLE "Courses" ADD COLUMN IF NOT EXISTS "CoverImageSource" character varying(16) NULL;
                 ALTER TABLE "Courses" ADD COLUMN IF NOT EXISTS "ExternalMaterials" character varying(4000) NULL;
+                ALTER TABLE "Courses" ADD COLUMN IF NOT EXISTS "AccentColor" character varying(16) NOT NULL DEFAULT '#1B3D2F';
+                ALTER TABLE "Courses" ADD COLUMN IF NOT EXISTS "ThemeMode" character varying(32) NOT NULL DEFAULT 'pine';
+                ALTER TABLE "Courses" ADD COLUMN IF NOT EXISTS "EnrollmentMode" character varying(32) NOT NULL DEFAULT 'Open';
+                ALTER TABLE "Courses" ADD COLUMN IF NOT EXISTS "PassingScorePercentage" integer NOT NULL DEFAULT 70;
+                ALTER TABLE "Courses" ADD COLUMN IF NOT EXISTS "MaxQuizAttempts" integer NOT NULL DEFAULT 3;
+                ALTER TABLE "Courses" ADD COLUMN IF NOT EXISTS "Prerequisites" character varying(2000) NULL;
+                ALTER TABLE "Courses" ADD COLUMN IF NOT EXISTS "InstructorBio" text NULL;
+                ALTER TABLE "Courses" ADD COLUMN IF NOT EXISTS "InstructorTitle" character varying(200) NULL;
+                ALTER TABLE "Courses" ADD COLUMN IF NOT EXISTS "IsPublished" boolean NOT NULL DEFAULT false;
+                ALTER TABLE "Courses" ADD COLUMN IF NOT EXISTS "Visibility" character varying(16) NOT NULL DEFAULT 'Public';
+                ALTER TABLE "Courses" ADD COLUMN IF NOT EXISTS "Level" character varying(64) NOT NULL DEFAULT 'Beginner';
+                ALTER TABLE "Courses" ADD COLUMN IF NOT EXISTS "Language" character varying(64) NOT NULL DEFAULT 'English';
+                ALTER TABLE "Courses" ADD COLUMN IF NOT EXISTS "LearningObjectives" text[] NOT NULL DEFAULT ARRAY[]::text[];
+                ALTER TABLE "Courses" ADD COLUMN IF NOT EXISTS "RequirePassingQuizzes" boolean NOT NULL DEFAULT true;
+                ALTER TABLE "Courses" ADD COLUMN IF NOT EXISTS "EnrollmentLimit" integer NULL;
+                ALTER TABLE "Courses" ADD COLUMN IF NOT EXISTS "EnrollmentOpensAt" timestamp with time zone NULL;
+                ALTER TABLE "Courses" ADD COLUMN IF NOT EXISTS "EnrollmentClosesAt" timestamp with time zone NULL;
                 ALTER TABLE "Courses" ALTER COLUMN "ThumbnailUrl" TYPE character varying(4096);
                 ALTER TABLE "Quizzes" ADD COLUMN IF NOT EXISTS "Kind" integer NOT NULL DEFAULT 0;
                 ALTER TABLE "Quizzes" ADD COLUMN IF NOT EXISTS "OrderIndex" integer NOT NULL DEFAULT 0;
@@ -326,28 +458,38 @@ using (var scope = app.Services.CreateScope())
                 CREATE INDEX IF NOT EXISTS "IX_GenerationJobs_CourseId_ModuleIndex" ON "GenerationJobs" ("CourseId", "ModuleIndex");
                 CREATE UNIQUE INDEX IF NOT EXISTS "IX_Payments_ProviderTxRef" ON "Payments" ("ProviderTxRef");
                 CREATE INDEX IF NOT EXISTS "IX_Payments_CourseId_LearnerId" ON "Payments" ("CourseId", "LearnerId");
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_Payments_OneOpenCheckout" ON "Payments" ("CourseId", "LearnerId", "Status") WHERE "Status" IN ('Pending', 'Initializing');
+                CREATE INDEX IF NOT EXISTS "IX_LiveSessions_CourseId" ON "LiveSessions" ("CourseId");
+                CREATE INDEX IF NOT EXISTS "IX_CourseDiscussions_CourseId" ON "CourseDiscussions" ("CourseId");
+                CREATE INDEX IF NOT EXISTS "IX_CourseDiscussions_LearnerId" ON "CourseDiscussions" ("LearnerId");
+                CREATE INDEX IF NOT EXISTS "IX_CourseDiscussions_LessonId" ON "CourseDiscussions" ("LessonId");
+                CREATE INDEX IF NOT EXISTS "IX_CourseDiscussions_ParentId" ON "CourseDiscussions" ("ParentId");
+                CREATE INDEX IF NOT EXISTS "IX_Assignments_CourseId" ON "Assignments" ("CourseId");
+                CREATE INDEX IF NOT EXISTS "IX_Assignments_LessonId" ON "Assignments" ("LessonId");
+                CREATE INDEX IF NOT EXISTS "IX_Assignments_ModuleId" ON "Assignments" ("ModuleId");
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_AssignmentSubmissions_AssignmentId_LearnerId" ON "AssignmentSubmissions" ("AssignmentId", "LearnerId");
+                CREATE INDEX IF NOT EXISTS "IX_AssignmentSubmissions_LearnerId" ON "AssignmentSubmissions" ("LearnerId");
+                CREATE INDEX IF NOT EXISTS "IX_Courses_IsPublished_Visibility" ON "Courses" ("IsPublished", "Visibility");
                 """);
 
             logger.LogInformation("Studio schema ensured.");
-
-            // Stamp the full migration history: the schema now matches the
-            // current model, so any later MigrateAsync() (or a flip of
-            // DB_USE_MIGRATIONS) becomes a no-op instead of replaying DDL.
-            await StampMigrationHistoryAsync(connection, logger);
         }
 
-        static async Task StampMigrationHistoryAsync(System.Data.Common.DbConnection connection, Microsoft.Extensions.Logging.ILogger logger)
+        static Task BackfillLegacyPublicationAsync(System.Data.Common.DbConnection connection) => ExecuteAsync(connection, """
+            UPDATE "Courses" SET "IsPublished" = true, "Visibility" = 'Public' WHERE "IsPublic" = true;
+            """);
+
+        static Task RotateLegacyShareCodesAsync(System.Data.Common.DbConnection connection) => ExecuteAsync(connection, """
+            UPDATE "Courses" SET "ShareCode" = upper(md5("Id"::text || clock_timestamp()::text))
+            WHERE length("ShareCode") < 20;
+            """);
+
+        static async Task StampMigrationHistoryAsync(
+            System.Data.Common.DbConnection connection,
+            IEnumerable<string> migrationIds,
+            Microsoft.Extensions.Logging.ILogger logger)
         {
-            var migrations = new[]
-            {
-                "20260917132857_InitialCreate",
-                "20260919144707_FixCompletionTrackingAndAddProfileContracts",
-                "20260921065838_ResolvePostMergeModelChanges",
-                "20260925081248_ExternalIdToAcademicEvidence",
-                "20260926090335_AddChatSessionAndLlmFoundation",
-                "20261002191535_RefactorPerLearnerStateAndProfileContracts",
-                "20261018121500_AddEducatorStudioAndPayments"
-            };
+            var migrations = migrationIds.ToArray();
 
             await ExecuteAsync(connection, """
                 CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
@@ -371,21 +513,24 @@ using (var scope = app.Services.CreateScope())
             logger.LogInformation("Migration history stamped ({Count} migration(s)).", migrations.Length);
         }
 
-        // Seed development data if in development environment
-        if (app.Environment.IsDevelopment())
+        var demoDataEnabled = app.Environment.IsDevelopment()
+            || builder.Configuration.GetValue<bool>("DemoData:Enabled")
+            || string.Equals(builder.Configuration["DEMO_DATA_ENABLED"], "true", StringComparison.OrdinalIgnoreCase);
+        if (demoDataEnabled)
         {
-            logger.LogInformation("Seeding development data...");
-            await DevSeeder.SeedAsync(db, logger);
+            if (app.Environment.IsDevelopment())
+            {
+                logger.LogInformation("Seeding development data...");
+                await DevSeeder.SeedAsync(db, logger);
+            }
+
+            await EntranceExamCourseSeeder.SeedAsync(
+                db,
+                logger,
+                enrollDemoLearner: app.Environment.IsDevelopment());
+
+            await DemoDataSeeder.SeedAsync(db, logger);
         }
-
-        await EntranceExamCourseSeeder.SeedAsync(
-            db,
-            logger,
-            enrollDemoLearner: app.Environment.IsDevelopment());
-
-        // Demo accounts + public course catalog. Idempotent, so safe to run on
-        // every startup.
-        await DemoDataSeeder.SeedAsync(db, logger);
 
         logger.LogInformation("Database initialization completed successfully.");
     }
@@ -409,10 +554,27 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(options =>
-        options.SwaggerEndpoint("/swagger/v1/swagger.json", "IFA API v1"));
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "Witforge API v1"));
 }
 
 app.UseCors(ClientCorsPolicy);
+
+app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
+{
+    var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+    if (exception is AiUnavailableException aiUnavailable)
+    {
+        context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+        await context.Response.WriteAsJsonAsync(new { code = "ai_unavailable", message = aiUnavailable.Message });
+        return;
+    }
+    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+    await context.Response.WriteAsJsonAsync(new
+    {
+        code = "server_error",
+        message = "The request could not be completed."
+    });
+}));
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -429,7 +591,7 @@ app.MapIntakeEndpoints();
 app.MapGet("/api/health", () => Results.Ok(new
 {
     status = "healthy",
-    service = "IFA.API",
+    service = "Witforge.API",
     version = "v1.0",
     database = "PostgreSQL",
     pipelines = new[] { 

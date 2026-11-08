@@ -1,12 +1,15 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { ArrowLeft, ArrowRight, CheckCircle2, Clock, Circle } from 'lucide-svelte';
+  import { ArrowLeft, ArrowRight, CheckCircle2, Clock, Circle, Loader2 } from 'lucide-svelte';
   import type { Lesson } from '$lib/types';
   import { renderMarkdown } from '$lib/utils/markdown';
 
   export let lesson: Lesson;
   export let moduleTitle: string;
   export let hasNext = false;
+  export let readOnly = false;
+  export let completing = false;
+  export let completionError = '';
 
   $: bodyHtml = renderMarkdown(lesson.contentMarkdown || (lesson.content ?? []).join('\n\n'));
 
@@ -35,11 +38,11 @@
       <h1 class="text-2xl font-bold text-ifa-text-primary">{lesson.title}</h1>
       <div class="flex items-center gap-3 mt-2 text-xs text-ifa-text-secondary">
         <span class="flex items-center gap-1"><Clock class="w-3.5 h-3.5" />{lesson.duration}</span>
-        {#if lesson.completed}
+        {#if !readOnly && lesson.completed}
           <span class="flex items-center gap-1 text-emerald-600 font-semibold">
             <CheckCircle2 class="w-3.5 h-3.5" />Completed
           </span>
-        {:else}
+        {:else if !readOnly}
           <span class="flex items-center gap-1 text-ifa-text-muted">
             <Circle class="w-3.5 h-3.5" />Not completed
           </span>
@@ -71,17 +74,23 @@
     </div>
 
     <!-- Actions -->
+    {#if completionError}<p role="alert" class="text-sm text-red-700">{completionError}</p>{/if}
     <div class="flex flex-wrap items-center gap-3 pt-4 border-t border-ifa-border">
+      {#if readOnly}
+        <p class="text-xs text-ifa-text-secondary">Saved lesson preview. Learner progress is not recorded.</p>
+      {:else}
       <button
         type="button"
         on:click={() => dispatch('complete', { lessonId: lesson.id })}
+        disabled={lesson.completed || completing}
         class="px-4 py-2.5 rounded-full text-xs font-bold transition flex items-center gap-2 shadow-sm {lesson.completed
           ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
           : 'bg-ifa-pine text-white hover:bg-ifa-pine-light'}"
       >
-        <CheckCircle2 class="w-3.5 h-3.5" />
-        <span>{lesson.completed ? 'Completed — mark incomplete' : 'Mark as complete'}</span>
+        {#if completing}<Loader2 class="w-3.5 h-3.5 animate-spin" />{:else}<CheckCircle2 class="w-3.5 h-3.5" />{/if}
+        <span>{completing ? 'Saving completion...' : lesson.completed ? 'Completed and saved' : 'Mark as complete'}</span>
       </button>
+      {/if}
 
       {#if hasNext}
         <button

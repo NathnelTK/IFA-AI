@@ -13,7 +13,8 @@
     GraduationCap,
     TrendingUp,
     FolderOpen,
-    BookOpen
+    BookOpen,
+    Sparkles
   } from 'lucide-svelte';
   import { educatorApi, type EducatorProjectDto, type EducatorDashboardDto, type EducatorEnrollmentDto } from '$lib/api';
   import { session } from '$lib/stores/sessionStore';
@@ -45,7 +46,7 @@
       const [projectList, dash, pendingList] = await Promise.all([
         educatorApi.projects(),
         educatorApi.dashboard(),
-        educatorApi.enrollments('PendingApproval').catch(() => [])
+        educatorApi.enrollments('PendingApproval')
       ]);
       projects = projectList;
       dashboard = dash;
@@ -136,6 +137,13 @@
       </div>
       <div class="flex items-center gap-2">
         <a
+          href="/studio/create?mode=ai_prompt"
+          class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-ifa-card border border-ifa-border text-ifa-pine text-sm font-semibold hover:border-ifa-pine/40 transition"
+        >
+          <Sparkles class="w-4 h-4" />
+          <span>Create with AI</span>
+        </a>
+        <a
           href="/studio/dashboard"
           class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-ifa-card border border-ifa-border text-ifa-text-secondary text-sm font-semibold hover:text-ifa-pine hover:border-ifa-pine/40 transition"
         >
@@ -144,7 +152,7 @@
         </a>
         <button
           type="button"
-          on:click={() => (showNewProject = true)}
+          on:click={() => goto('/studio/create')}
           class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-ifa-pine text-white text-sm font-bold hover:bg-ifa-pine-light transition shadow-soft"
         >
           <Plus class="w-4 h-4" />
@@ -271,12 +279,11 @@
             <GraduationCap class="w-12 h-12 text-ifa-text-muted mx-auto mb-4" />
             <p class="text-sm font-semibold text-ifa-text-primary mb-1">Build your first course</p>
             <p class="text-xs text-ifa-text-secondary mb-5 max-w-sm mx-auto">
-              Add links to your materials — PDFs, videos, websites, articles, slides — and IFA turns them into a
-              structured course you review and publish.
+              Start manually, adapt a template, or review an AI proposal. Every path leads to a saved draft you can edit, preview, and publish.
             </p>
             <button
               type="button"
-              on:click={() => (showNewProject = true)}
+              on:click={() => goto('/studio/create')}
               class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-ifa-pine text-white text-sm font-bold hover:bg-ifa-pine-light transition"
             >
               <Plus class="w-4 h-4" />

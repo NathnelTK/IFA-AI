@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowRight, TrendingUp, TrendingDown, Users, X } from 'lucide-svelte';
+  import { TrendingUp, TrendingDown, Users, X } from 'lucide-svelte';
   import { peerComparison } from '../stores/dashboardStore';
 
   export let onClose = () => {};
@@ -17,20 +17,27 @@
     <button
       type="button"
       on:click={onClose}
+      aria-label="Close peer comparison"
       class="text-ifa-text-muted hover:text-ifa-pine transition"
     >
       <X class="w-4 h-4" />
     </button>
   </div>
 
-  <!-- Head-to-Head Comparison -->
+  {#if !$peerComparison.enabled}
+    <div class="rounded-2xl border border-ifa-border bg-ifa-card-muted p-5 text-center">
+      <p class="text-sm font-semibold text-ifa-text-primary">Not enough peer data</p>
+      <p class="mt-1 text-xs text-ifa-text-secondary">A comparison appears after at least one other active learner has persisted progress.</p>
+    </div>
+  {:else}
+  <!-- Aggregate comparison -->
   <div class="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-purple-50 border border-purple-100">
     <div class="flex items-center justify-between">
       <div class="text-center flex-1">
-        <p class="text-[10px] uppercase font-bold text-emerald-700 tracking-wider mb-1">You ({$peerComparison.user})</p>
+        <p class="text-[10px] uppercase font-bold text-emerald-700 tracking-wider mb-1">You</p>
         <p class="text-2xl font-black text-emerald-900">{$peerComparison.userProgress}%</p>
         <div class="flex items-center justify-center gap-1 mt-1">
-          {#if $peerComparison.userProgress > $peerComparison.peerProgress}
+          {#if ($peerComparison.userProgress ?? 0) > ($peerComparison.peerAverage ?? 0)}
             <TrendingUp class="w-3 h-3 text-emerald-600" />
             <span class="text-[9px] font-bold text-emerald-600">Leading</span>
           {:else}
@@ -45,10 +52,10 @@
       </div>
 
       <div class="text-center flex-1">
-        <p class="text-[10px] uppercase font-bold text-purple-700 tracking-wider mb-1">Peer ({$peerComparison.peerName})</p>
-        <p class="text-2xl font-black text-purple-900">{$peerComparison.peerProgress}%</p>
+        <p class="text-[10px] uppercase font-bold text-purple-700 tracking-wider mb-1">Peer average</p>
+        <p class="text-2xl font-black text-purple-900">{$peerComparison.peerAverage}%</p>
         <div class="flex items-center justify-center gap-1 mt-1">
-          {#if $peerComparison.peerProgress > $peerComparison.userProgress}
+          {#if ($peerComparison.peerAverage ?? 0) > ($peerComparison.userProgress ?? 0)}
             <TrendingUp class="w-3 h-3 text-purple-600" />
             <span class="text-[9px] font-bold text-purple-600">Leading</span>
           {:else}
@@ -60,42 +67,9 @@
     </div>
   </div>
 
-  <!-- Skill-by-Skill Comparison -->
-  <div class="space-y-2">
-    <p class="text-[10px] font-bold text-ifa-text-secondary uppercase tracking-wider">Skill Breakdown</p>
-    {#each $peerComparison.skillComparison as skill}
-      <div class="flex items-center gap-3">
-        <div class="flex-1">
-          <div class="flex items-center justify-between mb-1">
-            <span class="text-[11px] font-semibold text-ifa-text-primary">{skill.name}</span>
-            <span class="text-[10px] font-bold text-ifa-text-secondary">{skill.userPercentage}% vs {skill.peerPercentage}%</span>
-          </div>
-          <div class="flex gap-1">
-            <div class="flex-1 h-1.5 rounded-full bg-emerald-200">
-              <div class="h-full rounded-full bg-emerald-600" style="width: {skill.userPercentage}%"></div>
-            </div>
-            <div class="flex-1 h-1.5 rounded-full bg-purple-200">
-              <div class="h-full rounded-full bg-purple-600" style="width: {skill.peerPercentage}%"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    {/each}
+  <div class="grid grid-cols-2 gap-2 text-center">
+    <div class="rounded-xl bg-ifa-card-muted p-3"><p class="text-lg font-bold text-ifa-text-primary">{$peerComparison.rank ?? '—'}</p><p class="text-[10px] text-ifa-text-secondary">Rank of {$peerComparison.totalEnrolled}</p></div>
+    <div class="rounded-xl bg-ifa-card-muted p-3"><p class="text-sm font-bold text-ifa-text-primary">{$peerComparison.paceStatus}</p><p class="text-[10px] text-ifa-text-secondary">Based on persisted course progress</p></div>
   </div>
-
-  <!-- Actions -->
-  <div class="flex gap-2 pt-2">
-    <button
-      type="button"
-      class="flex-1 text-[11px] font-semibold px-3 py-2 rounded-xl bg-ifa-pine text-white hover:bg-emerald-800 transition"
-    >
-      Share Progress
-    </button>
-    <button
-      type="button"
-      class="flex-1 text-[11px] font-semibold px-3 py-2 rounded-xl border border-ifa-border bg-ifa-card-muted hover:bg-white transition"
-    >
-      Invite Peer
-    </button>
-  </div>
+  {/if}
 </div>

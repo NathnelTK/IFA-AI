@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { Users, CheckCircle2, Globe2, Loader2, GraduationCap, TrendingUp, ShieldAlert } from 'lucide-svelte';
-  import { educatorApi, type EducatorDashboardDto, type EducatorEnrollmentDto } from '$lib/api';
+  import { apiErrorMessage, educatorApi, type EducatorDashboardDto, type EducatorEnrollmentDto } from '$lib/api';
   import { session } from '$lib/stores/sessionStore';
 
   let dashboard: EducatorDashboardDto | null = null;
@@ -10,26 +10,33 @@
   let error = '';
   let actingOn: string | null = null;
   let notice = '';
+  let courseProjects: Record<string, string> = {};
 
-  onMount(async () => {
+  onMount(() => { void loadDashboard(); });
+
+  async function loadDashboard() {
+    loading = true; error = '';
     try {
-      const [dash, pending] = await Promise.all([
+      const [dash, pending, projects] = await Promise.all([
         educatorApi.dashboard(),
-        educatorApi.enrollments('PendingApproval').catch(() => [])
+        educatorApi.enrollments('PendingApproval'),
+        educatorApi.projects()
       ]);
       dashboard = dash;
       enrollments = pending;
+      courseProjects = Object.fromEntries(projects.filter((project) => project.courseId).map((project) => [project.courseId!, project.id]));
     } catch (cause) {
-      error = cause instanceof Error ? cause.message : 'Could not load the educator dashboard.';
+      error = apiErrorMessage(cause, 'Could not load the educator dashboard.');
     } finally {
       loading = false;
     }
-  });
+  }
 
   async function handleDecision(enrollmentId: string, approve: boolean) {
     if (actingOn) return;
     actingOn = enrollmentId;
     notice = '';
+    error = '';
     try {
       if (approve) await educatorApi.approveEnrollment(enrollmentId);
       else await educatorApi.rejectEnrollment(enrollmentId);
@@ -44,10 +51,6 @@
     }
   }
 
-  /** Max activity across all courses — used to scale the mini traffic bars. */
-  $: maxTraffic = dashboard
-    ? Math.max(1, ...dashboard.courses.flatMap((c) => c.traffic.map((t) => t.activity + t.enrollments)))
-    : 1;
 </script>
 
 <div class="p-6 md:p-8 space-y-6 max-w-[1400px] mx-auto">
@@ -57,16 +60,19 @@
       <span>The Educator Studio is only available to Educator accounts.</span>
     </div>
   {:else}
-    <div>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
       <h1 class="text-2xl font-bold text-ifa-text-primary">Studio Dashboard</h1>
       <p class="text-sm text-ifa-text-secondary mt-1">Enrollments, progress and pending approvals across your courses.</p>
+      </div>
+      <button type="button" on:click={loadDashboard} disabled={loading || actingOn !== null} class="px-3 py-2 rounded-xl border border-ifa-border text-xs font-semibold text-ifa-text-primary disabled:opacity-50">Refresh Metrics</button>
     </div>
 
     {#if error}
       <p role="alert" class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
     {/if}
     {#if notice}
-      <p class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{notice}</p>
+      <p role="status" class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{notice}</p>
     {/if}
 
     {#if loading}
@@ -106,22 +112,28 @@
       </div>
 
       <!-- Per-course rows -->
+      <dl class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="rounded-2xl border border-ifa-border bg-ifa-card p-5"><dt class="text-xs text-ifa-text-secondary">Active Learners (Last 30 Days)</dt><dd class="mt-1 text-2xl font-bold text-ifa-text-primary">{dashboard.totals.activeLearnersLast30Days}</dd></div>
+        <div class="rounded-2xl border border-ifa-border bg-ifa-card p-5"><dt class="text-xs text-ifa-text-secondary">Submissions Awaiting Grading</dt><dd class="mt-1 text-2xl font-bold text-ifa-text-primary">{dashboard.totals.pendingGrading}</dd></div>
+        <div class="rounded-2xl border border-ifa-border bg-ifa-card p-5"><dt class="text-xs text-ifa-text-secondary">Upcoming Live Sessions</dt><dd class="mt-1 text-2xl font-bold text-ifa-text-primary">{dashboard.totals.upcomingLiveSessions}</dd></div>
+      </dl>
       <section class="space-y-3">
         <h2 class="text-sm font-bold text-ifa-text-primary">Your courses</h2>
         {#if dashboard.courses.length === 0}
           <div class="text-center py-12 bg-ifa-card rounded-2xl border border-ifa-border">
             <GraduationCap class="w-10 h-10 text-ifa-text-muted mx-auto mb-3" />
-            <p class="text-sm text-ifa-text-secondary">No courses yet. Approve a blueprint in a Studio project to create one.</p>
+            <p class="text-sm text-ifa-text-secondary">No courses yet. Create a manual, template, or reviewed AI draft.</p>
+            <a href="/studio/create" class="inline-block mt-3 text-sm font-semibold text-ifa-pine underline">Create Your First Course</a>
           </div>
         {:else}
           {#each dashboard.courses as course (course.courseId)}
             <div class="bg-ifa-card rounded-2xl border border-ifa-border p-5 shadow-card">
               <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
                 <div>
-                  <h3 class="text-sm font-bold text-ifa-text-primary">{course.title}</h3>
+                  <h3 class="text-sm font-bold text-ifa-text-primary"><a href={courseProjects[course.courseId] ? `/studio/${courseProjects[course.courseId]}` : `/courses/${course.courseId}?preview=1`} class="hover:underline">{course.title}</a></h3>
                   <div class="flex flex-wrap items-center gap-2 mt-1 text-[11px]">
-                    <span class="px-2 py-0.5 rounded-full font-semibold {course.isPublic ? 'bg-emerald-100 text-emerald-800' : 'bg-ifa-card-muted text-ifa-text-secondary border border-ifa-border'}">
-                      {course.isPublic ? 'Published' : 'Private'}
+                    <span class="px-2 py-0.5 rounded-full font-semibold {course.isPublished ? 'bg-emerald-100 text-emerald-800' : 'bg-ifa-card-muted text-ifa-text-secondary border border-ifa-border'}">
+                      {course.isPublished ? `Published · ${course.visibility}` : 'Draft'}
                     </span>
                     {#if course.isPaid}
                       <span class="px-2 py-0.5 rounded-full font-semibold bg-ifa-pine text-white">
@@ -155,15 +167,14 @@
                   </div>
                 </div>
 
-                <!-- Mini traffic chart (simple SVG bars) -->
-                <div class="flex items-end gap-1 h-12 min-w-[160px]">
-                  {#each course.traffic as point (point.date)}
-                    <div class="flex-1 flex flex-col items-center gap-0.5" title="{point.date}: {point.enrollments} enrollments · {point.activity} activity">
-                      <div class="w-full rounded-t bg-ifa-pine/80" style="height: {Math.max(4, ((point.activity + point.enrollments) / maxTraffic) * 100)}%"></div>
-                    </div>
-                  {/each}
-                </div>
+                <p class="text-xs text-ifa-text-secondary">Recent activity: {course.traffic.reduce((sum, point) => sum + point.activity, 0)} completed lessons</p>
               </div>
+              <dl class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 pt-4 border-t border-ifa-border text-xs">
+                <div><dt class="text-ifa-text-muted">Course Completion</dt><dd class="mt-1 font-semibold text-ifa-text-primary">{course.completedEnrollments} / {course.activeEnrollments} active enrollments ({course.completionRate}%)</dd></div>
+                <div><dt class="text-ifa-text-muted">Assessment Average</dt><dd class="mt-1 font-semibold text-ifa-text-primary">{course.avgAssessmentScore === null ? 'No attempts yet' : `${course.avgAssessmentScore}% across ${course.assessmentAttempts} attempts`}</dd></div>
+                <div><dt class="text-ifa-text-muted">Assessment Pass Rate</dt><dd class="mt-1 font-semibold text-ifa-text-primary">{course.assessmentPassRate === null ? 'No attempts yet' : `${course.assessmentPassRate}% of submitted attempts`}</dd></div>
+                <div><dt class="text-ifa-text-muted">Assignments</dt><dd class="mt-1 font-semibold text-ifa-text-primary">{course.assignmentSubmissions} submissions, {course.pendingGrading} awaiting grading</dd></div>
+              </dl>
             </div>
           {/each}
         {/if}

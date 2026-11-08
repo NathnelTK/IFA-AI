@@ -7,7 +7,7 @@
 		<link rel="preconnect" href="https://fonts.googleapis.com">
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 		<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
-		<title>IFA - Your AI Learning Companion</title>
+		<title>Witforge - Learning and Course Creation</title>
 		<script>
 			// Apply the saved/system color scheme before first paint so a first-time
 			// visitor follows their OS preference and a returning visitor keeps their
@@ -15,7 +15,7 @@
 			(function () {
 				try {
 					var theme = 'system';
-					var stored = localStorage.getItem('ifa-preferences');
+					var stored = localStorage.getItem('witforge-preferences:device') || localStorage.getItem('ifa-preferences');
 					if (stored) {
 						var parsed = JSON.parse(stored);
 						if (parsed && typeof parsed.theme === 'string') theme = parsed.theme;

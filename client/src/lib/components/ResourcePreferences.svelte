@@ -31,7 +31,7 @@
     Preferred Topics
   </h2>
   <p class="text-sm text-ifa-text-secondary mb-6">
-    Topics you want IFA to emphasize when generating and recommending courses. External sources
+    Topics you want Witforge to emphasize when generating and recommending courses. External sources
     (websites, YouTube, PDFs) are now managed in the Research section.
   </p>
 

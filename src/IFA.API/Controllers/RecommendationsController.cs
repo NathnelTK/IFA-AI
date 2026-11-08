@@ -27,58 +27,60 @@ namespace IFA.API.Controllers
 
             var weakSkills = await _context.SkillMetrics
                 .Where(s => s.LearnerId == learnerId && s.IsWeakArea)
-                .Select(s => s.SkillName)
+                .OrderBy(s => s.CompetencyPercentage)
+                .Select(s => new { s.Id, s.SkillName, s.CompetencyPercentage, s.LastAssessedAt })
                 .ToListAsync();
-
-            var hasActivity = await _context.CourseEnrollments
-                .AnyAsync(e => e.LearnerId == learnerId);
 
             var list = new List<object>();
 
-            // A brand-new learner has no weak-skill history and no enrollments, so
-            // there is nothing to base a recommendation on. Return an empty list
-            // instead of handing everyone the seeded course catalog.
-            if (!weakSkills.Any() && !hasActivity)
+            // Without an assessment-derived gap there is no evidence for a
+            // personalized recommendation yet.
+            if (!weakSkills.Any())
             {
                 return Ok(list);
             }
 
-            if (weakSkills.Any())
-            {
-                foreach (var weak in weakSkills.Take(2))
-                {
-                    list.Add(new
-                    {
-                        Id = Guid.NewGuid(),
-                        Title = $"Mastering {weak}: Deep-Dive Remediation",
-                        Reason = $"Based on your recent assessment score in {weak}.",
-                        Category = "Remediation",
-                        EstimatedHours = 4,
-                        ConfidenceScore = 0.94,
-                        ActionType = "create_course",
-                        Topic = weak
-                    });
-                }
-            }
-
-            var courses = await _context.Courses
-                .Include(c => c.Modules)
-                .Take(6)
+            var publicCourses = await _context.Courses
+                .Where(c => c.IsPublished && c.Visibility == "Public")
+                .OrderByDescending(c => c.CreatedAt)
                 .ToListAsync();
-
-            foreach (var course in courses)
+            var addedCourseIds = new HashSet<Guid>();
+            foreach (var weak in weakSkills.Take(5))
             {
+                var evidence = $"Saved assessment evidence records {weak.CompetencyPercentage}% mastery in {weak.SkillName} ({weak.LastAssessedAt:yyyy-MM-dd}).";
                 list.Add(new
                 {
-                    course.Id,
-                    course.Title,
-                    Reason = "Trending among peers studying software engineering exit exams.",
-                    Category = course.Category,
-                    EstimatedHours = 8,
-                    ConfidenceScore = 0.88,
-                    ActionType = "view_course",
-                    CourseId = course.Id
+                    weak.Id,
+                    Title = $"Review {weak.SkillName}",
+                    Reason = evidence,
+                    Category = "Learning gap",
+                    EstimatedDuration = (string?)null,
+                    ConfidenceScore = (double?)null,
+                    ActionType = "practice",
+                    Topic = weak.SkillName,
+                    EvidenceType = "Persisted assessment result"
                 });
+
+                var term = weak.SkillName.Trim();
+                foreach (var course in publicCourses.Where(c =>
+                    c.Title.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                    c.Description.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                    c.Category.Contains(term, StringComparison.OrdinalIgnoreCase)).Take(2))
+                {
+                    if (!addedCourseIds.Add(course.Id)) continue;
+                    list.Add(new
+                    {
+                        course.Id,
+                        course.Title,
+                        Reason = $"This published course explicitly matches the identified {weak.SkillName} gap. {evidence}",
+                        course.Category,
+                        course.EstimatedDuration,
+                        ConfidenceScore = (double?)null,
+                        ActionType = "view_course",
+                        CourseId = course.Id,
+                        EvidenceType = "Course metadata and persisted assessment result"
+                    });
+                }
             }
 
             return Ok(list);

@@ -19,17 +19,10 @@
   async function handleEnroll(course: CourseCard) {
     if (enrollingId) return;
     enrollError = '';
-    if (!course.shareCode) {
-      // No share code (offline demo data or a private course) — send the learner
-      // to the marketplace where the real catalog is loaded.
-      await goto('/marketplace');
-      return;
-    }
     enrollingId = course.id;
     try {
-      const result = await coursesApi.join(course.shareCode);
-      const targetId = result?.courseId || course.id;
-      await goto(`/courses/${targetId}`);
+      // The detail page handles free, approval-required, and paid enrollment.
+      await goto(`/courses/${course.id}`);
     } catch (cause) {
       enrollError = cause instanceof Error ? cause.message : 'Enrollment failed.';
     } finally {
@@ -101,11 +94,11 @@
           <p class="text-[11px] text-ifa-text-muted mt-0.5">{course.provider}</p>
 
           <div class="flex items-center justify-between text-[11px] text-ifa-text-secondary mt-2">
-            <div class="flex items-center gap-1 font-semibold text-amber-600">
+            {#if Number.parseFloat(course.reviewCount) > 0}<div class="flex items-center gap-1 font-semibold text-amber-600">
               <Star class="w-3 h-3 fill-current" />
               <span>{course.rating}</span>
               <span class="text-ifa-text-muted font-normal">({course.reviewCount})</span>
-            </div>
+            </div>{:else}<span class="text-ifa-text-muted">No reviews yet</span>{/if}
             <div class="flex items-center gap-1 text-ifa-text-muted">
               <Clock class="w-3 h-3" />
               <span>{course.duration}</span>
@@ -125,7 +118,7 @@
               <Loader2 class="w-3 h-3 animate-spin" />
               <span>Enrolling…</span>
             {:else}
-              <span>Enroll Now</span>
+              <span>Review & Enroll</span>
               <ArrowRight class="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
             {/if}
           </button>
