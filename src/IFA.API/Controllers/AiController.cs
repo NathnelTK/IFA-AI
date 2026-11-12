@@ -8,12 +8,14 @@ using IFA.Domain.Entities;
 using IFA.Infrastructure.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace IFA.API.Controllers
 {
     [ApiController]
     [Authorize]
+    [EnableRateLimiting("generation")]
     [Route("api/[controller]")]
     public class AiController : BaseApiController
     {

@@ -12,7 +12,23 @@ const isVercel = !!process.env.VERCEL;
 const config = {
 	preprocess: vitePreprocess(),
 	kit: {
-		adapter: isVercel ? vercel() : node()
+		adapter: isVercel ? vercel() : node(),
+		csp: {
+			mode: 'auto',
+			directives: {
+				'default-src': ['self'],
+				'script-src': ['self'],
+				'style-src': ['self', 'unsafe-inline'],
+				'img-src': ['self', 'data:', 'https:'],
+				'font-src': ['self', 'data:'],
+				'connect-src': ['self', 'https://*.r2.cloudflarestorage.com'],
+				'frame-src': ['self', 'https://www.youtube-nocookie.com', 'https://www.youtube.com'],
+				'object-src': ['none'],
+				'base-uri': ['self'],
+				'form-action': ['self'],
+				'frame-ancestors': ['none']
+			}
+		}
 	}
 };
 

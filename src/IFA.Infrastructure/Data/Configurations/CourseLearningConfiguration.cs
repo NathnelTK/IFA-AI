@@ -15,6 +15,8 @@ public class LiveSessionConfiguration : IEntityTypeConfiguration<LiveSession>
         builder.Property(s => s.MeetingUrl).HasMaxLength(2048);
         builder.Property(s => s.Status).HasMaxLength(32);
         builder.HasOne(s => s.Course).WithMany(c => c.LiveSessions).HasForeignKey(s => s.CourseId);
+        builder.HasOne<CourseRelease>().WithMany().HasForeignKey(s => s.ReleaseId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne<CourseCohort>().WithMany().HasForeignKey(s => s.CohortId).OnDelete(DeleteBehavior.SetNull);
     }
 }
 
@@ -54,6 +56,8 @@ public class AssignmentSubmissionConfiguration : IEntityTypeConfiguration<Assign
         builder.Property(s => s.Status).HasMaxLength(32);
         builder.HasOne(s => s.Assignment).WithMany(a => a.Submissions).HasForeignKey(s => s.AssignmentId);
         builder.HasOne(s => s.Learner).WithMany().HasForeignKey(s => s.LearnerId);
+        builder.HasOne<Asset>().WithMany().HasForeignKey(s => s.AssetId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne<ReleaseAssignment>().WithMany().HasForeignKey(s => s.ReleaseAssignmentId).OnDelete(DeleteBehavior.SetNull);
         builder.HasIndex(s => new { s.AssignmentId, s.LearnerId }).IsUnique();
     }
 }

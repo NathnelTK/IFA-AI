@@ -35,6 +35,7 @@ import type {
 	QuizAuthoringDto,
 	QuizSubmissionResultDto,
 	RecommendationDto,
+	RegistrationResult,
 	TokenResult
 } from './types';
 
@@ -44,12 +45,24 @@ import type {
  */
 
 export const authApi = {
-	register: (body: { name: string; email: string; password: string; role?: 'Learner' | 'Educator' }) =>
-		api.post<TokenResult>('/api/auth/register', body),
+	register: (body: { name: string; email: string; password: string }) =>
+		api.post<RegistrationResult>('/api/auth/register', body),
 	login: (body: { email: string; password: string }) =>
 		api.post<TokenResult>('/api/auth/login', body),
+	completeMfaLogin: (body: { challengeToken: string; code: string }) =>
+		api.post<TokenResult>('/api/auth/login/mfa', body),
 	/** No credentials required — issues a token for the seeded demo learner. */
 	demoLogin: () => api.post<TokenResult>('/api/auth/demo-login'),
+	exchangeLegacy: (body: { host: string; site: 'Auth' | 'App' | 'Public' }) =>
+		api.post<TokenResult>('/api/auth/legacy-exchange', body),
+	logout: () => api.post<void>('/api/auth/logout'),
+	verifyEmail: (token: string) => api.post<void>('/api/auth/verify-email', { token }),
+	resendVerification: (email: string) => api.post<{ message: string }>('/api/auth/resend-verification', { email }),
+	forgotPassword: (email: string) => api.post<{ message: string }>('/api/auth/forgot-password', { email }),
+	resetPassword: (token: string, password: string) => api.post<void>('/api/auth/reset-password', { token, password }),
+	beginMfaEnrollment: () => api.post<{ secret: string; otpauthUri: string }>('/api/auth/mfa/enroll'),
+	confirmMfaEnrollment: (code: string) => api.post<{ recoveryCodes: string[] }>('/api/auth/mfa/confirm', { code }),
+	disableMfa: (code: string) => api.post<void>('/api/auth/mfa/disable', { code }),
 	/** Seeded demo learners the sign-in screen can offer for one-click access. */
 	demoAccounts: () => api.get<DemoAccountDto[]>('/api/auth/demo-accounts'),
 	me: () => api.get<LearnerMeDto>('/api/auth/me'),
@@ -59,6 +72,134 @@ export const authApi = {
 			'/api/auth/me',
 			body
 		)
+};
+
+export const ssoApi = {
+	authorize: (body: { clientId: string; redirectUri: string; codeChallenge: string; state: string }) =>
+		api.post<{ redirectUrl: string }>('/api/sso/authorize', body),
+	exchange: (body: { clientId: string; redirectUri: string; code: string; codeVerifier: string }) =>
+		api.post<TokenResult>('/api/sso/token', body)
+};
+
+export const workspacesApi = {
+	mine: () => api.get<Array<{
+		id: string;
+		name: string;
+		slug: string;
+		type: string;
+		status: string;
+		membershipId: string;
+		role: string;
+		state: string;
+	}>>('/api/workspaces/mine'),
+	createIndividualApplication: (body: {
+		displayName: string;
+		title?: string;
+		bio?: string;
+		evidenceJson: string;
+	}) => api.post<{ id: string; status: string; workspaceId: string; slug: string }>(
+		'/api/workspaces/applications/individual', body),
+	createOrganizationApplication: (body: {
+		displayName: string;
+		title?: string;
+		bio?: string;
+		evidenceJson: string;
+	}) => api.post<{ id: string; status: string; workspaceId: string; slug: string }>(
+		'/api/workspaces/applications/organization', body),
+	submitApplication: (id: string) => api.post<{ id: string; status: string }>(`/api/workspaces/applications/${id}/submit`),
+	acceptInvitation: (token: string) => api.post<{ workspaceId: string }>('/api/workspaces/invitations/accept', { token }),
+	members: (workspaceId: string) => api.get<{
+		members: Array<{ id: string; accountId: string; role: string; state: string; name: string; email: string; avatarUrl?: string }>;
+		pendingInvitations: Array<{ id: string; email: string; role: string; createdAt: string; expiresAt: string }>;
+	}>(`/api/workspaces/${workspaceId}/members`),
+	invite: (workspaceId: string, email: string, role: 'Admin' | 'Instructor') =>
+		api.post(`/api/workspaces/${workspaceId}/invitations`, { email, role }),
+	revokeMember: (workspaceId: string, membershipId: string) =>
+		api.delete<void>(`/api/workspaces/${workspaceId}/members/${membershipId}`)
+};
+
+export const siteManagementApi = {
+	saveEducatorProfile: (workspaceId: string, body: Record<string, unknown>) =>
+		api.put(`/api/site-management/workspaces/${workspaceId}/educator-profile`, body),
+	publishEducatorProfile: (workspaceId: string) =>
+		api.post<void>(`/api/site-management/workspaces/${workspaceId}/educator-profile/publish`),
+	saveOrganizationSite: (workspaceId: string, body: Record<string, unknown>) =>
+		api.put(`/api/site-management/workspaces/${workspaceId}/organization-site`, body),
+	saveOrganizationPage: (workspaceId: string, body: Record<string, unknown>) =>
+		api.put(`/api/site-management/workspaces/${workspaceId}/organization-site/pages`, body),
+	publishOrganizationSite: (workspaceId: string) =>
+		api.post<void>(`/api/site-management/workspaces/${workspaceId}/organization-site/publish`),
+	addDomain: (workspaceId: string, host: string) =>
+		api.post(`/api/site-management/workspaces/${workspaceId}/domains`, { host }),
+	addExternalWebsite: (workspaceId: string, url: string) =>
+		api.post(`/api/site-management/workspaces/${workspaceId}/external-websites`, { url })
+};
+
+export const analyticsApi = {
+	workspace: (workspaceId: string, from?: string, to?: string) =>
+		api.get<any>(`/api/analytics/workspaces/${workspaceId}/overview`, { from, to })
+};
+
+export const communityApi = {
+	reviews: (courseId: string) => api.get<any>(`/api/community/courses/${courseId}/reviews`),
+	saveReview: (courseId: string, rating: number, body: string) =>
+		api.put(`/api/community/courses/${courseId}/reviews/mine`, { rating, body }),
+	reply: (reviewId: string, body: string) => api.put(`/api/community/reviews/${reviewId}/reply`, { body }),
+	report: (reviewId: string, reason: string, detail = '') =>
+		api.post(`/api/community/reviews/${reviewId}/reports`, { reason, detail }),
+	follow: (workspaceId: string) => api.post<void>(`/api/community/workspaces/${workspaceId}/follow`),
+	unfollow: (workspaceId: string) => api.delete<void>(`/api/community/workspaces/${workspaceId}/follow`)
+};
+
+export const assetsApi = {
+	createUpload: (body: {
+		workspaceId?: string;
+		courseId?: string;
+		purpose: 'CourseCover' | 'CourseMaterial' | 'AssignmentSubmission';
+		fileName: string;
+		contentType: string;
+		sizeBytes: number;
+		sha256: string;
+	}) => api.post<{
+		id: string;
+		uploadSessionId: string;
+		multipart: boolean;
+		uploadUrl?: string;
+		requiredHeaders?: Record<string, string>;
+		partSizeBytes?: number;
+		partCount?: number;
+		expiresAt: string;
+		status: string;
+	}>('/api/assets/uploads', body),
+	createPartUrl: (sessionId: string, partNumber: number) =>
+		api.post<{ uploadUrl: string; requiredHeaders: Record<string, string>; expiresAt: string }>(`/api/assets/uploads/${sessionId}/parts/${partNumber}`),
+	completeUpload: (sessionId: string, parts: Array<{ partNumber: number; eTag: string }> = []) =>
+		api.post<{ id: string; status: string }>(`/api/assets/uploads/${sessionId}/complete`, { parts }),
+	abortUpload: (sessionId: string) => api.delete<void>(`/api/assets/uploads/${sessionId}`),
+	get: (id: string) => api.get<{
+		id: string;
+		originalFileName: string;
+		contentType: string;
+		sizeBytes: number;
+		status: string;
+		rejectionCode?: string;
+	}>(`/api/assets/${id}`),
+	attachToCourse: (assetId: string, courseId: string) => api.post<void>(`/api/assets/${assetId}/attach/course/${courseId}`)
+};
+
+export const releasesApi = {
+	mine: (courseId: string) => api.get<any>(`/api/releases/course/${courseId}/mine`),
+	get: (releaseId: string) => api.get<any>(`/api/releases/${releaseId}`),
+	completeLesson: (releaseId: string, lessonId: string) =>
+		api.post<{ progressPercentage: number }>(`/api/releases/${releaseId}/lessons/${lessonId}/complete`),
+	submitQuiz: (releaseId: string, quizId: string, answers: number[]) =>
+		api.post<{
+			id: string;
+			scorePercentage: number;
+			isPassed: boolean;
+			attemptsRemaining: number;
+			explanations: Array<{ questionId: string; isCorrect: boolean; explanation: string }>;
+		}>(`/api/releases/${releaseId}/quizzes/${quizId}/attempts`, { answers })
 };
 
 export const coursesApi = {
@@ -93,7 +234,7 @@ export const coursesApi = {
 	submitAssignment: (
 		id: string,
 		assignmentId: string,
-		body: { submissionText: string; fileUrl?: string; fileName?: string }
+		body: { submissionText: string; assetId?: string }
 	) => api.post<AssignmentSubmissionDto>(`/api/courses/${id}/assignments/${assignmentId}/submit`, body)
 };
 
@@ -418,12 +559,68 @@ export const educatorApi = {
 		)
 };
 
+export const studioCoursesApi = {
+	list: () => api.get<Array<{
+		id: string;
+		workspaceId: string;
+		courseId: string;
+		mode: string;
+		state: string;
+		updatedAt: string;
+		version: number;
+		title: string;
+		description: string;
+		slug?: string;
+		coverImageUrl?: string;
+		isPublished: boolean;
+	}>>('/api/studio/courses'),
+	get: (id: string) => api.get<{
+		project: Record<string, unknown>;
+		course: Record<string, unknown>;
+		jobs: Array<Record<string, unknown>>;
+	}>(`/api/studio/courses/${id}`),
+	create: (body: {
+		mode: 'Manual' | 'Prompt' | 'Materials' | 'Template' | 'Voice';
+		workspaceId?: string;
+		title?: string;
+		description?: string;
+		prompt?: string;
+		category?: string;
+		targetAudience?: string;
+		learningObjectives?: string[];
+		templateId?: string;
+		sourceUrls?: string[];
+	}) => api.post<{
+		id: string;
+		courseId: string;
+		workspaceId: string;
+		mode: string;
+		state: string;
+		title: string;
+		slug: string;
+	}>('/api/studio/courses', body),
+	analyze: (id: string) => api.post<{ id: string; state: string; jobId: string }>(`/api/studio/courses/${id}/analyze`),
+	approve: (id: string) => api.post<{ id: string; state: string; jobId: string }>(`/api/studio/courses/${id}/approve`),
+	retry: (id: string) => api.post<{ id: string; state: string; jobId: string }>(`/api/studio/courses/${id}/retry`),
+	attachAssetSource: (id: string, assetId: string) => api.post(`/api/studio/courses/${id}/sources/assets/${assetId}`)
+};
+
 /* ------------------------------------------------------------------ */
-/* Payments (Telebirr / Chapa via Chapa checkout)                      */
+/* Payments and immutable offer snapshots                              */
 /* ------------------------------------------------------------------ */
 
 export const paymentsApi = {
-	initialize: (courseId: string, redirectUrl: string) =>
-		api.post<PaymentInitializeDto>('/api/payments/initialize', { courseId, redirectUrl }),
+	initialize: (courseId: string, redirectUrl: string, offerId?: string) =>
+		api.post<PaymentInitializeDto>('/api/payments/initialize', {
+			courseId,
+			offerId,
+			redirectUrl,
+			idempotencyKey: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${courseId}-${Date.now()}`
+		}),
 	verify: (txRef: string) => api.get<PaymentVerifyDto>(`/api/payments/verify/${txRef}`)
+};
+
+export const offersApi = {
+	active: (courseId: string) => api.get<any>(`/api/offers/course/${courseId}`),
+	createVersion: (courseId: string, body: Record<string, unknown>) => api.post(`/api/offers/course/${courseId}`, body)
 };

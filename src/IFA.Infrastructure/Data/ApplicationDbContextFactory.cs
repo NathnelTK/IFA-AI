@@ -2,6 +2,7 @@ using System;
 using IFA.Infrastructure.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.Extensions.Configuration;
 
 namespace IFA.Infrastructure.Data
 {
@@ -18,33 +19,16 @@ namespace IFA.Infrastructure.Data
         {
             EnvFile.Load();
 
+            var configuration = new ConfigurationBuilder()
+                .AddEnvironmentVariables()
+                .Build();
+
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-                .UseNpgsql(ResolveConnectionString())
+                .UseNpgsql(DatabaseConnectionResolver.Resolve(configuration, forMigrations: true))
                 .Options;
 
             return new ApplicationDbContext(options);
         }
 
-        private static string ResolveConnectionString()
-        {
-            var explicitConnection =
-                Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-                ?? Environment.GetEnvironmentVariable("IFA_DB_CONNECTION");
-
-            if (!string.IsNullOrWhiteSpace(explicitConnection))
-            {
-                return explicitConnection;
-            }
-
-            return PostgresConnectionString.Create(
-                host: Environment.GetEnvironmentVariable("DB_HOST") ?? "localhost",
-                port: ParsePort(Environment.GetEnvironmentVariable("DB_PORT")),
-                database: Environment.GetEnvironmentVariable("DB_NAME") ?? "ifa",
-                username: Environment.GetEnvironmentVariable("DB_USER") ?? "ifa",
-                password: Environment.GetEnvironmentVariable("DB_PASSWORD") ?? string.Empty);
-        }
-
-        private static int ParsePort(string? value) =>
-            int.TryParse(value, out var port) ? port : 5432;
     }
 }

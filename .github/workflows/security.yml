@@ -1,0 +1,45 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 4 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    env:
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - name: Restore locked .NET dependencies
+        run: dotnet restore IFA.slnx --locked-mode
+      - name: Audit .NET dependencies
+        run: dotnet list IFA.slnx package --vulnerable --include-transitive
+      - name: Install locked frontend dependencies
+        working-directory: client
+        run: npm ci
+      - name: Audit frontend dependencies
+        working-directory: client
+        run: npm audit --audit-level=high

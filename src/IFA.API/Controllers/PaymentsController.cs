@@ -6,10 +6,15 @@ using System.Threading.Tasks;
 using IFA.Application.Common.Interfaces;
 using IFA.Domain.Entities;
 using IFA.Infrastructure.Services;
+using IFA.Infrastructure.Configuration;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace IFA.API.Controllers
 {
@@ -22,22 +27,31 @@ namespace IFA.API.Controllers
         private readonly IChapaPaymentService _chapa;
         private readonly IConfiguration _configuration;
         private readonly ILogger<PaymentsController> _logger;
+        private readonly FeatureOptions _features;
+        private readonly TimeProvider _timeProvider;
 
         public PaymentsController(
             IApplicationDbContext context,
             IChapaPaymentService chapa,
             IConfiguration configuration,
-            ILogger<PaymentsController> logger)
+            ILogger<PaymentsController> logger,
+            IOptions<FeatureOptions> features,
+            TimeProvider timeProvider)
         {
             _context = context;
             _chapa = chapa;
             _configuration = configuration;
             _logger = logger;
+            _features = features.Value;
+            _timeProvider = timeProvider;
         }
 
         public class InitializePaymentRequest
         {
             public Guid CourseId { get; set; }
+            public Guid? OfferId { get; set; }
+            [StringLength(128)]
+            public string? IdempotencyKey { get; set; }
             [Required, StringLength(2048)]
             public string RedirectUrl { get; set; } = string.Empty;
         }
@@ -48,6 +62,7 @@ namespace IFA.API.Controllers
         /// only advances to PendingApproval after the payment verifies.
         /// </summary>
         [HttpPost("initialize")]
+        [EnableRateLimiting("payments")]
         public async Task<IActionResult> Initialize([FromBody] InitializePaymentRequest request, CancellationToken ct)
         {
             var learnerId = await GetCurrentLearnerIdAsync(_context);
@@ -58,7 +73,7 @@ namespace IFA.API.Controllers
             }
             var redirectUrl = ValidateRedirectUrl(request.RedirectUrl);
             if (redirectUrl == null)
-                return BadRequest(new { message = "Payment return URL must use a configured frontend origin." });
+                return BadRequest(new { message = "Payment return URL must use a configured Witforge payment-return origin." });
 
             await using var transaction = await CourseAccess.BeginMutationAsync(_context, ct);
             var course = await _context.Courses.FirstOrDefaultAsync(c => c.Id == request.CourseId, ct);
@@ -68,10 +83,49 @@ namespace IFA.API.Controllers
             {
                 return BadRequest(new { message = "This course is free — enroll directly instead of paying." });
             }
+            CourseOffer? offer = null;
+            var chargeAmount = course.PriceAmount;
+            var chargeCurrency = string.IsNullOrWhiteSpace(course.Currency) ? "ETB" : course.Currency;
+            if (_features.Offers)
+            {
+                if (string.IsNullOrWhiteSpace(request.IdempotencyKey))
+                    return BadRequest(new { message = "An idempotency key is required for checkout." });
+                var now = _timeProvider.GetUtcNow().UtcDateTime;
+                offer = request.OfferId.HasValue
+                    ? await _context.CourseOffers.SingleOrDefaultAsync(candidate =>
+                        candidate.Id == request.OfferId.Value
+                        && candidate.CourseId == course.Id
+                        && candidate.IsActive,
+                        ct)
+                    : await _context.CourseOffers
+                        .Where(candidate => candidate.CourseId == course.Id
+                            && candidate.IsActive
+                            && (!candidate.AvailableFrom.HasValue || candidate.AvailableFrom <= now)
+                            && (!candidate.AvailableUntil.HasValue || candidate.AvailableUntil > now))
+                        .OrderByDescending(candidate => candidate.Version)
+                        .FirstOrDefaultAsync(ct);
+                if (offer == null
+                    || offer.AvailableFrom > now
+                    || offer.AvailableUntil <= now
+                    || course.ActiveReleaseId != offer.ReleaseId)
+                    return Conflict(new { message = "The selected offer is unavailable or no longer matches the active release." });
+                chargeAmount = offer.PriceAmount;
+                chargeCurrency = offer.Currency;
+                var priorByKey = await _context.Payments.SingleOrDefaultAsync(candidate =>
+                    candidate.IdempotencyKey == request.IdempotencyKey.Trim(),
+                    ct);
+                if (priorByKey != null)
+                {
+                    if (priorByKey.LearnerId != learnerId || priorByKey.OfferId != offer.Id) return Conflict(new { message = "The idempotency key is already in use." });
+                    if (!string.IsNullOrWhiteSpace(priorByKey.CheckoutUrl))
+                        return Ok(new { checkoutUrl = priorByKey.CheckoutUrl, txRef = priorByKey.ProviderTxRef, status = priorByKey.Status });
+                    return Conflict(new { message = "Checkout initialization is already in progress for this request." });
+                }
+            }
             if (course.EnrollmentMode == "ApprovalRequired" || course.EnrollmentLimit.HasValue)
                 return Conflict(new { message = "This paid enrollment policy requires refund or expiring seat-reservation support and cannot start checkout." });
-            if (!string.Equals(course.Currency, "ETB", StringComparison.OrdinalIgnoreCase) ||
-                course.PriceAmount > 9_999_999_999.99m || decimal.Round(course.PriceAmount, 2) != course.PriceAmount)
+            if (!string.Equals(chargeCurrency, "ETB", StringComparison.OrdinalIgnoreCase) ||
+                chargeAmount > 9_999_999_999.99m || decimal.Round(chargeAmount, 2) != chargeAmount)
                 return Conflict(new { message = "The course price is not valid for the configured Chapa integration." });
 
             var enrollment = await _context.CourseEnrollments
@@ -100,6 +154,11 @@ namespace IFA.API.Controllers
             {
                 return Conflict(new { message = $"Checkout cannot start from enrollment status '{enrollment.Status}'." });
             }
+            if (offer != null && (enrollment.ReleaseId != offer.ReleaseId
+                || (offer.CohortId.HasValue && enrollment.CohortId != offer.CohortId)))
+            {
+                return Conflict(new { message = "The enrollment is not bound to the release and cohort in this offer." });
+            }
 
             var learner = await _context.Learners.FirstOrDefaultAsync(l => l.Id == learnerId, ct);
             if (string.IsNullOrWhiteSpace(learner?.Email) || string.IsNullOrWhiteSpace(learner.Name))
@@ -109,10 +168,10 @@ namespace IFA.API.Controllers
                 .Where(p => p.CourseId == course.Id && p.LearnerId == learnerId && (p.Status == "Pending" || p.Status == "Initializing"))
                 .OrderByDescending(p => p.CreatedAt)
                 .FirstOrDefaultAsync(ct);
-            var currency = string.IsNullOrWhiteSpace(course.Currency) ? "ETB" : course.Currency;
+            var currency = chargeCurrency;
             if (pendingPayment?.Status == "Initializing" && pendingPayment.CreatedAt > DateTime.UtcNow.AddMinutes(-2))
                 return Conflict(new { message = "Checkout initialization is already in progress. Retry shortly." });
-            if (!string.IsNullOrWhiteSpace(pendingPayment?.CheckoutUrl) && pendingPayment.Amount == course.PriceAmount &&
+            if (!string.IsNullOrWhiteSpace(pendingPayment?.CheckoutUrl) && pendingPayment.Amount == chargeAmount &&
                 string.Equals(pendingPayment.Currency, currency, StringComparison.OrdinalIgnoreCase))
             {
                 if (transaction != null) await transaction.CommitAsync(ct);
@@ -127,11 +186,17 @@ namespace IFA.API.Controllers
                 Id = Guid.NewGuid(),
                 LearnerId = learnerId,
                 CourseId = course.Id,
-                Amount = course.PriceAmount,
+                OfferId = offer?.Id,
+                ReleaseId = offer?.ReleaseId ?? enrollment.ReleaseId,
+                CohortId = offer?.CohortId ?? enrollment.CohortId,
+                Amount = chargeAmount,
                 Currency = currency,
                 Provider = "Chapa",
                 ProviderTxRef = txRef,
-                Status = "Initializing"
+                Status = "Initializing",
+                ReturnUrl = redirectUrl,
+                IdempotencyKey = _features.Offers ? request.IdempotencyKey!.Trim() : txRef,
+                NextVerificationAt = _timeProvider.GetUtcNow().UtcDateTime.AddMinutes(1)
             };
             _context.Add(payment);
             await _context.SaveChangesAsync(ct);
@@ -141,7 +206,7 @@ namespace IFA.API.Controllers
             var result = await _chapa.InitializeAsync(new ChapaInitializeRequest
             {
                 TxRef = txRef,
-                Amount = course.PriceAmount,
+                Amount = chargeAmount,
                 Currency = payment.Currency,
                 RedirectUrl = $"{redirectUrl}{(redirectUrl.Contains('?') ? '&' : '?')}tx_ref={Uri.EscapeDataString(txRef)}",
                 CallbackUrl = ValidHttpUrl(_configuration["CHAPA_CALLBACK_URL"]),
@@ -169,9 +234,9 @@ namespace IFA.API.Controllers
             if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https") ||
                 !string.IsNullOrEmpty(uri.UserInfo) || !string.IsNullOrEmpty(uri.Fragment)) return null;
             var origin = uri.GetLeftPart(UriPartial.Authority).TrimEnd('/');
-            var allowed = (_configuration["CORS_ALLOWED_ORIGINS"] ?? string.Empty)
+            var allowed = (_configuration["PAYMENT_RETURN_ORIGINS"] ?? string.Empty)
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Concat(_configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>())
+                .Concat(_configuration.GetSection("Payments:AllowedReturnOrigins").Get<string[]>() ?? Array.Empty<string>())
                 .Select(item => item.TrimEnd('/'));
             return allowed.Contains(origin, StringComparer.OrdinalIgnoreCase) ? uri.ToString() : null;
         }
@@ -190,6 +255,7 @@ namespace IFA.API.Controllers
         /// Completed and the enrollment advances according to its configured mode.
         /// </summary>
         [HttpGet("verify/{txRef}")]
+        [EnableRateLimiting("payments")]
         public async Task<IActionResult> Verify(string txRef, CancellationToken ct)
         {
             var learnerId = await GetCurrentLearnerIdAsync(_context);
@@ -223,7 +289,7 @@ namespace IFA.API.Controllers
                 return Conflict(new { message = "Payment details did not match the enrollment charge. Contact support." });
             }
 
-            return Ok(await MarkPaymentCompletedAsync(payment, enrollment, ct));
+            return Ok(await MarkPaymentCompletedAsync(payment, enrollment, verification, ct));
         }
 
         /// <summary>
@@ -233,6 +299,7 @@ namespace IFA.API.Controllers
         /// </summary>
         [HttpPost("webhook")]
         [AllowAnonymous]
+        [EnableRateLimiting("payment-webhooks")]
         public async Task<IActionResult> Webhook(CancellationToken ct)
         {
             string rawBody;
@@ -255,6 +322,7 @@ namespace IFA.API.Controllers
 
             try
             {
+                var payloadHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawBody))).ToLowerInvariant();
                 using var doc = JsonDocument.Parse(rawBody);
                 var txRef =
                     TryGetString(doc.RootElement, "tx_ref")
@@ -264,6 +332,28 @@ namespace IFA.API.Controllers
                 if (string.IsNullOrWhiteSpace(txRef))
                 {
                     return Ok(new { received = true });
+                }
+
+                var eventKey = $"{txRef}:{payloadHash[..16]}";
+                var webhookEvent = await _context.PaymentWebhookEvents.SingleOrDefaultAsync(candidate =>
+                    candidate.Provider == "Chapa" && candidate.EventKey == eventKey,
+                    ct);
+                if (webhookEvent?.Status == "Processed")
+                {
+                    return Ok(new { received = true });
+                }
+                if (webhookEvent == null)
+                {
+                    webhookEvent = new PaymentWebhookEvent
+                    {
+                        Provider = "Chapa",
+                        EventKey = eventKey,
+                        PayloadHash = payloadHash,
+                        Status = "Received",
+                        ReceivedAt = _timeProvider.GetUtcNow().UtcDateTime
+                    };
+                    _context.Add(webhookEvent);
+                    await _context.SaveChangesAsync(ct);
                 }
 
                 var payment = await _context.Payments
@@ -290,7 +380,10 @@ namespace IFA.API.Controllers
                 var enrollment = await _context.CourseEnrollments
                     .FirstOrDefaultAsync(e => e.CourseId == payment.CourseId && e.LearnerId == payment.LearnerId, ct);
 
-                await MarkPaymentCompletedAsync(payment, enrollment, ct);
+                await MarkPaymentCompletedAsync(payment, enrollment, verification, ct);
+                webhookEvent.Status = "Processed";
+                webhookEvent.ProcessedAt = _timeProvider.GetUtcNow().UtcDateTime;
+                await _context.SaveChangesAsync(ct);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -306,10 +399,38 @@ namespace IFA.API.Controllers
         }
 
         private async Task<object> MarkPaymentCompletedAsync(
-            Payment payment, CourseEnrollment? enrollment, CancellationToken ct)
+            Payment payment,
+            CourseEnrollment? enrollment,
+            ChapaVerifyResult verification,
+            CancellationToken ct)
         {
+            if (enrollment != null
+                && (payment.ReleaseId.HasValue && enrollment.ReleaseId != payment.ReleaseId
+                    || payment.CohortId.HasValue && enrollment.CohortId != payment.CohortId))
+            {
+                payment.Status = "Failed";
+                payment.FailureCode = "enrollment_snapshot_mismatch";
+                await _context.SaveChangesAsync(ct);
+                throw new InvalidOperationException("The payment snapshot no longer matches its enrollment.");
+            }
             payment.Status = "Completed";
-            payment.CompletedAt = DateTime.UtcNow;
+            payment.CompletedAt = _timeProvider.GetUtcNow().UtcDateTime;
+            payment.ProviderTransactionId = verification.ProviderTransactionId;
+            payment.VerificationPayloadHash = verification.PayloadHash;
+            payment.VerificationAttemptCount++;
+            payment.LeaseOwner = null;
+            payment.LeaseToken = null;
+            payment.LeaseExpiresAt = null;
+            payment.FailureCode = null;
+            _context.Add(new ProductActivityEvent
+            {
+                EventType = "payment.completed",
+                ActorAccountId = payment.LearnerId,
+                CourseId = payment.CourseId,
+                ReleaseId = payment.ReleaseId,
+                MetadataJson = JsonSerializer.Serialize(new { payment.Amount, payment.Currency, payment.OfferId }),
+                OccurredAt = payment.CompletedAt.Value
+            });
 
             string? enrollmentStatus = enrollment?.Status;
             if (enrollment != null && enrollment.Status == "PendingPayment")

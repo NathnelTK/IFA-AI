@@ -13,6 +13,11 @@ namespace IFA.Domain.Entities
         public string AvatarUrl { get; set; } = string.Empty;
         public int OverallProgress { get; set; } = 0;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? EmailVerifiedAt { get; set; }
+        public DateTime? DisabledAt { get; set; }
+        public DateTime? PasswordChangedAt { get; set; }
+        public Guid SecurityStamp { get; set; } = Guid.NewGuid();
+        public long AuthorizationVersion { get; set; }
 
         // Navigation properties
         public LearnerProfile? Profile { get; set; }
@@ -24,5 +29,6 @@ namespace IFA.Domain.Entities
         public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
         public ICollection<Assessment> Assessments { get; set; } = new List<Assessment>();
         public ICollection<LearningActivity> Activities { get; set; } = new List<LearningActivity>();
+        public ICollection<AccountRoleGrant> RoleGrants { get; set; } = new List<AccountRoleGrant>();
     }
 }

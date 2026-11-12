@@ -10,6 +10,9 @@ namespace IFA.Domain.Entities
         public bool WeeklyDigest { get; set; } = true;
         public bool AssessmentResults { get; set; } = true;
         public bool CourseRecommendations { get; set; } = true;
+        public bool Announcements { get; set; } = true;
+        public bool FollowedEducatorUpdates { get; set; } = true;
+        public bool ReviewReplies { get; set; } = true;
         public string Theme { get; set; } = "system"; // light, dark, system
         public string AccentColor { get; set; } = "pine"; // pine, ember, ocean, violet
         public string FontSize { get; set; } = "medium"; // small, medium, large

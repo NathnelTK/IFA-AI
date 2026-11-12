@@ -27,6 +27,8 @@
   import QuizView from '$lib/components/QuizView.svelte';
   import CourseChatbot from '$lib/components/CourseChatbot.svelte';
   import CourseShareDialog from '$lib/components/CourseShareDialog.svelte';
+  import AssetUploader from '$lib/components/assets/AssetUploader.svelte';
+  import CourseReviews from '$lib/components/CourseReviews.svelte';
   import {
     coursesApi,
     paymentsApi,
@@ -97,6 +99,7 @@
   let assignmentsLoaded = false;
   let assignmentsError = '';
   let submissionTexts: Record<string, string> = {};
+  let submissionAssetIds: Record<string, string> = {};
   let submittingAssignmentId: string | null = null;
   let assignmentNotice = '';
 
@@ -106,7 +109,7 @@
     discussions = []; liveSessions = []; assignments = [];
     discussionsLoaded = false; sessionsLoaded = false; assignmentsLoaded = false;
     discussionsError = ''; sessionsError = ''; assignmentsError = ''; completionError = ''; enrollmentError = ''; enrollmentNotice = '';
-    submissionTexts = {}; replyContents = {}; newDiscussionTitle = ''; newDiscussionContent = '';
+    submissionTexts = {}; submissionAssetIds = {}; replyContents = {}; newDiscussionTitle = ''; newDiscussionContent = '';
     void refreshCourse();
   }
 
@@ -320,13 +323,15 @@
 
   async function handleSubmitAssignment(assignmentId: string) {
     const text = (submissionTexts[assignmentId] ?? '').trim();
-    if (!text || submittingAssignmentId || !courseId || !canParticipate) return;
+    const assetId = submissionAssetIds[assignmentId];
+    if ((!text && !assetId) || submittingAssignmentId || !courseId || !canParticipate) return;
     submittingAssignmentId = assignmentId;
     assignmentNotice = '';
     assignmentsError = '';
     try {
       await coursesApi.submitAssignment(courseId, assignmentId, {
-        submissionText: text
+        submissionText: text,
+        assetId
       });
       assignmentNotice = 'Assignment submitted successfully!';
       await loadAssignments();
@@ -814,6 +819,11 @@
                           </span>
                         </div>
                         <p class="text-ifa-text-secondary">{a.mySubmission.submissionText}</p>
+                        {#if a.mySubmission.fileUrl}
+                          <a href={a.mySubmission.fileUrl} class="inline-flex items-center gap-1 text-xs font-semibold text-ifa-pine hover:underline">
+                            <FileCheck class="h-3.5 w-3.5" />{a.mySubmission.fileName ?? 'Download submitted file'}
+                          </a>
+                        {/if}
                         {#if a.mySubmission.feedback}
                           <p class="text-xs text-ifa-pine font-semibold pt-1">
                             Instructor Feedback: {a.mySubmission.feedback}
@@ -831,11 +841,18 @@
                           placeholder="Paste your solution, repository link, or explanation..."
                           class="w-full px-3 py-2 rounded-xl bg-ifa-bg border border-ifa-border text-xs text-ifa-text-primary resize-y"
                         ></textarea>
+                        <AssetUploader
+                          purpose="AssignmentSubmission"
+                          {courseId}
+                          accept={a.allowedFileTypes}
+                          label="Attach a scanned assignment file"
+                          on:complete={(event) => (submissionAssetIds = { ...submissionAssetIds, [a.id]: event.detail.assetId })}
+                        />
                         <div class="flex justify-end">
                           <button
                             type="button"
                             on:click={() => handleSubmitAssignment(a.id)}
-                            disabled={submittingAssignmentId === a.id || !(submissionTexts[a.id] ?? '').trim()}
+                            disabled={submittingAssignmentId === a.id || (!(submissionTexts[a.id] ?? '').trim() && !submissionAssetIds[a.id])}
                             class="px-4 py-2 rounded-xl bg-ifa-pine text-white text-xs font-bold hover:bg-ifa-pine-light transition flex items-center gap-1.5 disabled:opacity-50 shadow-sm"
                           >
                             {#if submittingAssignmentId === a.id}<Loader2 class="w-3.5 h-3.5 animate-spin" />{/if}
@@ -868,6 +885,8 @@
     </aside>
     {/if}
   </div>
+
+  <CourseReviews courseId={course.id} canReview={canParticipate && !course.isOwner} />
 
   <CourseShareDialog isOpen={shareOpen} courseId={course.id} courseTitle={course.title} on:close={() => (shareOpen = false)} />
 {/if}

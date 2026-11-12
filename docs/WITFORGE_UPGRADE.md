@@ -105,7 +105,7 @@ The working tree already contained uncommitted Witforge changes. This implementa
 
 - Certificates, advanced prerequisites/drip release, cohort rosters, attendance, native video, binary uploads, assignment-file malware scanning, and comprehensive moderation/report queues remain incomplete because their required infrastructure or product policy is not present.
 - Chapa checkout requires valid server-side credentials and webhook configuration. Payment success is never simulated.
-- AI generation, academic/web discovery, YouTube, image search, and Voxide require their respective configured services. Manual/template authoring remains fully available without them.
+- AI generation, academic/web discovery, YouTube, and image search require their respective configured services. Manual/template authoring remains fully available without them.
 - Distributed generation leases, automatic crash recovery/retry, versioned published snapshots, autosave collaboration, and full educator assignment-review UI remain follow-up work.
 
 ## Final Verification

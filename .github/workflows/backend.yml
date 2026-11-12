@@ -1,0 +1,59 @@
+name: Backend
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: "true"
+      ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=witforge_model_check;Username=postgres;Password=not-used
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore locked dependencies
+        run: dotnet restore IFA.slnx --locked-mode
+
+      - name: Build
+        run: dotnet build IFA.slnx --configuration Release --no-restore
+
+      - name: Unit tests
+        run: dotnet test tests/IFA.UnitTests/IFA.UnitTests.csproj --configuration Release --no-build --logger "trx;LogFileName=unit.trx"
+
+      - name: PostgreSQL integration tests
+        run: dotnet test tests/IFA.IntegrationTests/IFA.IntegrationTests.csproj --configuration Release --no-build --logger "trx;LogFileName=integration.trx"
+
+      - name: Install EF tool
+        run: dotnet tool install --global dotnet-ef --version 10.0.12
+
+      - name: Verify EF model snapshot
+        run: dotnet ef migrations has-pending-model-changes --project src/IFA.Infrastructure/IFA.Infrastructure.csproj --startup-project src/IFA.API/IFA.API.csproj --context ApplicationDbContext --no-build
+
+      - name: Validate Compose topology
+        run: docker compose config --quiet
+
+      - name: Build API image
+        run: docker build --file docker/Dockerfile.backend --tag witforge-api:ci .
+
+      - name: Build worker image
+        run: docker build --file docker/Dockerfile.worker --tag witforge-worker:ci .
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: "**/TestResults/*.trx"
+          if-no-files-found: ignore

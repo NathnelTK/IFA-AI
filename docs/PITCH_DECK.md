@@ -73,7 +73,6 @@ IFA uses AI to create a personalized, adaptive, and social learning experience:
 - **Research Workspace**: Scholarxiv, web, and YouTube integration
 - **Recommendation Engine**: Personalized course suggestions
 - **Hero Goal Suggestions**: AI-recommended learning goals
-- **Voice Commands**: Voxide integration for hands-free learning
 
 ### Social Learning
 - **Course Sharing**: Share courses with enrollment codes

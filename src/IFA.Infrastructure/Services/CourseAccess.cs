@@ -11,9 +11,9 @@ public sealed class CourseAccessException(int statusCode, string message) : Exce
     public int StatusCode { get; } = statusCode;
 }
 
-public sealed record CourseAccessResult(Course Course, Guid? LearnerId, CourseEnrollment? Enrollment)
+public sealed record CourseAccessResult(Course Course, Guid? LearnerId, CourseEnrollment? Enrollment, bool CanManage)
 {
-    public bool IsOwner => LearnerId.HasValue && Course.CreatorLearnerId == LearnerId;
+    public bool IsOwner => LearnerId.HasValue && CanManage;
     public bool HasContentAccess => IsOwner || (Course.IsPublished && Enrollment?.Status == "Active");
 
     public void RequireMetadata()
@@ -48,7 +48,8 @@ public static class CourseAccess
         var enrollment = learnerId.HasValue
             ? await context.CourseEnrollments.FirstOrDefaultAsync(e => e.CourseId == courseId && e.LearnerId == learnerId, ct)
             : null;
-        return new CourseAccessResult(course, learnerId, enrollment);
+        var canManage = learnerId.HasValue && await CanManageCourseAsync(context, course, learnerId.Value, ct);
+        return new CourseAccessResult(course, learnerId, enrollment, canManage);
     }
 
     // Serializable writes protect capacity, attempt limits and first-action counters across requests/hosts.
@@ -72,7 +73,7 @@ public static class CourseAccess
             var invitedCourse = invite.Course;
             if (invitedCourse == null || !invitedCourse.IsPublished || invite.CreatedAt < DateTime.UtcNow.AddDays(-7) ||
                 ((invitedCourse.Visibility == "Private" || invitedCourse.EnrollmentMode == "InviteOnly") &&
-                 invitedCourse.CreatorLearnerId != invite.SenderLearnerId))
+                 !await CanManageCourseAsync(context, invitedCourse, invite.SenderLearnerId, ct)))
                 throw new CourseAccessException(404, "Invalid or expired share code.");
             return (invitedCourse, invite);
         }
@@ -120,7 +121,7 @@ public static class CourseAccess
             }
         }
 
-        var ownerInvite = invite != null && invite.SenderLearnerId == course.CreatorLearnerId;
+        var ownerInvite = invite != null && await CanManageCourseAsync(context, course, invite.SenderLearnerId, ct);
         if (course.Visibility is not ("Public" or "Unlisted" or "Private") ||
             course.EnrollmentMode is not ("Open" or "ApprovalRequired" or "InviteOnly"))
             throw new CourseAccessException(409, "The course enrollment settings need educator review.");
@@ -138,18 +139,95 @@ public static class CourseAccess
         if (course.IsPaid && course.PriceAmount <= 0)
             throw new CourseAccessException(409, "The educator must configure a valid course price before enrollment.");
 
+        Guid? cohortId = null;
+        if (course.ActiveReleaseId.HasValue)
+        {
+            cohortId = await context.CourseCohorts
+                .Where(cohort => cohort.CourseId == course.Id
+                    && cohort.ReleaseId == course.ActiveReleaseId.Value
+                    && cohort.Status == "Open"
+                    && (!cohort.EnrollmentOpensAt.HasValue || cohort.EnrollmentOpensAt <= now)
+                    && (!cohort.EnrollmentClosesAt.HasValue || cohort.EnrollmentClosesAt > now))
+                .OrderByDescending(cohort => cohort.CreatedAt)
+                .Select(cohort => (Guid?)cohort.Id)
+                .FirstOrDefaultAsync(ct);
+            if (!cohortId.HasValue)
+                throw new CourseAccessException(409, "No enrollment cohort is open for the active course release.");
+        }
+
         var enrollment = new CourseEnrollment
         {
             CourseId = courseId,
             LearnerId = learnerId,
+            ReleaseId = course.ActiveReleaseId,
+            CohortId = cohortId,
             Status = course.IsPaid ? "PendingPayment" : course.RequiresApproval ? "PendingApproval" : "Active",
             EnrolledAt = now,
             LastAccessedAt = now
         };
         context.Add(enrollment);
+        context.Add(new ProductActivityEvent
+        {
+            EventType = "course.enrollment.requested",
+            ActorAccountId = learnerId,
+            WorkspaceId = course.WorkspaceId,
+            CourseId = course.Id,
+            ReleaseId = course.ActiveReleaseId,
+            MetadataJson = System.Text.Json.JsonSerializer.Serialize(new { enrollment.Status, enrollment.CohortId }),
+            OccurredAt = now
+        });
         if (invite != null) invite.IsAccepted = true;
         await context.SaveChangesAsync(ct);
         if (transaction != null) await transaction.CommitAsync(ct);
         return enrollment;
+    }
+
+    private static async Task<bool> CanManageCourseAsync(
+        IApplicationDbContext context,
+        Course course,
+        Guid accountId,
+        CancellationToken cancellationToken)
+    {
+        if (!course.WorkspaceId.HasValue)
+        {
+            return course.CreatorLearnerId == accountId;
+        }
+
+        var workspace = await context.EducatorWorkspaces.SingleOrDefaultAsync(
+            candidate => candidate.Id == course.WorkspaceId.Value,
+            cancellationToken);
+        if (workspace == null || workspace.Status != EducatorWorkspaceStatus.Verified)
+        {
+            return false;
+        }
+        if (workspace.Type == EducatorWorkspaceType.System)
+        {
+            return await context.AccountRoleGrants.AnyAsync(grant =>
+                grant.AccountId == accountId
+                && grant.Role == AccountRoleKind.PlatformAdmin
+                && grant.IsActive
+                && grant.RevokedAt == null,
+                cancellationToken);
+        }
+
+        var membership = await context.WorkspaceMemberships.SingleOrDefaultAsync(candidate =>
+            candidate.WorkspaceId == course.WorkspaceId.Value
+            && candidate.AccountId == accountId
+            && candidate.State == WorkspaceMembershipState.Active,
+            cancellationToken);
+        if (membership == null)
+        {
+            return false;
+        }
+        if (membership.Role is WorkspaceMembershipRole.Owner or WorkspaceMembershipRole.Admin)
+        {
+            return true;
+        }
+        return membership.Role == WorkspaceMembershipRole.Instructor
+            && await context.CourseInstructorAssignments.AnyAsync(assignment =>
+                assignment.CourseId == course.Id
+                && assignment.MembershipId == membership.Id
+                && assignment.IsActive,
+                cancellationToken);
     }
 }

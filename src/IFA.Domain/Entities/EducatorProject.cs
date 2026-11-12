@@ -11,6 +11,7 @@ namespace IFA.Domain.Entities
     {
         public Guid Id { get; set; } = Guid.NewGuid();
         public Guid EducatorLearnerId { get; set; }
+        public Guid? WorkspaceId { get; set; }
         public string Title { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         /// <summary>

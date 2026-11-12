@@ -45,7 +45,7 @@ namespace IFA.Infrastructure.Data
                 Name: "Ermiyas Eshetu",
                 Email: "ermiyas@ifa.local",
                 Password: DefaultPassword,
-                Role: "Learner",
+                Role: "Educator",
                 AvatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces",
                 Goal: "Become confident in databases and data modeling",
                 Subject: "Databases",

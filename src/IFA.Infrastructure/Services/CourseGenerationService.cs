@@ -74,6 +74,59 @@ namespace IFA.Infrastructure.Services
             return proposal;
         }
 
+        public async Task<CoursePipelineProposal> GenerateCoursePipelineProposalAsync(
+            CourseGenerationPrompt prompt,
+            ResearchPackage? researchPackage,
+            CancellationToken cancellationToken = default,
+            IReadOnlyList<string>? externalMaterials = null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var materials = (externalMaterials ?? Array.Empty<string>())
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            var userPrompt = $"""
+                Learning Goal: {prompt.Goal}
+                Subject: {prompt.Subject}
+                Current Level: {prompt.CurrentLevel}
+                Weekly Hours: {prompt.WeeklyStudyHours}
+                Category: {prompt.Category}
+                Target Audience: {prompt.TargetAudience}
+                Required Learning Objectives:
+                {string.Join("\n", prompt.LearningObjectives.Select(objective => $"- {objective}"))}
+                """;
+            if (researchPackage != null)
+            {
+                userPrompt += $"\n\nResearch summary:\n{researchPackage.Summary}";
+            }
+            if (materials.Count > 0)
+            {
+                userPrompt += "\n\nReference links (do not claim their contents without extracted evidence):\n"
+                    + string.Join("\n", materials.Select(material => $"- {material}"));
+            }
+
+            var proposal = await _llmGateway.CompleteJsonAsync<CoursePipelineProposal>(
+                PromptRegistry.Model2_CourseArchitectSystemPrompt,
+                userPrompt,
+                LlmRole.Model2_Architect,
+                cancellationToken);
+            if (proposal == null
+                || string.IsNullOrWhiteSpace(proposal.CourseTitle)
+                || proposal.CourseTitle.Length > 200
+                || proposal.Modules is not { Count: > 0 and <= 12 }
+                || proposal.Modules.Any(module => module == null
+                    || string.IsNullOrWhiteSpace(module.Title)
+                    || module.Title.Length > 200
+                    || module.KeyTopics is not { Count: > 0 and <= 8 }))
+            {
+                throw new AiUnavailableException("AI did not return a valid course proposal. No substitute course was created.");
+            }
+            proposal.Category = string.IsNullOrWhiteSpace(proposal.Category) ? prompt.Category : proposal.Category;
+            proposal.TargetAudience = string.IsNullOrWhiteSpace(proposal.TargetAudience) ? prompt.TargetAudience : proposal.TargetAudience;
+            return proposal;
+        }
+
         public async Task<GeneratedModuleResult> GenerateJitModuleAsync(JitModuleGenerationRequest request, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -398,7 +451,7 @@ namespace IFA.Infrastructure.Services
             return match.Success ? match.Groups[1].Value : null;
         }
 
-        public async Task<Course> CreateFullCourseAsync(Guid learnerId, string goal, int hoursPerWeek = 5, string preferredCreator = "freeCodeCamp", CancellationToken ct = default, IReadOnlyList<string>? externalMaterials = null, string? coverImageUrl = null, bool generateFirstModule = true)
+        public async Task<Course> CreateFullCourseAsync(Guid learnerId, string goal, int hoursPerWeek = 5, string preferredCreator = "freeCodeCamp", CancellationToken ct = default, IReadOnlyList<string>? externalMaterials = null, string? coverImageUrl = null, bool generateFirstModule = true, Guid? workspaceId = null)
         {
             // 1. Model 2 generates the Course Blueprint
             var profile = await _context.LearnerProfiles
@@ -465,9 +518,10 @@ namespace IFA.Infrastructure.Services
 
             var proposal = await GenerateCoursePipelineProposalAsync(profile, null, ct, materials);
 
+            var courseId = Guid.NewGuid();
             var course = new Course
             {
-                Id = Guid.NewGuid(),
+                Id = courseId,
                 Title = proposal.CourseTitle,
                 Description = proposal.TargetGoal,
                 Category = string.IsNullOrWhiteSpace(proposal.Category) ? "General" : proposal.Category!,
@@ -482,6 +536,11 @@ namespace IFA.Infrastructure.Services
                 IsPublished = false,
                 ShareCode = Guid.NewGuid().ToString("N").ToUpperInvariant(),
                 CreatorLearnerId = learnerId,
+                WorkspaceId = workspaceId,
+                Slug = CreateSlug(proposal.CourseTitle, courseId),
+                CreatedByAccountId = learnerId,
+                UpdatedByAccountId = learnerId,
+                UpdatedAt = DateTime.UtcNow,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -618,6 +677,16 @@ namespace IFA.Infrastructure.Services
             await _context.SaveChangesAsync(ct);
 
             return course;
+        }
+
+        private static string CreateSlug(string title, Guid id)
+        {
+            var slug = System.Text.RegularExpressions.Regex
+                .Replace(title.Trim().ToLowerInvariant(), "[^a-z0-9]+", "-")
+                .Trim('-');
+            if (string.IsNullOrWhiteSpace(slug)) slug = "course";
+            slug = slug[..Math.Min(slug.Length, 100)];
+            return $"{slug}-{id:N}"[..Math.Min(slug.Length + 9, 120)];
         }
 
         // Formats a research package into the untrusted-evidence block the Model 3

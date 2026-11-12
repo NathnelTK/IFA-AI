@@ -2,16 +2,20 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
+using System.Text.Json;
 using System.Threading.Tasks;
 using IFA.Application.Common.Interfaces;
 using IFA.Application.Common.Services;
 using IFA.Application.Courses.Commands;
 using IFA.Application.Courses.Services;
 using IFA.Domain.Entities;
+using IFA.Infrastructure.Configuration;
 using IFA.Infrastructure.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace IFA.API.Controllers
 {
@@ -24,17 +28,29 @@ namespace IFA.API.Controllers
         private readonly CourseGenerationService _generationService;
         private readonly ICourseSharingService _sharingService;
         private readonly IActivityService _activityService;
+        private readonly IPlatformAuthorizationService _authorization;
+        private readonly IAuthoringWorkspaceService _authoringWorkspaces;
+        private readonly FeatureOptions _features;
+        private readonly IReleaseProgressService _releaseProgress;
 
         public CoursesController(
             IApplicationDbContext context,
             CourseGenerationService generationService,
             ICourseSharingService sharingService,
-            IActivityService activityService)
+            IActivityService activityService,
+            IPlatformAuthorizationService authorization,
+            IAuthoringWorkspaceService authoringWorkspaces,
+            IOptions<FeatureOptions> features,
+            IReleaseProgressService releaseProgress)
         {
             _context = context;
             _generationService = generationService;
             _sharingService = sharingService;
             _activityService = activityService;
+            _authorization = authorization;
+            _authoringWorkspaces = authoringWorkspaces;
+            _features = features.Value;
+            _releaseProgress = releaseProgress;
         }
 
         /// <summary>Mirrors Course.ThumbnailUrl's column length.</summary>
@@ -51,18 +67,20 @@ namespace IFA.API.Controllers
             public string? CoverImageUrl { get; set; }
             /// <summary>When false, only the blueprint is saved (no Module 1 content); content is generated later, per module, from the course page.</summary>
             public bool GenerateFirstModule { get; set; } = true;
+            public Guid? WorkspaceId { get; set; }
         }
 
         [HttpGet]
         public async Task<IActionResult> GetMyCourses()
         {
             var learnerId = await GetCurrentLearnerIdAsync(_context);
+            var manageableCourseIds = await _authorization.GetManageableCourseIdsAsync(learnerId, HttpContext.RequestAborted);
 
             var enrollments = await _context.CourseEnrollments
                 .Include(e => e.Course)
                 .ThenInclude(c => c!.Modules)
                 .ThenInclude(m => m.Lessons)
-                .Where(e => e.LearnerId == learnerId && (e.Course!.IsPublished || e.Course.CreatorLearnerId == learnerId))
+                .Where(e => e.LearnerId == learnerId && (e.Course!.IsPublished || manageableCourseIds.Contains(e.CourseId)))
                 .OrderByDescending(e => e.LastAccessedAt)
                 .ToListAsync();
 
@@ -70,7 +88,7 @@ namespace IFA.API.Controllers
             foreach (var e in enrollments)
             {
                 var course = e.Course!;
-                var isOwner = course.CreatorLearnerId == learnerId;
+                var isOwner = manageableCourseIds.Contains(course.Id);
                 var progress = await CourseProgress.GetAsync(_context, course, isOwner ? null : learnerId, HttpContext.RequestAborted);
                 courses.Add(new
                 {
@@ -104,7 +122,7 @@ namespace IFA.API.Controllers
             var ownedCourses = await _context.Courses
                 .Include(c => c.Modules)
                 .ThenInclude(m => m.Lessons)
-                .Where(c => c.CreatorLearnerId == learnerId && !enrolledCourseIds.Contains(c.Id))
+                .Where(c => manageableCourseIds.Contains(c.Id) && !enrolledCourseIds.Contains(c.Id))
                 .OrderByDescending(c => c.CreatedAt)
                 .ToListAsync();
             foreach (var course in ownedCourses)
@@ -227,8 +245,11 @@ namespace IFA.API.Controllers
         }
 
         [HttpPost]
+        [EnableRateLimiting("generation")]
         public async Task<IActionResult> CreateCourse([FromBody] CreateCourseRequest request)
         {
+            if (_features.UnifiedAuthoring)
+                return Conflict(new { code = "use_unified_authoring", message = "Create course drafts through /api/studio/courses." });
             if (!IsCurrentUserInRole("Educator"))
             {
                 return StatusCode(403, new { message = "Educator role required to create courses." });
@@ -251,6 +272,18 @@ namespace IFA.API.Controllers
             }
 
             var learnerId = await GetCurrentLearnerIdAsync(_context);
+            Guid? workspaceId;
+            try
+            {
+                workspaceId = await _authoringWorkspaces.ResolveForCreationAsync(
+                    learnerId,
+                    request.WorkspaceId,
+                    HttpContext.RequestAborted);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
 
             Course course;
             try
@@ -263,7 +296,8 @@ namespace IFA.API.Controllers
                     ct: HttpContext.RequestAborted,
                     externalMaterials: request.Materials,
                     coverImageUrl: request.CoverImageUrl,
-                    generateFirstModule: request.GenerateFirstModule);
+                    generateFirstModule: request.GenerateFirstModule,
+                    workspaceId: workspaceId);
             }
             catch (InvalidOperationException ex) when (ex is not IFA.Application.Common.Exceptions.AiUnavailableException)
             {
@@ -296,7 +330,7 @@ namespace IFA.API.Controllers
                 .Include(c => c.Assignments)
                 .AsSplitQuery().FirstOrDefaultAsync(c => c.Id == id);
             if (course == null) return NotFound();
-            if (course.CreatorLearnerId != learnerId)
+            if (!await _authorization.CanManageCourseAsync(learnerId, course.Id, HttpContext.RequestAborted))
             {
                 return StatusCode(403, new { message = "You do not own this course." });
             }
@@ -313,7 +347,7 @@ namespace IFA.API.Controllers
                 .Where(e => e.CourseId == id && e.Status == "PendingPayment")
                 .ToListAsync();
             foreach (var enrollment in strandedPayments) enrollment.Status = "PendingApproval";
-            var projects = await _context.EducatorProjects.Where(p => p.CourseId == id && p.EducatorLearnerId == learnerId).ToListAsync();
+            var projects = await _context.EducatorProjects.Where(p => p.CourseId == id).ToListAsync();
             foreach (var project in projects)
             {
                 project.Status = "Published";
@@ -335,6 +369,9 @@ namespace IFA.API.Controllers
         public async Task<IActionResult> GetMarketplace([FromQuery] string? category, [FromQuery] string? search, CancellationToken ct)
         {
             var viewerId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var currentId) ? (Guid?)currentId : null;
+            var manageableCourseIds = viewerId.HasValue
+                ? await _authorization.GetManageableCourseIdsAsync(viewerId.Value, ct)
+                : Array.Empty<Guid>();
             var query = _context.Courses
                 .Include(c => c.Modules)
                 .Where(c => c.IsPublished && c.Visibility == "Public");
@@ -384,11 +421,11 @@ namespace IFA.API.Controllers
                      ModuleCount = c.Modules.Count,
                      c.ShareCode,
                      EnrollmentCount = c.Enrollments.Count(e => e.Status == "Active" && e.LearnerId != c.CreatorLearnerId),
-                     IsOwner = viewerId.HasValue && c.CreatorLearnerId == viewerId.Value,
+                      IsOwner = viewerId.HasValue && manageableCourseIds.Contains(c.Id),
                      EnrollmentStatus = viewerId.HasValue
                          ? c.Enrollments.Where(e => e.LearnerId == viewerId.Value).Select(e => e.Status).FirstOrDefault()
                          : null,
-                     HasContentAccess = viewerId.HasValue && (c.CreatorLearnerId == viewerId.Value ||
+                      HasContentAccess = viewerId.HasValue && (manageableCourseIds.Contains(c.Id) ||
                          c.Enrollments.Any(e => e.LearnerId == viewerId.Value && e.Status == "Active"))
                  })
                  .ToListAsync(ct);
@@ -688,7 +725,7 @@ namespace IFA.API.Controllers
                     a.MaxFileSizeMb,
                     a.CreatedAt,
                     DueAt = enrolledAt.HasValue ? (DateTime?)enrolledAt.Value.AddDays(a.DueDaysAfterEnrollment) : null,
-                    SubmissionMode = "TextOnly",
+                    SubmissionMode = "TextOrFile",
                     MySubmission = a.Submissions
                         .Where(s => s.LearnerId == learnerId)
                         .OrderByDescending(s => s.SubmittedAt)
@@ -696,8 +733,9 @@ namespace IFA.API.Controllers
                         {
                             s.Id,
                             s.SubmissionText,
-                            s.FileUrl,
+                            FileUrl = s.AssetId.HasValue ? $"/api/assets/{s.AssetId}/download" : s.FileUrl,
                             s.FileName,
+                            s.AssetId,
                             s.SubmittedAt,
                             s.Status,
                             s.Score,
@@ -713,8 +751,7 @@ namespace IFA.API.Controllers
         public class SubmitAssignmentDto
         {
             public string SubmissionText { get; set; } = string.Empty;
-            public string? FileUrl { get; set; }
-            public string? FileName { get; set; }
+            public Guid? AssetId { get; set; }
         }
 
         [HttpPost("{id}/assignments/{assignmentId:guid}/submit")]
@@ -723,12 +760,37 @@ namespace IFA.API.Controllers
             await using var transaction = await CourseAccess.BeginMutationAsync(_context, HttpContext.RequestAborted);
             var access = await RequireCourseContentAsync(id, learnerMutation: true);
             var learnerId = access.LearnerId!.Value;
-            if (string.IsNullOrWhiteSpace(dto.SubmissionText) || dto.SubmissionText.Length > 50000)
-                return BadRequest(new { message = "Submission text must contain 1-50000 characters." });
-            if (!string.IsNullOrWhiteSpace(dto.FileUrl) || !string.IsNullOrWhiteSpace(dto.FileName))
-                return BadRequest(new { message = "File uploads are not supported. Submit text only; external URLs are not verified uploaded files." });
+            if (dto.SubmissionText.Length > 50000 || (string.IsNullOrWhiteSpace(dto.SubmissionText) && !dto.AssetId.HasValue))
+                return BadRequest(new { message = "Provide submission text, a clean uploaded file, or both." });
             var assignment = await _context.Assignments.FirstOrDefaultAsync(a => a.Id == assignmentId && a.CourseId == id);
             if (assignment == null) return NotFound(new { message = "Assignment not found." });
+            var releaseAssignment = access.Enrollment?.ReleaseId.HasValue == true
+                ? await _context.ReleaseAssignments.SingleOrDefaultAsync(candidate =>
+                    candidate.ReleaseId == access.Enrollment.ReleaseId.Value
+                    && candidate.SourceAssignmentId == assignment.Id)
+                : null;
+            Asset? asset = null;
+            if (dto.AssetId.HasValue)
+            {
+                asset = await _context.Assets.SingleOrDefaultAsync(candidate => candidate.Id == dto.AssetId.Value);
+                if (asset == null
+                    || asset.OwnerAccountId != learnerId
+                    || asset.Purpose != "AssignmentSubmission"
+                    || asset.Status != AssetStatus.Clean
+                    || asset.WorkspaceId != access.Course.WorkspaceId)
+                {
+                    return BadRequest(new { message = "The selected upload is not a clean assignment asset for this course." });
+                }
+                var extension = Path.GetExtension(asset.OriginalFileName).ToLowerInvariant();
+                var allowed = assignment.AllowedFileTypes
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(value => value.ToLowerInvariant())
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                if (!allowed.Contains(extension) || asset.SizeBytes > assignment.MaxFileSizeMb * 1024L * 1024L)
+                {
+                    return BadRequest(new { message = "The uploaded file does not meet this assignment's type or size policy." });
+                }
+            }
             if (assignment.DueDaysAfterEnrollment < 0 ||
                 (assignment.DueDaysAfterEnrollment > 0 && DateTime.UtcNow > access.Enrollment!.EnrolledAt.AddDays(assignment.DueDaysAfterEnrollment)))
                 return Conflict(new { message = "The assignment submission deadline has passed. Contact the educator." });
@@ -744,7 +806,9 @@ namespace IFA.API.Controllers
                         : "A submission is already awaiting instructor review." });
                 existing.SubmissionText = dto.SubmissionText.Trim();
                 existing.FileUrl = null;
-                existing.FileName = null;
+                existing.FileName = asset?.OriginalFileName;
+                existing.AssetId = asset?.Id;
+                existing.ReleaseAssignmentId = releaseAssignment?.Id;
                 existing.SubmittedAt = DateTime.UtcNow;
                 existing.Status = "Submitted";
                 existing.Score = null;
@@ -759,21 +823,64 @@ namespace IFA.API.Controllers
                     AssignmentId = assignmentId,
                     LearnerId = learnerId,
                     SubmissionText = dto.SubmissionText.Trim(),
+                    FileName = asset?.OriginalFileName,
+                    AssetId = asset?.Id,
+                    ReleaseAssignmentId = releaseAssignment?.Id,
                     SubmittedAt = DateTime.UtcNow,
                     Status = "Submitted"
                 };
                 _context.Add(existing);
             }
 
+            var oldReferences = await _context.AssetReferences
+                .Where(reference => (reference.EntityType == nameof(AssignmentSubmission)
+                        && reference.EntityId == existing.Id)
+                    || (reference.EntityType == nameof(Course)
+                        && reference.EntityId == id
+                        && reference.Purpose == $"Assignment:{existing.Id}"))
+                .ToListAsync();
+            foreach (var reference in oldReferences) _context.Remove(reference);
+            if (asset != null)
+            {
+                _context.Add(new AssetReference
+                {
+                    AssetId = asset.Id,
+                    EntityType = nameof(AssignmentSubmission),
+                    EntityId = existing.Id,
+                    Purpose = "Submission",
+                    CreatedByAccountId = learnerId
+                });
+                _context.Add(new AssetReference
+                {
+                    AssetId = asset.Id,
+                    EntityType = nameof(Course),
+                    EntityId = id,
+                    Purpose = $"Assignment:{existing.Id}",
+                    CreatedByAccountId = learnerId
+                });
+            }
+
             await _context.SaveChangesAsync();
+            if (releaseAssignment != null && access.Enrollment != null)
+            {
+                await _releaseProgress.RecordAsync(
+                    access.Enrollment.Id,
+                    "Assignment",
+                    releaseAssignment.Id,
+                    100,
+                    "Completed",
+                    JsonSerializer.Serialize(new { submissionId = existing.Id, status = existing.Status }),
+                    HttpContext.RequestAborted);
+            }
             if (transaction != null) await transaction.CommitAsync(HttpContext.RequestAborted);
             return Ok(new
             {
                 existing.Id,
                 existing.AssignmentId,
                 existing.SubmissionText,
-                existing.FileUrl,
+                FileUrl = existing.AssetId.HasValue ? $"/api/assets/{existing.AssetId}/download" : existing.FileUrl,
                 existing.FileName,
+                existing.AssetId,
                 existing.SubmittedAt,
                 existing.Status,
                 existing.Score,

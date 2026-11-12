@@ -4,5 +4,11 @@
     <Project Path="src/IFA.Application/IFA.Application.csproj" />
     <Project Path="src/IFA.Domain/IFA.Domain.csproj" />
     <Project Path="src/IFA.Infrastructure/IFA.Infrastructure.csproj" />
+    <Project Path="src/IFA.Worker/IFA.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/IFA.IntegrationTests/IFA.IntegrationTests.csproj" />
+    <Project Path="tests/IFA.Testing/IFA.Testing.csproj" />
+    <Project Path="tests/IFA.UnitTests/IFA.UnitTests.csproj" />
   </Folder>
 </Solution>

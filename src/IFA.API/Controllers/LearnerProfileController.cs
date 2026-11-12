@@ -92,10 +92,10 @@ namespace IFA.API.Controllers
                 {
                     Id = Guid.NewGuid(),
                     LearnerId = learnerId,
-                    ActiveStreakDays = 3,
-                    TotalHoursLearned = 14.5,
-                    CompletedLessonsCount = 8,
-                    CompletedQuizzesCount = 3,
+                    ActiveStreakDays = 0,
+                    TotalHoursLearned = 0,
+                    CompletedLessonsCount = 0,
+                    CompletedQuizzesCount = 0,
                     UpdatedAt = DateTime.UtcNow
                 };
                 _context.Add(state);

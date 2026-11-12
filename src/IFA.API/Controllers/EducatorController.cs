@@ -13,9 +13,12 @@ using IFA.Application.Common.Models;
 using IFA.Application.Common.Services;
 using IFA.Domain.Entities;
 using IFA.Infrastructure.AI;
+using IFA.Infrastructure.Configuration;
 using IFA.Infrastructure.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace IFA.API.Controllers
 {
@@ -33,6 +36,10 @@ namespace IFA.API.Controllers
         private readonly IImageResourceService _imageService;
         private readonly ILlmGateway _llmGateway;
         private readonly INotificationService _notificationService;
+        private readonly IPlatformAuthorizationService _authorization;
+        private readonly IAuthoringWorkspaceService _authoringWorkspaces;
+        private readonly FeatureOptions _features;
+        private readonly ICourseReleaseService _releases;
 
         public EducatorController(
             IApplicationDbContext context,
@@ -42,7 +49,11 @@ namespace IFA.API.Controllers
             IAcademicResearchService researchService,
             IImageResourceService imageService,
             ILlmGateway llmGateway,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            IPlatformAuthorizationService authorization,
+            IAuthoringWorkspaceService authoringWorkspaces,
+            IOptions<FeatureOptions> features,
+            ICourseReleaseService releases)
         {
             _context = context;
             _ingestionService = ingestionService;
@@ -52,6 +63,10 @@ namespace IFA.API.Controllers
             _imageService = imageService;
             _llmGateway = llmGateway;
             _notificationService = notificationService;
+            _authorization = authorization;
+            _authoringWorkspaces = authoringWorkspaces;
+            _features = features.Value;
+            _releases = releases;
         }
 
         // ------------------------------------------------------------------
@@ -88,7 +103,7 @@ namespace IFA.API.Controllers
                 .FirstOrDefaultAsync(p => p.Id == projectId, ct);
 
             if (project == null) return (null, NotFound(new { message = "Project not found." }));
-            if (project.EducatorLearnerId != learnerId)
+            if (!await _authorization.CanManageProjectAsync(learnerId, project.Id, ct))
             {
                 return (null, StatusCode(403, new { message = "You do not own this project." }));
             }
@@ -109,7 +124,7 @@ namespace IFA.API.Controllers
                 .FirstOrDefaultAsync(c => c.Id == courseId, ct);
 
             if (course == null) return (null, NotFound(new { message = "Course not found." }));
-            if (course.CreatorLearnerId != learnerId)
+            if (!await _authorization.CanManageCourseAsync(learnerId, course.Id, ct))
             {
                 return (null, StatusCode(403, new { message = "You do not own this course." }));
             }
@@ -139,6 +154,14 @@ namespace IFA.API.Controllers
             if (accentColor != null && !Regex.IsMatch(accentColor, "^#[0-9A-Fa-f]{6}$")) return "Use a six-digit hex accent color.";
             if (themeMode != null && themeMode is not ("pine" or "slate" or "emerald" or "indigo" or "teal" or "amber")) return "Choose a supported theme palette.";
             return null;
+        }
+
+        private static string CourseSlug(string? title, Guid id)
+        {
+            var value = Regex.Replace((title ?? string.Empty).Trim().ToLowerInvariant(), "[^a-z0-9]+", "-").Trim('-');
+            if (string.IsNullOrWhiteSpace(value)) value = "course";
+            value = value[..Math.Min(value.Length, 100)];
+            return $"{value}-{id:N}"[..Math.Min(value.Length + 9, 120)];
         }
 
         private async Task SyncProjectAsync(Course course, CancellationToken ct)
@@ -247,6 +270,7 @@ namespace IFA.API.Controllers
             public string Title { get; set; } = string.Empty;
             [StringLength(2000)]
             public string Description { get; set; } = string.Empty;
+            public Guid? WorkspaceId { get; set; }
         }
 
         private static object ProjectSummaryDto(EducatorProject p) => new
@@ -257,6 +281,7 @@ namespace IFA.API.Controllers
             status = p.Status,
             sourceCount = p.Sources.Count,
             courseId = p.CourseId,
+            workspaceId = p.WorkspaceId,
             createdAt = p.CreatedAt,
             updatedAt = p.UpdatedAt
         };
@@ -268,9 +293,10 @@ namespace IFA.API.Controllers
             if (guard != null) return guard;
 
             var learnerId = await GetCurrentLearnerIdAsync(_context);
+            var manageableProjectIds = await _authorization.GetManageableProjectIdsAsync(learnerId, ct);
             var projects = await _context.EducatorProjects
                 .Include(p => p.Sources)
-                .Where(p => p.EducatorLearnerId == learnerId)
+                .Where(p => manageableProjectIds.Contains(p.Id))
                 .OrderByDescending(p => p.UpdatedAt)
                 .ToListAsync(ct);
 
@@ -280,6 +306,8 @@ namespace IFA.API.Controllers
         [HttpPost("projects")]
         public async Task<IActionResult> CreateProject([FromBody] CreateProjectRequest request, CancellationToken ct)
         {
+            if (_features.UnifiedAuthoring)
+                return Conflict(new { code = "use_unified_authoring", message = "Create course drafts through /api/studio/courses." });
             var guard = EducatorGuard();
             if (guard != null) return guard;
 
@@ -289,10 +317,20 @@ namespace IFA.API.Controllers
             }
 
             var learnerId = await GetCurrentLearnerIdAsync(_context);
+            Guid? workspaceId;
+            try
+            {
+                workspaceId = await _authoringWorkspaces.ResolveForCreationAsync(learnerId, request.WorkspaceId, ct);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
             var project = new EducatorProject
             {
                 Id = Guid.NewGuid(),
                 EducatorLearnerId = learnerId,
+                WorkspaceId = workspaceId,
                 Title = request.Title.Trim(),
                 Description = (request.Description ?? string.Empty).Trim(),
                 Status = "Draft"
@@ -489,6 +527,7 @@ namespace IFA.API.Controllers
         // ------------------------------------------------------------------
 
         [HttpPost("projects/{id:guid}/research/suggest")]
+        [EnableRateLimiting("generation")]
         public async Task<IActionResult> SuggestResearch(Guid id, CancellationToken ct)
         {
             var guard = EducatorGuard();
@@ -554,6 +593,7 @@ namespace IFA.API.Controllers
         // ------------------------------------------------------------------
 
         [HttpPost("projects/{id:guid}/analyze")]
+        [EnableRateLimiting("generation")]
         public async Task<IActionResult> AnalyzeProject(Guid id, [FromQuery] bool force = false, CancellationToken ct = default)
         {
             var guard = EducatorGuard();
@@ -673,6 +713,7 @@ namespace IFA.API.Controllers
         // ------------------------------------------------------------------
 
         [HttpPost("projects/{id:guid}/blueprint/generate")]
+        [EnableRateLimiting("generation")]
         public async Task<IActionResult> GenerateBlueprint(Guid id, CancellationToken ct)
         {
             var guard = EducatorGuard();
@@ -714,6 +755,7 @@ namespace IFA.API.Controllers
         }
 
         [HttpPost("projects/{id:guid}/blueprint/approve")]
+        [EnableRateLimiting("generation")]
         public async Task<IActionResult> ApproveBlueprint(Guid id, CancellationToken ct)
         {
             var guard = EducatorGuard();
@@ -759,9 +801,11 @@ namespace IFA.API.Controllers
             if (string.Join(";", materials).Length > 4000)
                 return BadRequest(new { message = "The combined source URLs exceed the 4000-character course source limit. Use fewer sources." });
 
+            var now = DateTime.UtcNow;
+            var courseId = Guid.NewGuid();
             var course = new Course
             {
-                Id = Guid.NewGuid(),
+                Id = courseId,
                 Title = document.Title,
                 Description = document.Description,
                 Category = document.Category,
@@ -772,7 +816,12 @@ namespace IFA.API.Controllers
                 ShareCode = Guid.NewGuid().ToString("N").ToUpperInvariant(),
                 ExternalMaterials = materials.Count > 0 ? string.Join(";", materials) : null,
                 CreatorLearnerId = project.EducatorLearnerId,
-                CreatedAt = DateTime.UtcNow
+                WorkspaceId = project.WorkspaceId,
+                Slug = CourseSlug(document.Title, courseId),
+                CreatedByAccountId = project.EducatorLearnerId,
+                UpdatedByAccountId = project.EducatorLearnerId,
+                UpdatedAt = now,
+                CreatedAt = now
             };
             _context.Add(course);
 
@@ -799,16 +848,21 @@ namespace IFA.API.Controllers
                     CourseId = course.Id,
                     ModuleIndex = i,
                     ModuleTitle = moduleDto.Title,
-                    Status = "Queued"
+                    Status = GenerationJob.QueuedStatus,
+                    CreatedAt = now,
+                    AvailableAt = now,
+                    CorrelationId = HttpContext.TraceIdentifier,
+                    CausationId = project.Blueprint.Id.ToString(),
+                    ActorLearnerId = project.EducatorLearnerId
                 };
                 _context.Add(job);
                 jobs.Add(job);
             }
 
-            project.Blueprint.ApprovedAt = DateTime.UtcNow;
+            project.Blueprint.ApprovedAt = now;
             project.CourseId = course.Id;
             project.Status = "Generating";
-            project.UpdatedAt = DateTime.UtcNow;
+            project.UpdatedAt = now;
 
             await _context.SaveChangesAsync(ct);
             if (transaction != null) await transaction.CommitAsync(ct);
@@ -884,6 +938,7 @@ namespace IFA.API.Controllers
         }
 
         [HttpPost("courses/{courseId:guid}/cover/auto")]
+        [EnableRateLimiting("generation")]
         public async Task<IActionResult> AutoCover(Guid courseId, [FromBody] CoverRequest? request, CancellationToken ct)
         {
             var guard = EducatorGuard();
@@ -1040,6 +1095,7 @@ namespace IFA.API.Controllers
         }
 
         [HttpPost("courses/{courseId:guid}/modules/{moduleId:guid}/ai-update")]
+        [EnableRateLimiting("generation")]
         public async Task<IActionResult> AiUpdateModule(
             Guid courseId, Guid moduleId, [FromBody] AiUpdateRequest request, CancellationToken ct)
         {
@@ -1155,6 +1211,34 @@ namespace IFA.API.Controllers
             }
 
             ownedCourse.IsPaid = request.IsPaid;
+            if (_features.ImmutableReleases)
+            {
+                var actorId = await GetCurrentLearnerIdAsync(_context);
+                if (!ownedCourse.IsPaid)
+                {
+                    var strandedPayments = await _context.CourseEnrollments
+                        .Where(e => e.CourseId == courseId && e.Status == "PendingPayment")
+                        .ToListAsync(ct);
+                    foreach (var enrollment in strandedPayments) enrollment.Status = "PendingApproval";
+                }
+                try
+                {
+                    var release = await _releases.PublishAsync(courseId, actorId, ct);
+                    return Ok(new
+                    {
+                        isPublished = true,
+                        isPublic = ownedCourse.Visibility == "Public",
+                        isPaid = ownedCourse.IsPaid,
+                        price = ownedCourse.PriceAmount,
+                        releaseId = release.Id,
+                        releaseVersion = release.Version
+                    });
+                }
+                catch (CourseReleaseValidationException ex)
+                {
+                    return BadRequest(new { message = ex.Message, errors = ex.Errors });
+                }
+            }
             ownedCourse.IsPublished = true;
             ownedCourse.IsPublic = ownedCourse.Visibility == "Public";
             if (!ownedCourse.IsPaid)
@@ -1212,10 +1296,11 @@ namespace IFA.API.Controllers
             if (guard != null) return guard;
 
             var learnerId = await GetCurrentLearnerIdAsync(_context);
+            var manageableCourseIds = await _authorization.GetManageableCourseIdsAsync(learnerId, ct);
 
             var courses = await _context.Courses
                 .Include(c => c.Enrollments)
-                .Where(c => c.CreatorLearnerId == learnerId)
+                .Where(c => manageableCourseIds.Contains(c.Id))
                 .OrderByDescending(c => c.CreatedAt)
                 .ToListAsync(ct);
 
@@ -1338,11 +1423,12 @@ namespace IFA.API.Controllers
             if (guard != null) return guard;
 
             var learnerId = await GetCurrentLearnerIdAsync(_context);
+            var manageableCourseIds = await _authorization.GetManageableCourseIdsAsync(learnerId, ct);
 
             var query = _context.CourseEnrollments
                 .Include(e => e.Course)
                 .Include(e => e.Learner)
-                .Where(e => e.Course != null && e.Course.CreatorLearnerId == learnerId && e.LearnerId != learnerId);
+                .Where(e => e.Course != null && manageableCourseIds.Contains(e.CourseId) && e.LearnerId != learnerId);
 
             if (!string.IsNullOrWhiteSpace(status))
             {
@@ -1391,7 +1477,7 @@ namespace IFA.API.Controllers
                 .FirstOrDefaultAsync(e => e.Id == enrollmentId, ct);
 
             if (enrollment == null) return NotFound(new { message = "Enrollment not found." });
-            if (enrollment.Course == null || enrollment.Course.CreatorLearnerId != learnerId)
+            if (enrollment.Course == null || !await _authorization.CanManageCourseAsync(learnerId, enrollment.CourseId, ct))
             {
                 return StatusCode(403, new { message = "You do not own this course." });
             }
@@ -1474,6 +1560,7 @@ namespace IFA.API.Controllers
             [MaxLength(30)]
             public List<string> LearningObjectives { get; set; } = new();
             public bool RequirePassingQuizzes { get; set; } = true;
+            public Guid? WorkspaceId { get; set; }
             [MaxLength(50)]
             public List<CourseTemplateModuleDto>? Modules { get; set; }
         }
@@ -1481,6 +1568,8 @@ namespace IFA.API.Controllers
         [HttpPost("courses/manual")]
         public async Task<IActionResult> CreateManualCourse([FromBody] CreateManualCourseDto dto, CancellationToken ct)
         {
+            if (_features.UnifiedAuthoring)
+                return Conflict(new { code = "use_unified_authoring", message = "Create course drafts through /api/studio/courses." });
             var guard = EducatorGuard();
             if (guard != null) return guard;
 
@@ -1496,14 +1585,31 @@ namespace IFA.API.Controllers
                 return BadRequest(new { message = "Choose a template or a reviewed curriculum, not both." });
 
             var educatorId = await GetCurrentLearnerIdAsync(_context);
+            Guid? workspaceId;
+            try
+            {
+                workspaceId = await _authoringWorkspaces.ResolveForCreationAsync(educatorId, dto.WorkspaceId, ct);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+            var now = DateTime.UtcNow;
+            var courseId = Guid.NewGuid();
             var course = new Course
             {
+                Id = courseId,
                 Title = string.IsNullOrWhiteSpace(dto.Title) ? "Untitled Course" : dto.Title.Trim(),
                 Description = dto.Description?.Trim() ?? string.Empty,
                 Category = string.IsNullOrWhiteSpace(dto.Category) ? "General" : dto.Category.Trim(),
                 TargetAudience = string.IsNullOrWhiteSpace(dto.TargetAudience) ? "All Learners" : dto.TargetAudience.Trim(),
                 EstimatedDuration = string.IsNullOrWhiteSpace(dto.EstimatedDuration) ? "4 weeks" : dto.EstimatedDuration.Trim(),
                 CreatorLearnerId = educatorId,
+                WorkspaceId = workspaceId,
+                Slug = CourseSlug(dto.Title, courseId),
+                CreatedByAccountId = educatorId,
+                UpdatedByAccountId = educatorId,
+                UpdatedAt = now,
                 IsPublic = false,
                 IsPublished = false,
                 Visibility = dto.Visibility,
@@ -1517,7 +1623,7 @@ namespace IFA.API.Controllers
                 AccentColor = string.IsNullOrWhiteSpace(dto.AccentColor) ? "#1B3D2F" : dto.AccentColor,
                 ThemeMode = string.IsNullOrWhiteSpace(dto.ThemeMode) ? "pine" : dto.ThemeMode,
                 EnrollmentMode = string.IsNullOrWhiteSpace(dto.EnrollmentMode) ? "Open" : dto.EnrollmentMode,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = now
             };
 
             var curriculum = dto.Modules ?? template?.Modules;
@@ -1594,12 +1700,13 @@ namespace IFA.API.Controllers
             var project = new EducatorProject
             {
                 EducatorLearnerId = educatorId,
+                WorkspaceId = workspaceId,
                 Title = course.Title,
                 Description = course.Description,
                 Status = "ReadyForReview",
                 CourseId = course.Id,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                CreatedAt = now,
+                UpdatedAt = now
             };
             _context.Add(project);
 
@@ -1925,6 +2032,7 @@ namespace IFA.API.Controllers
         }
 
         [HttpPost("courses/{courseId:guid}/live-sessions")]
+        [EnableRateLimiting("notifications")]
         public async Task<IActionResult> CreateLiveSession(Guid courseId, [FromBody] CreateLiveSessionDto dto, CancellationToken ct)
         {
             var guard = EducatorGuard();
@@ -1957,6 +2065,7 @@ namespace IFA.API.Controllers
         }
 
         [HttpPut("courses/{courseId:guid}/live-sessions/{sessionId:guid}")]
+        [EnableRateLimiting("notifications")]
         public async Task<IActionResult> UpdateLiveSession(Guid courseId, Guid sessionId, [FromBody] CreateLiveSessionDto dto, CancellationToken ct)
         {
             var guard = EducatorGuard();
@@ -1986,6 +2095,7 @@ namespace IFA.API.Controllers
         }
 
         [HttpDelete("courses/{courseId:guid}/live-sessions/{sessionId:guid}")]
+        [EnableRateLimiting("notifications")]
         public async Task<IActionResult> DeleteLiveSession(Guid courseId, Guid sessionId, CancellationToken ct)
         {
             var guard = EducatorGuard();
@@ -2183,7 +2293,8 @@ namespace IFA.API.Controllers
                 .FirstOrDefaultAsync(s => s.Id == submissionId, ct);
 
             if (submission == null) return NotFound(new { message = "Submission not found." });
-            if (submission.Assignment?.Course?.CreatorLearnerId != educatorId)
+            if (submission.Assignment?.Course == null
+                || !await _authorization.CanManageCourseAsync(educatorId, submission.Assignment.CourseId, ct))
             {
                 return StatusCode(403, new { message = "You do not own this course." });
             }

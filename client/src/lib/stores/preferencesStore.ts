@@ -26,10 +26,17 @@ export interface Preferences {
 }
 
 export const ACCENT_HEX: Record<AccentColor, string> = {
-	pine: '#2A9D68',
-	blue: '#3B82F6',
-	purple: '#7C5CFC',
-	orange: '#F59E0B'
+	pine: '#176B4A',
+	blue: '#1D4ED8',
+	purple: '#6D28D9',
+	orange: '#9A4D00'
+};
+
+const ACCENT_DARK_TEXT: Record<AccentColor, string> = {
+	pine: '#6EE7B7',
+	blue: '#93C5FD',
+	purple: '#C4B5FD',
+	orange: '#FDBA74'
 };
 
 /** Root font-size scale driven by the font-size preference. */
@@ -44,7 +51,7 @@ const DEVICE_STORAGE_KEY = 'witforge-preferences:device';
 let storageKey = DEVICE_STORAGE_KEY;
 
 const defaults: Preferences = {
-	theme: 'system',
+	theme: 'light',
 	accentColor: 'pine',
 	fontSize: 'medium',
 	compactMode: false,
@@ -56,8 +63,12 @@ function readInitial(key = storageKey): Preferences {
 	try {
 		const raw = localStorage.getItem(key) ?? (key === DEVICE_STORAGE_KEY ? localStorage.getItem('ifa-preferences') : null);
 		if (!raw) return { ...defaults };
-		const parsed = JSON.parse(raw) as Partial<Preferences>;
-		return { ...defaults, ...parsed };
+		const parsed = JSON.parse(raw) as Partial<Preferences> & { themeVersion?: number };
+		return {
+			...defaults,
+			...parsed,
+			theme: parsed.theme === 'system' && parsed.themeVersion !== 2 ? 'light' : parsed.theme ?? defaults.theme
+		};
 	} catch {
 		return { ...defaults };
 	}
@@ -99,10 +110,11 @@ export function applyPreferences(value: Preferences = get(preferences)): void {
 	root.dataset.reducedMotion = reduced ? 'true' : 'false';
 
 	root.style.setProperty('--ifa-accent', ACCENT_HEX[value.accentColor] ?? ACCENT_HEX.pine);
+	root.style.setProperty('--ifa-accent-dark-text', ACCENT_DARK_TEXT[value.accentColor] ?? ACCENT_DARK_TEXT.pine);
 	root.dataset.accent = value.accentColor;
 
 	try {
-		localStorage.setItem(storageKey, JSON.stringify(value));
+		localStorage.setItem(storageKey, JSON.stringify({ ...value, themeVersion: 2 }));
 	} catch {
 		/* storage may be unavailable (private mode) — apply in-memory only */
 	}
@@ -133,21 +145,24 @@ export function setPreferenceScope(learnerId: string | null): void {
 	applyPreferences(value);
 }
 
-let mediaBound = false;
-
 /**
  * Keep `system` in sync with the OS. Bound once per page load; re-resolves the
  * applied theme whenever the color-scheme preference changes.
  */
 export function watchSystemTheme(): () => void {
 	if (!browser) return () => {};
-	const mq = window.matchMedia('(prefers-color-scheme: dark)');
-	const onChange = () => {
+	const themeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+	const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+	const onThemeChange = () => {
 		if (get(preferences).theme === 'system') applyPreferences();
 	};
-	mq.addEventListener('change', onChange);
-	mediaBound = true;
-	return () => mq.removeEventListener('change', onChange);
+	const onMotionChange = () => applyPreferences();
+	themeQuery.addEventListener('change', onThemeChange);
+	motionQuery.addEventListener('change', onMotionChange);
+	return () => {
+		themeQuery.removeEventListener('change', onThemeChange);
+		motionQuery.removeEventListener('change', onMotionChange);
+	};
 }
 
 /** Apply-once helper for the earliest client moment (layout onMount). */

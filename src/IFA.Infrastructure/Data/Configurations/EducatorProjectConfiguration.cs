@@ -17,6 +17,7 @@ namespace IFA.Infrastructure.Data.Configurations
 
             builder.HasIndex(p => p.EducatorLearnerId);
             builder.HasIndex(p => p.Status);
+            builder.HasIndex(p => p.WorkspaceId);
 
             builder.HasOne(p => p.EducatorLearner)
                 .WithMany()
@@ -27,6 +28,11 @@ namespace IFA.Infrastructure.Data.Configurations
                 .WithMany()
                 .HasForeignKey(p => p.CourseId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            builder.HasOne<EducatorWorkspace>()
+                .WithMany()
+                .HasForeignKey(p => p.WorkspaceId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             builder.HasOne(p => p.Blueprint)
                 .WithOne(b => b.Project)

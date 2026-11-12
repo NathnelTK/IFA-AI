@@ -14,10 +14,12 @@ namespace IFA.API.Controllers
     public class SearchController : BaseApiController
     {
         private readonly IApplicationDbContext _context;
+        private readonly IPlatformAuthorizationService _authorization;
 
-        public SearchController(IApplicationDbContext context)
+        public SearchController(IApplicationDbContext context, IPlatformAuthorizationService authorization)
         {
             _context = context;
+            _authorization = authorization;
         }
 
         [HttpGet]
@@ -31,11 +33,14 @@ namespace IFA.API.Controllers
             var clean = q.Trim().ToLowerInvariant();
             if (clean.Length > 200) return BadRequest(new { message = "Search query is limited to 200 characters." });
             var hasLearner = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var learnerId);
+            var manageableCourseIds = hasLearner
+                ? await _authorization.GetManageableCourseIdsAsync(learnerId, ct)
+                : Array.Empty<Guid>();
 
             var courses = await _context.Courses
                 .Where(c =>
                     ((c.IsPublished && c.Visibility == "Public") ||
-                     (hasLearner && (c.CreatorLearnerId == learnerId ||
+                      (hasLearner && (manageableCourseIds.Contains(c.Id) ||
                         (c.IsPublished && c.Enrollments.Any(e => e.LearnerId == learnerId && e.Status == "Active"))))) &&
                     (c.Title.ToLower().Contains(clean) || c.Description.ToLower().Contains(clean)))
                 .Select(c => new
@@ -53,7 +58,7 @@ namespace IFA.API.Controllers
                 .Include(l => l.Module)
                 .Where(l =>
                     ((l.Module!.Course!.IsPublished && l.Module.Course.Visibility == "Public") ||
-                     (hasLearner && (l.Module.Course.CreatorLearnerId == learnerId ||
+                      (hasLearner && (manageableCourseIds.Contains(l.Module.CourseId) ||
                         (l.Module.Course.IsPublished && l.Module.Course.Enrollments.Any(e => e.LearnerId == learnerId && e.Status == "Active"))))) &&
                     (l.Title.ToLower().Contains(clean) || l.Summary.ToLower().Contains(clean)))
                 .Select(l => new

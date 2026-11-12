@@ -24,6 +24,7 @@ namespace IFA.Domain.Entities
         public string Language { get; set; } = "English";
         public List<string> LearningObjectives { get; set; } = new();
         public bool RequirePassingQuizzes { get; set; } = true;
+        public string CompletionRule { get; set; } = "Complete every required lesson and pass required assessments.";
         public int? EnrollmentLimit { get; set; }
         public DateTime? EnrollmentOpensAt { get; set; }
         public DateTime? EnrollmentClosesAt { get; set; }
@@ -35,6 +36,11 @@ namespace IFA.Domain.Entities
         /// </summary>
         public string? ExternalMaterials { get; set; }
         public Guid? CreatorLearnerId { get; set; }
+        public Guid? WorkspaceId { get; set; }
+        public string? Slug { get; set; }
+        public Guid? CreatedByAccountId { get; set; }
+        public Guid? UpdatedByAccountId { get; set; }
+        public DateTime? UpdatedAt { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         // Monetization (educator-published courses)
@@ -57,6 +63,8 @@ namespace IFA.Domain.Entities
 
         // Cover image (educator link or auto-discovered via Wikimedia/Tavily)
         public string? CoverImageUrl { get; set; }
+        public Guid? CoverAssetId { get; set; }
+        public Guid? ActiveReleaseId { get; set; }
         /// <summary>User | Auto (Wikimedia/Tavily search) | Generated</summary>
         public string? CoverImageSource { get; set; }
 

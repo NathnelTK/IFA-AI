@@ -34,11 +34,13 @@ namespace IFA.Infrastructure.Services
             }
 
             var searchQuery = Uri.EscapeDataString($"{topic} {preferredCreator}".Trim());
-            var endpoint = $"https://www.googleapis.com/youtube/v3/search?part=snippet&q={searchQuery}&type=video&key={Uri.EscapeDataString(apiKey)}&maxResults={maxResults}";
+            var endpoint = $"https://www.googleapis.com/youtube/v3/search?part=snippet&q={searchQuery}&type=video&maxResults={maxResults}";
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(TimeSpan.FromSeconds(5));
 
-            using var response = await _httpClient.GetAsync(endpoint, cts.Token);
+            using var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
+            request.Headers.TryAddWithoutValidation("X-Goog-Api-Key", apiKey);
+            using var response = await _httpClient.SendAsync(request, cts.Token);
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogError("YouTube search failed with HTTP status {StatusCode}.", response.StatusCode);

@@ -22,7 +22,8 @@ namespace IFA.API.Endpoints
 
             group.MapPost("/{learnerId:guid}/research", TriggerResearch)
                 .WithName("TriggerResearch")
-                .WithSummary("PR 2.3 - run the Research Agent against the learner's latest profile");
+                .WithSummary("PR 2.3 - run the Research Agent against the learner's latest profile")
+                .RequireRateLimiting("generation");
 
             group.MapGet("/{learnerId:guid}/research/latest", GetLatestResearch)
                 .WithName("GetLatestResearchPackage");

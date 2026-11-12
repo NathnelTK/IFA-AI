@@ -6,6 +6,8 @@ namespace IFA.Domain.Entities
     {
         public Guid Id { get; set; } = Guid.NewGuid();
         public Guid CourseId { get; set; }
+        public Guid? ReleaseId { get; set; }
+        public Guid? CohortId { get; set; }
         public string Title { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public DateTime StartTime { get; set; } = DateTime.UtcNow.AddDays(1);

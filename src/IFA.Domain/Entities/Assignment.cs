@@ -33,6 +33,8 @@ namespace IFA.Domain.Entities
         public string SubmissionText { get; set; } = string.Empty;
         public string? FileUrl { get; set; }
         public string? FileName { get; set; }
+        public Guid? AssetId { get; set; }
+        public Guid? ReleaseAssignmentId { get; set; }
         public DateTime SubmittedAt { get; set; } = DateTime.UtcNow;
         public string Status { get; set; } = "Submitted"; // Submitted | Graded | ResubmissionRequested
         public int? Score { get; set; }

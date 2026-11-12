@@ -21,9 +21,9 @@
   // Static navigation targets — these are app pages, not content, so they are
   // matched locally rather than searched in the database.
   const pages: Result[] = [
-    { type: 'page', title: 'My Courses', subtitle: 'Library', href: '/courses' },
+    { type: 'page', title: 'My Courses', subtitle: 'Library', href: '/app/courses' },
     { type: 'page', title: 'My Skills', subtitle: 'Skill profile', href: '/my-skills' },
-    { type: 'page', title: 'Progress', subtitle: 'Learning analytics', href: '/progress' },
+    { type: 'page', title: 'Progress', subtitle: 'Learning analytics', href: '/app/progress' },
     { type: 'page', title: 'Recommendations', subtitle: 'For you', href: '/recommendations' },
     { type: 'page', title: 'Marketplace', subtitle: 'Public courses', href: '/marketplace' },
     { type: 'page', title: 'Research', subtitle: 'Sources & summaries', href: '/research' },

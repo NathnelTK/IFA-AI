@@ -8,18 +8,18 @@ export default {
     extend: {
       colors: {
         ifa: {
-          bg: '#F8F6F0',
-          'bg-warm': '#F3EFE6',
-          sidebar: '#F2EFEB',
-          card: '#FFFFFF',
-          'card-muted': '#F7F5F0',
-          border: '#E8E3DA',
-          'border-light': '#F0ECE4',
+          bg: '#F2EFE7',
+          'bg-warm': '#EAE5D9',
+          sidebar: '#EDE8DD',
+          card: '#FBFAF6',
+          'card-muted': '#EDE8DD',
+          border: '#CFC8B9',
+          'border-light': '#DED8CB',
           pine: {
-            DEFAULT: '#1B3D2F',
-            dark: '#132C22',
-            light: '#285844',
-            hover: '#224B3A'
+            DEFAULT: '#17221C',
+            dark: '#0E1511',
+            light: '#294437',
+            hover: '#24362D'
           },
           accent: {
             green: '#2A9D68',
@@ -30,14 +30,15 @@ export default {
             pink: '#E11D48'
           },
           text: {
-            primary: '#1F2923',
-            secondary: '#606C64',
-            muted: '#8B978F'
+            primary: '#17221C',
+            secondary: '#4C574F',
+            muted: '#657068'
           }
         }
       },
       fontFamily: {
-        sans: ['Plus Jakarta Sans', 'Inter', 'system-ui', 'sans-serif']
+        sans: ['Manrope Variable', 'Manrope', 'system-ui', 'sans-serif'],
+        display: ['Newsreader Variable', 'Newsreader', 'Georgia', 'serif']
       },
       boxShadow: {
         'soft': '0 2px 10px rgba(0, 0, 0, 0.03)',

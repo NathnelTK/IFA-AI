@@ -10,8 +10,6 @@ declare global {
 	}
 
 	interface ImportMetaEnv {
-		/** Public base URL of the IFA.API backend (see client/.env.example). */
-		readonly VITE_API_URL?: string;
 	}
 
 	interface ImportMeta {

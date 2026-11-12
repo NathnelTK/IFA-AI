@@ -1,87 +1,65 @@
 <script lang="ts">
   import '../app.css';
+  import '@fontsource-variable/manrope';
+  import '@fontsource-variable/newsreader';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { browser } from '$app/environment';
-  import Sidebar from '$lib/components/Sidebar.svelte';
-  import Header from '$lib/components/Header.svelte';
-  import GlowCursor from '$lib/components/GlowCursor.svelte';
+  import WorkspaceShell from '$lib/components/shells/WorkspaceShell.svelte';
+  import PublicShell from '$lib/components/shells/PublicShell.svelte';
   import { initSession, session } from '$lib/stores/sessionStore';
   import { loadCourses, resetCourses } from '$lib/stores/coursesStore';
   import { loadDashboard, resetDashboard } from '$lib/stores/dashboardStore';
-  import { initVoxide } from '$lib/voxide';
   import { hydratePreferences, initPreferences, watchSystemTheme, type ThemeMode, type AccentColor, type FontSize } from '$lib/stores/preferencesStore';
   import { settingsApi } from '$lib/api';
   import { closeSidebar } from '$lib/stores/uiStore';
 
-  // Apply the stored appearance preferences as early as possible on the client,
-  // and keep `system` theme in sync with the OS.
-  let stopSystemWatch: (() => void) | null = null;
-  $: if (browser && !stopSystemWatch) {
+  let stopPreferenceWatch: (() => void) | null = null;
+  $: if (browser && !stopPreferenceWatch) {
     initPreferences();
-    stopSystemWatch = watchSystemTheme();
+    stopPreferenceWatch = watchSystemTheme();
   }
 
   $: currentPath = $page.url.pathname;
-  $: activeTab = currentPath === '/home' ? 'home' : currentPath.replace('/', '');
+  $: isCustomSite = $page.route.id?.startsWith('/_site') ?? false;
+  $: activeTab = currentPath === '/home' ? 'home' : currentPath.replace(/^\//, '');
+  $: isAuthOrStandalone =
+    currentPath === '/' ||
+    isCustomSite ||
+    currentPath.startsWith('/e/') ||
+    currentPath.startsWith('/org/') ||
+    currentPath.startsWith('/login') ||
+    currentPath.startsWith('/register') ||
+    currentPath.startsWith('/verify-email') ||
+    currentPath.startsWith('/forgot-password') ||
+    currentPath.startsWith('/reset-password') ||
+    currentPath.startsWith('/auth/callback') ||
+    currentPath.startsWith('/certificates/verify/') ||
+    currentPath.startsWith('/sso') ||
+    currentPath === '/chat';
+  $: isPublicBrowse = currentPath === '/marketplace' || /^\/courses\/[^/]+$/.test(currentPath) || currentPath.startsWith('/courses/join/');
+  $: studioRoute = currentPath.startsWith('/studio');
+  $: hasEducatorCapability = $session.roles.includes('Educator');
 
-  // Close the mobile navigation drawer whenever the route changes.
   let lastPath = '';
   $: if (currentPath !== lastPath) {
     lastPath = currentPath;
     closeSidebar();
   }
-  // Pages that render without the authenticated app shell.
-  $: isPublicPage =
-    currentPath === '/' ||
-    currentPath.startsWith('/login') ||
-    currentPath.startsWith('/register') ||
-    // The full-screen authoring routes render their own sign-in prompt.
-    currentPath === '/chat' ||
-    currentPath === '/studio/create';
-  $: isPublicBrowse = currentPath === '/marketplace' || /^\/courses\/[^/]+$/.test(currentPath) || currentPath.startsWith('/courses/join/');
 
-  // Bootstrap the API session once per page load (client side only).
   let sessionStarted = false;
   $: if (browser && !sessionStarted) {
     sessionStarted = true;
     void initSession();
   }
 
-  // Initialize the Voxide voice assistant once, after sign-in (needs the browser
-  // + a publishable key; it no-ops when the key is absent).
-  let voxideStarted = false;
-  $: if (browser && $session.authenticated && !voxideStarted) {
-    voxideStarted = true;
-    void initVoxide();
-  }
-
-  // Redirect unauthenticated visitors away from protected pages once the
-  // session bootstrap has settled.
-  $: if (browser && $session.ready && !$session.authenticated && !isPublicPage && !isPublicBrowse) {
+  $: if (browser && $session.ready && !$session.authenticated && !isAuthOrStandalone && !isPublicBrowse) {
     void goto(`/login?redirect=${encodeURIComponent($page.url.pathname + $page.url.search)}`);
   }
-
-  // Keep workspace routes aligned with the account's single selected role.
-  $: if (browser && $session.ready && $session.authenticated) {
-    const isEducator = $session.role === 'Educator';
-    const educatorOnlyRoute = currentPath.startsWith('/studio') && currentPath !== '/studio/create';
-    const learnerOnlyRoute =
-      currentPath === '/home' ||
-      currentPath === '/courses' ||
-      currentPath.startsWith('/recommendations') ||
-      currentPath.startsWith('/ai-tutor') ||
-      currentPath.startsWith('/my-skills') ||
-      currentPath.startsWith('/progress');
-
-    if (educatorOnlyRoute && !isEducator) {
-      void goto('/home', { replaceState: true });
-    } else if (learnerOnlyRoute && isEducator) {
-      void goto('/studio', { replaceState: true });
-    }
+  $: if (browser && $session.ready && $session.authenticated && studioRoute && !hasEducatorCapability) {
+    void goto('/apply/educator', { replaceState: true });
   }
 
-  // Hydrate learner-only stores once per signed-in learner.
   let hydratedFor: string | null = null;
   let appearanceFor: string | null = null;
   let storeIdentity = '';
@@ -106,13 +84,7 @@
       });
     }).catch(() => undefined);
   }
-  $: if (
-    browser &&
-    $session.authenticated &&
-    $session.role !== 'Educator' &&
-    $session.learnerId &&
-    hydratedFor !== $session.learnerId
-  ) {
+  $: if (browser && $session.authenticated && $session.learnerId && hydratedFor !== $session.learnerId) {
     hydratedFor = $session.learnerId;
     const learnerId = $session.learnerId;
     void (async () => {
@@ -122,40 +94,16 @@
   }
 </script>
 
-{#if isPublicPage}
-  <!-- Landing / auth pages: no app shell -->
+{#if isAuthOrStandalone}
   <slot />
 {:else if !$session.authenticated && isPublicBrowse}
-  <div class="min-h-screen bg-ifa-bg text-ifa-text-primary">
-    <header class="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-ifa-border bg-ifa-card">
-      <a href="/" class="font-bold text-lg text-ifa-pine">Witforge</a>
-      <nav aria-label="Public navigation" class="flex items-center gap-4 text-sm">
-        <a href="/marketplace" class="font-semibold text-ifa-text-secondary">Browse Courses</a>
-        <a href={`/login?redirect=${encodeURIComponent($page.url.pathname + $page.url.search)}`} class="px-4 py-2 rounded-xl bg-ifa-pine text-white font-semibold">Sign In</a>
-      </nav>
-    </header>
-    <main><slot /></main>
-  </div>
+  <PublicShell><slot /></PublicShell>
 {:else if !$session.authenticated}
-  <!-- Awaiting session or redirecting to /login -->
   <div class="min-h-screen flex items-center justify-center bg-ifa-bg text-ifa-text-secondary text-sm">
     <p>{$session.ready ? 'Redirecting to sign in…' : 'Loading Witforge…'}</p>
   </div>
 {:else}
-  <!-- App layout with sidebar -->
-  <div class="flex min-h-screen bg-ifa-bg text-ifa-text-primary antialiased selection:bg-emerald-100 selection:text-emerald-900">
-    <!-- Fixed Left Sidebar -->
-    <Sidebar {activeTab} />
-
-    <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col min-w-0">
-      <Header />
-      <main class="flex-1 overflow-y-auto">
-        <slot />
-      </main>
-    </div>
-  </div>
+  <WorkspaceShell {activeTab} mode={studioRoute ? 'studio' : 'learner'}>
+    <slot />
+  </WorkspaceShell>
 {/if}
-
-<!-- Ambient glowing cursor (auto-disabled on touch + reduced motion) -->
-<GlowCursor />

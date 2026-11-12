@@ -8,6 +8,7 @@
   import LearningActivityChart from '$lib/components/LearningActivityChart.svelte';
   import { progressApi, type LearnerProgressDto } from '$lib/api';
   import { initSession } from '$lib/stores/sessionStore';
+  import { reveal } from '$lib/motion/premiumMotion';
 
   let loading = true;
   let failed = false;
@@ -100,12 +101,13 @@
   }
 </script>
 
-<div class="p-6 md:p-8 space-y-6 max-w-[1600px] mx-auto">
+<div class="progress-shell space-y-6">
   <!-- Header -->
-  <div class="flex items-center justify-between">
+  <div class="progress-heading" use:reveal>
     <div>
-      <h1 class="text-2xl font-bold text-ifa-text-primary">Progress</h1>
-      <p class="text-sm text-ifa-text-secondary mt-1">Track your learning journey and achievements</p>
+      <p class="wf-kicker">Evidence over activity</p>
+      <h1 class="wf-display">See what is actually <em>changing.</em></h1>
+      <p>Progress combines release lessons, required assessments and submitted work. No fabricated streaks or decorative claims.</p>
     </div>
     <div class="flex items-center gap-2">
       {#if loading}
@@ -297,3 +299,7 @@
   {/if}
   {/if}
 </div>
+
+<style>
+  .progress-shell{width:min(100%,94rem);margin:0 auto;padding:clamp(1.5rem,3vw,3rem)}.progress-heading{display:flex;align-items:end;justify-content:space-between;gap:2rem;padding:1rem 0 3rem;border-bottom:1px solid var(--wf-border)}.progress-heading .wf-kicker{color:var(--wf-text-muted)}.progress-heading h1{max-width:58rem;margin:1rem 0 .7rem;font-size:clamp(3.5rem,6vw,7rem);font-weight:430;line-height:.84;letter-spacing:-.055em}.progress-heading h1 em{color:#176b4a;font-weight:430}.progress-heading>div>p:last-child{max-width:47rem;color:var(--wf-text-muted);font-size:.72rem;line-height:1.7}.progress-shell :global(.bg-ifa-card){border-radius:0!important;box-shadow:none!important}.progress-shell :global(.rounded-2xl),.progress-shell :global(.rounded-xl){border-radius:0!important}.progress-shell :global(.bg-ifa-card-muted){background:var(--wf-surface-muted)!important}.progress-shell :global(.bg-ifa-pine){color:#17221c!important;background:#c7f464!important}.progress-shell :global(h2){font-family:'Newsreader Variable';font-weight:520;letter-spacing:-.02em}.progress-shell :global(.grid){gap:1px}.progress-shell :global(.grid>.bg-ifa-card){border-color:var(--wf-border)}@media(max-width:760px){.progress-shell{padding:1rem}.progress-heading{display:block}.progress-heading h1{font-size:4rem}.progress-heading>div+div{margin-top:1rem}}
+</style>

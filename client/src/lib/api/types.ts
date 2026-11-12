@@ -5,13 +5,20 @@
 
 /** POST /api/auth/{register,login,demo-login}, GET /api/auth/me */
 export interface TokenResult {
-	accessToken: string;
-	refreshToken: string;
+	accessToken?: string;
+	refreshToken?: string;
 	expiresAt: string;
 	learnerId: string;
 	name: string;
 	email: string;
 	role: string;
+	mfaRequired?: boolean;
+	challengeToken?: string;
+}
+
+export interface RegistrationResult extends Partial<TokenResult> {
+	verificationRequired?: boolean;
+	message?: string;
 }
 
 export interface LearnerProfileDto {
@@ -64,6 +71,15 @@ export interface LearnerMeDto {
 	name: string;
 	email: string;
 	role: string;
+	roles?: string[];
+	workspaces?: Array<{
+		id: string;
+		name: string;
+		slug: string;
+		type: string;
+		role: string;
+	}>;
+	emailVerifiedAt?: string | null;
 	avatarUrl: string;
 	overallProgress: number;
 	profile: LearnerProfileDto | null;
@@ -702,6 +718,7 @@ export interface AssignmentSubmissionDto {
 	submissionText: string;
 	fileUrl?: string | null;
 	fileName?: string | null;
+	assetId?: string | null;
 	submittedAt: string;
 	status: 'Submitted' | 'Graded' | 'ResubmissionRequested';
 	score?: number | null;

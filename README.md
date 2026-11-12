@@ -18,8 +18,9 @@ remain optional and fail clearly when their credentials or services are unavaila
 | **API** | https://ifa-api-8kgf.onrender.com/api/health |
 | **Demo learner** | `nathnel@ifa.local` / `ifa12345` |
 
-Demo accounts and catalog data are seeded in Development. A production deployment exposes demo
-login only when `DEMO_DATA_ENABLED=true` is explicitly configured.
+The one-shot migration command seeds demo accounts and catalog data in Development. In production,
+set `DEMO_DATA_ENABLED=true` before running the migration command to seed demo data and expose demo
+login; it is disabled by default.
 
 > The API runs on Render's free tier and sleeps after ~15 minutes idle. The first request afterwards
 > takes about a minute to wake; the health endpoint above is the quickest way to warm it up.
@@ -76,7 +77,6 @@ does not claim that model-generated text is a verified citation merely because a
   suggestions, conflict/duplicate resolution, blueprint review, background module-by-module
   generation with per-module jobs and notifications
 - **YouTube** resource matching, including a preferred channel
-- **Voxide voice navigation** — spoken requests map onto the same capabilities the UI calls
 - **AI Tutor** — Socratic learning assistant, course-aware
 - **Adaptive engine** — assessment-driven content shaping
 - **Recommendation engine** — actions linked to persisted weak-skill evidence and matching published metadata
@@ -90,7 +90,7 @@ does not claim that model-generated text is a verified citation merely because a
 
 ### Landing page
 A standalone marketing page (`client/src/routes/+page.svelte`) with an animated hero, a labeled workflow
-preview, and dedicated sections for Educator Studio, academic research and optional Voxide voice. Fully
+preview, and dedicated sections for Educator Studio and attributed research. Fully
 theme-aware (light/dark) and reduced-motion aware.
 
 ## Technology Stack
@@ -99,7 +99,6 @@ theme-aware (light/dark) and reduced-motion aware.
 - **SvelteKit 2** (Svelte 5) with **TypeScript**
 - **Tailwind CSS** with the existing design tokens (internal `ifa-*` names retained for compatibility)
 - **Lucide Svelte** icons
-- **Voxide** browser SDK for voice
 
 ### Backend
 - **ASP.NET Core** (.NET 10) — Clean/Onion Architecture
@@ -135,17 +134,18 @@ theme-aware (light/dark) and reduced-motion aware.
 2. **Backend**
    ```bash
    dotnet restore
-   cd src/IFA.API
-   dotnet run                                # http://localhost:5011
+   dotnet run --project src/IFA.Worker -- status   # inspect target + pending migrations
+   dotnet run --project src/IFA.Worker -- migrate  # one-shot schema owner
+   dotnet run --project src/IFA.API                # http://localhost:5011
    ```
-    Development schema and demo data are created automatically on first start (see
-    [Database & Schema](#database--schema)). Production demo data is opt-in.
+    The API never changes schema during startup. Run the status command first, especially when the
+    configured target is remote, and take a backup before applying migrations.
 
 3. **Frontend**
    ```bash
    cd client
    npm install
-   cp .env.example .env                      # VITE_API_URL, VITE_VOXIDE_KEY
+   cp .env.example .env                      # API_INTERNAL_URL, BFF_INTERNAL_SECRET
    npm run dev                               # http://localhost:5173
    ```
 
@@ -203,10 +203,9 @@ CHAPA_SECRET_KEY=your_chapa_secret_key
 CHAPA_BASE_URL=https://api.chapa.co/v1
 CHAPA_WEBHOOK_SECRET=your_chapa_webhook_secret
 
-# Apply EF migrations at startup (recommended for existing and production databases).
-DB_USE_MIGRATIONS=true
+DB_INITIALIZATION_MODE=none
 
-# Development seeds demo data automatically. Production requires explicit opt-in.
+# The migration command seeds demo data in Development. Production requires explicit opt-in.
 DEMO_DATA_ENABLED=false
 
 # CORS — comma-separated frontend origins. Required; the API uses
@@ -223,13 +222,10 @@ values. Provider tuning lives in `src/IFA.API/appsettings.json` (models, per-pip
 ### Frontend (`client/.env`)
 
 ```env
-VITE_API_URL=http://localhost:5011
-# Voxide PUBLISHABLE key only (vox_pub_...). The secret key (vox_sk_...) is
-# never used in the browser. Whitelist your origin in the Voxide dashboard.
-VITE_VOXIDE_KEY=vox_pub_xxxxxxxxxxxx
+API_INTERNAL_URL=http://localhost:5011
+BFF_INTERNAL_SECRET=replace_with_the_same_32_character_secret_used_by_the_api
+PUBLIC_AUTH_ORIGIN=http://localhost:5173
 ```
-
-Without a Voxide key the app still runs; the mic reports "Voice needs a key".
 
 ## Deployment
 
@@ -259,7 +255,7 @@ Two operational notes:
 
 1. **New Project** → import this repository.
 2. Set **Root Directory** to `client`.
-3. Add environment variables `VITE_API_URL` (the Render URL) and `VITE_VOXIDE_KEY`.
+3. Add server-side `API_INTERNAL_URL` and `BFF_INTERNAL_SECRET`, plus public `PUBLIC_AUTH_ORIGIN`.
 4. Deploy.
 
 `client/svelte.config.js` selects the adapter automatically: `@sveltejs/adapter-vercel` when Vercel
@@ -271,16 +267,14 @@ gets its own hostname, so add any preview domains you intend to use.
 
 ## Database & Schema
 
-Set `DB_USE_MIGRATIONS=true` for existing and production databases. Migration
-`20261029110932_AddWitforgeCourseWorkflow` adds publication/access settings, live sessions,
-discussions, assignments, and submissions while preserving legacy course visibility and user data.
+One process owns schema changes: `dotnet run --project src/IFA.Worker -- migrate`. API and worker
+runtime startup are read-only with respect to schema. `dotnet run --project src/IFA.Worker -- status`
+prints the sanitized host/database and pending migration IDs before any mutation. Do not reset or drop
+an existing schema; back it up, rehearse the additive migration, then run the one-shot owner.
 
-For local empty databases the create-if-empty path remains available. It also reconciles the known
-pre-migration Witforge startup schema before stamping migration history. Do not reset or drop a
-schema to adopt these changes; take a normal database backup and apply the migrations.
-
-Development seeds demo accounts and catalog data. Production does not seed or expose demo login
-unless `DEMO_DATA_ENABLED=true` is intentionally set.
+When a schema is stale, API routes return `503 database_migrations_pending` with the exact migration
+command instead of surfacing missing-column SQL errors. Production demo data and endpoints require
+`DEMO_DATA_ENABLED=true` when the migration command runs.
 
 ## Project Structure
 
@@ -291,8 +285,7 @@ IFA-AI/
 │   │   ├── lib/
 │   │   │   ├── components/      # Shell, header, hero, chat, cards
 │   │   │   ├── stores/          # Courses, UI/theme, preferences
-│   │   │   ├── api/             # Typed API client
-│   │   │   └── voxide.ts        # Voice integration
+│   │   │   └── api/             # Typed same-origin BFF client
 │   │   └── routes/              # Pages (home, courses, skills, progress, ...)
 │   ├── static/
 │   └── svelte.config.js         # adapter-node / adapter-vercel switch
@@ -328,6 +321,8 @@ scripts/cleanup-duplicate-courses.sql
 ### Backend
 ```bash
 dotnet build              # Build solution
+dotnet run --project src/IFA.Worker -- status
+dotnet run --project src/IFA.Worker -- migrate
 dotnet run --project src/IFA.API
 ```
 
@@ -352,4 +347,3 @@ npm run check             # Type-check with svelte-check
 - Gemini AI · Groq AI · Ollama
 - OpenAlex · Semantic Scholar · arXiv · Tavily · Wikimedia Commons
 - Chapa (Telebirr)
-- Voxide

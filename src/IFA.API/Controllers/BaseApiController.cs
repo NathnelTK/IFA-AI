@@ -1,6 +1,7 @@
 using System;
 using System.Security.Claims;
 using IFA.Application.Common.Interfaces;
+using IFA.Domain.Entities;
 using IFA.Infrastructure.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -14,9 +15,22 @@ namespace IFA.API.Controllers
         protected bool IsCurrentUserInRole(string role)
         {
             if (User.Identity?.IsAuthenticated != true) return false;
-            var currentRole = User.FindFirst(ClaimTypes.Role)?.Value
-                              ?? User.FindFirst("role")?.Value;
-            return string.Equals(currentRole, role, StringComparison.OrdinalIgnoreCase);
+            return User.IsInRole(role);
+        }
+
+        protected async Task<bool> HasCurrentUserRoleAsync(
+            IApplicationDbContext context,
+            AccountRoleKind role,
+            CancellationToken cancellationToken = default)
+        {
+            var claim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (User.Identity?.IsAuthenticated != true || !Guid.TryParse(claim?.Value, out var accountId))
+            {
+                return false;
+            }
+
+            var authorization = HttpContext.RequestServices.GetRequiredService<IPlatformAuthorizationService>();
+            return await authorization.HasAccountRoleAsync(accountId, role, cancellationToken);
         }
 
         protected async Task<Guid> GetCurrentLearnerIdAsync(IApplicationDbContext context)

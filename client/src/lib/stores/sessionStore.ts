@@ -1,22 +1,32 @@
-import { writable, get } from 'svelte/store';
-import { ApiError, authApi, getAuthToken, setAuthToken, type LearnerMeDto, type TokenResult } from '$lib/api';
+import { get, writable } from 'svelte/store';
+import { ApiError, authApi, getAuthToken, setAuthToken, type LearnerMeDto } from '$lib/api';
 import { setPreferenceScope } from './preferencesStore';
 
 export interface SessionState {
-	/** True once the bootstrap attempt has finished. */
 	ready: boolean;
-	/** True when the API could not be reached. */
 	offline: boolean;
-	/** True when signed in as a seeded demo learner. */
 	demo: boolean;
-	/** True when a valid token backs this session. */
 	authenticated: boolean;
 	learnerId: string | null;
-	token: string | null;
 	name: string | null;
 	email: string | null;
 	role: string | null;
+	roles: string[];
+	workspaces: LearnerMeDto['workspaces'];
 	avatarUrl: string | null;
+}
+
+export interface RegistrationOutcome {
+	session: SessionState | null;
+	verificationRequired: boolean;
+	message?: string;
+}
+
+export class MfaRequiredError extends Error {
+	constructor(public readonly challengeToken: string) {
+		super('Enter the code from your authenticator app or a recovery code.');
+		this.name = 'MfaRequiredError';
+	}
 }
 
 const initialState: SessionState = {
@@ -25,10 +35,11 @@ const initialState: SessionState = {
 	demo: false,
 	authenticated: false,
 	learnerId: null,
-	token: null,
 	name: null,
 	email: null,
 	role: null,
+	roles: [],
+	workspaces: [],
 	avatarUrl: null
 };
 
@@ -37,11 +48,6 @@ export const session = writable<SessionState>({ ...initialState });
 let bootstrapPromise: Promise<SessionState> | null = null;
 let authenticationVersion = 0;
 
-/**
- * Establish a session exactly once per page load by validating any stored token
- * against `GET /api/auth/me`. If there is no token the session resolves as
- * unauthenticated, and the app shell redirects to `/login`.
- */
 export function initSession(): Promise<SessionState> {
 	if (!bootstrapPromise) bootstrapPromise = bootstrap();
 	return bootstrapPromise;
@@ -54,27 +60,33 @@ export function refreshSession(): Promise<SessionState> {
 
 async function bootstrap(): Promise<SessionState> {
 	const version = authenticationVersion;
-	const storedToken = getAuthToken();
-	if (storedToken) {
+	const legacyToken = getAuthToken();
+	if (legacyToken) {
 		try {
-			const me = await authApi.me();
-			if (version !== authenticationVersion || getAuthToken() !== storedToken) return get(session);
-			return applyMe(me, storedToken, false);
+			await authApi.exchangeLegacy(sessionContext());
+			setAuthToken(null);
 		} catch (cause) {
-			if (cause instanceof ApiError && (cause.status === 401 || cause.status === 403)) {
-				if (version === authenticationVersion && getAuthToken() === storedToken) setAuthToken(null);
+			if (cause instanceof ApiError && [401, 403, 409].includes(cause.status)) {
+				setAuthToken(null);
 			} else {
-				if (version !== authenticationVersion || getAuthToken() !== storedToken) return get(session);
-				const current = get(session);
-				if (current.authenticated && current.token === storedToken) {
-					return apply({ ...current, ready: true, offline: true });
-				}
-				return apply({ ...initialState, ready: true, offline: true, token: storedToken });
+				return apply({ ...initialState, ready: true, offline: true });
 			}
 		}
 	}
 
-	return apply({ ...initialState, ready: true, offline: false, authenticated: false });
+	try {
+		const me = await authApi.me();
+		if (version !== authenticationVersion) return get(session);
+		return applyMe(me, false);
+	} catch (cause) {
+		if (version !== authenticationVersion) return get(session);
+		if (cause instanceof ApiError && (cause.status === 401 || cause.status === 403)) {
+			return apply({ ...initialState, ready: true });
+		}
+		const current = get(session);
+		if (current.authenticated) return apply({ ...current, ready: true, offline: true });
+		return apply({ ...initialState, ready: true, offline: true });
+	}
 }
 
 function apply(next: SessionState): SessionState {
@@ -82,85 +94,104 @@ function apply(next: SessionState): SessionState {
 	return next;
 }
 
-function applyMe(me: LearnerMeDto, token: string, demo: boolean): SessionState {
+function applyMe(me: LearnerMeDto, demo: boolean): SessionState {
 	setPreferenceScope(me.id);
+	const workspaces = me.workspaces ?? [];
+	if (typeof window !== 'undefined') {
+		const selected = window.localStorage.getItem('witforge.activeWorkspace');
+		if (!selected || !workspaces.some((workspace) => workspace.id === selected)) {
+			if (workspaces[0]) window.localStorage.setItem('witforge.activeWorkspace', workspaces[0].id);
+			else window.localStorage.removeItem('witforge.activeWorkspace');
+		}
+	}
 	return apply({
 		ready: true,
 		offline: false,
 		demo,
 		authenticated: true,
 		learnerId: me.id,
-		token,
 		name: me.name ?? null,
 		email: me.email ?? null,
 		role: me.role ?? null,
+		roles: me.roles ?? [me.role].filter(Boolean),
+		workspaces,
 		avatarUrl: me.avatarUrl ?? null
 	});
 }
 
-function applyToken(result: TokenResult, demo: boolean): SessionState {
-	setPreferenceScope(result.learnerId);
-	return apply({
-		ready: true,
-		offline: false,
-		demo,
-		authenticated: true,
-		learnerId: result.learnerId,
-		token: result.accessToken,
-		name: result.name || null,
-		email: result.email || null,
-		role: result.role || null,
-		avatarUrl: null
-	});
-}
-
-/** Sign in with email + password and hydrate the session. */
 export async function signIn(email: string, password: string): Promise<SessionState> {
 	const version = ++authenticationVersion;
 	const result = await authApi.login({ email, password });
+	if (result.mfaRequired && result.challengeToken) throw new MfaRequiredError(result.challengeToken);
+	setAuthToken(null);
+	const me = await authApi.me();
 	if (version !== authenticationVersion) return get(session);
-	setAuthToken(result.accessToken);
-	return applyToken(result, false);
+	return applyMe(me, false);
 }
 
-/** Register a new learner or educator and hydrate the session. */
+export async function completeMfaSignIn(challengeToken: string, code: string): Promise<SessionState> {
+	const version = ++authenticationVersion;
+	await authApi.completeMfaLogin({ challengeToken, code });
+	const me = await authApi.me();
+	if (version !== authenticationVersion) return get(session);
+	return applyMe(me, false);
+}
+
 export async function register(
 	name: string,
 	email: string,
-	password: string,
-	role: 'Learner' | 'Educator' = 'Learner'
-): Promise<SessionState> {
+	password: string
+): Promise<RegistrationOutcome> {
 	const version = ++authenticationVersion;
-	const result = await authApi.register({ name, email, password, role });
-	if (version !== authenticationVersion) return get(session);
-	setAuthToken(result.accessToken);
-	return applyToken(result, false);
+	const result = await authApi.register({ name, email, password });
+	if (result.verificationRequired) {
+		return {
+			session: null,
+			verificationRequired: true,
+			message: result.message
+		};
+	}
+	const me = await authApi.me();
+	if (version !== authenticationVersion) return { session: get(session), verificationRequired: false };
+	return { session: applyMe(me, false), verificationRequired: false };
 }
 
-/** One-click access to the seeded demo learner. */
 export async function continueAsDemo(): Promise<SessionState> {
 	const version = ++authenticationVersion;
-	const token = await authApi.demoLogin();
+	await authApi.demoLogin();
+	const me = await authApi.me();
 	if (version !== authenticationVersion) return get(session);
-	setAuthToken(token.accessToken);
-	return applyToken(token, true);
+	return applyMe(me, true);
 }
 
-/** Clear the session; the layout will route back to `/login`. */
 export function signOut(): void {
 	authenticationVersion++;
+	void authApi.logout().catch(() => undefined);
 	setAuthToken(null);
 	setPreferenceScope(null);
 	bootstrapPromise = null;
 	apply({ ...initialState, ready: true });
 }
 
-/** Convenience accessor for stores that need the active learner id. */
 export function getLearnerId(): string | null {
 	return get(session).learnerId;
 }
 
-/** True once the user is signed in. */
 export function isAuthenticated(): boolean {
 	return get(session).authenticated;
+}
+
+export function setActiveWorkspace(workspaceId: string): void {
+	const current = get(session);
+	if (!current.workspaces?.some((workspace) => workspace.id === workspaceId)) {
+		throw new Error('The selected workspace is not available in this session.');
+	}
+	if (typeof window !== 'undefined') window.localStorage.setItem('witforge.activeWorkspace', workspaceId);
+}
+
+function sessionContext(): { host: string; site: 'App' } {
+	return {
+		host: typeof window === 'undefined' ? 'localhost' : window.location.hostname,
+		site: 'App'
+	};
 }

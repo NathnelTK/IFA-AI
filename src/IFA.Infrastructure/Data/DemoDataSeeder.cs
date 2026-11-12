@@ -56,6 +56,7 @@ namespace IFA.Infrastructure.Data
             foreach (var account in DemoAccounts.All)
             {
                 var email = account.Email.ToLowerInvariant();
+                var now = DateTime.UtcNow;
                 var learner = await db.Learners.FirstOrDefaultAsync(l => l.Email == email);
                 if (learner is null)
                 {
@@ -68,13 +69,39 @@ namespace IFA.Infrastructure.Data
                         Role = account.Role,
                         AvatarUrl = account.AvatarUrl,
                         OverallProgress = 0,
-                        CreatedAt = DateTime.UtcNow
+                        CreatedAt = now,
+                        EmailVerifiedAt = now,
+                        PasswordChangedAt = now
                     };
                     db.Learners.Add(learner);
                 }
-                else if (string.IsNullOrWhiteSpace(learner.PasswordHash))
+                else
                 {
-                    learner.PasswordHash = PasswordHasher.Hash(account.Password);
+                    var resetPassword = !PasswordHasher.Verify(learner.PasswordHash, account.Password)
+                        || PasswordHasher.NeedsRehash(learner.PasswordHash);
+                    var reactivateAccount = learner.DisabledAt.HasValue;
+                    if (resetPassword)
+                    {
+                        learner.PasswordHash = PasswordHasher.Hash(account.Password);
+                    }
+                    if (resetPassword || reactivateAccount)
+                    {
+                        learner.PasswordChangedAt = now;
+                        learner.SecurityStamp = Guid.NewGuid();
+                        learner.AuthorizationVersion++;
+                    }
+                    if (reactivateAccount)
+                    {
+                        learner.DisabledAt = null;
+                    }
+                    learner.EmailVerifiedAt ??= now;
+                }
+
+                var authorizationChanged = false;
+                if (!learner.Role.Equals(account.Role, StringComparison.OrdinalIgnoreCase))
+                {
+                    learner.Role = account.Role;
+                    authorizationChanged = true;
                 }
 
                 var existingProfile = await db.LearnerProfiles.FirstOrDefaultAsync(p => p.LearnerId == learner.Id);
@@ -159,10 +186,150 @@ namespace IFA.Infrastructure.Data
                         });
                     }
                 }
+
+                authorizationChanged |= await EnsureDemoAuthorizationAsync(db, learner, account, now);
+                if (authorizationChanged)
+                {
+                    learner.AuthorizationVersion++;
+                }
             }
 
             await db.SaveChangesAsync();
             logger.LogInformation("Demo learners ensured ({Count}).", DemoAccounts.All.Length);
+        }
+
+        private static async Task<bool> EnsureDemoAuthorizationAsync(
+            ApplicationDbContext db,
+            Learner learner,
+            DemoAccounts.DemoAccount account,
+            DateTime now)
+        {
+            var changed = false;
+            var learnerGrant = await db.AccountRoleGrants.SingleOrDefaultAsync(grant =>
+                grant.AccountId == learner.Id && grant.Role == AccountRoleKind.Learner);
+            if (learnerGrant is null)
+            {
+                db.AccountRoleGrants.Add(new AccountRoleGrant
+                {
+                    AccountId = learner.Id,
+                    Role = AccountRoleKind.Learner,
+                    GrantedAt = now,
+                    Reason = "Seeded demo account"
+                });
+                changed = true;
+            }
+            else if (!learnerGrant.IsActive || learnerGrant.RevokedAt.HasValue)
+            {
+                learnerGrant.IsActive = true;
+                learnerGrant.RevokedAt = null;
+                learnerGrant.RevokedByAccountId = null;
+                learnerGrant.GrantedAt = now;
+                learnerGrant.Reason = "Repaired seeded demo account";
+                changed = true;
+            }
+
+            if (!account.Role.Equals("Educator", StringComparison.OrdinalIgnoreCase))
+            {
+                return changed;
+            }
+
+            var educatorGrant = await db.AccountRoleGrants.SingleOrDefaultAsync(grant =>
+                grant.AccountId == learner.Id && grant.Role == AccountRoleKind.Educator);
+            if (educatorGrant is null)
+            {
+                db.AccountRoleGrants.Add(new AccountRoleGrant
+                {
+                    AccountId = learner.Id,
+                    Role = AccountRoleKind.Educator,
+                    GrantedAt = now,
+                    Reason = "Seeded educator demo account"
+                });
+                changed = true;
+            }
+            else if (!educatorGrant.IsActive || educatorGrant.RevokedAt.HasValue)
+            {
+                educatorGrant.IsActive = true;
+                educatorGrant.RevokedAt = null;
+                educatorGrant.RevokedByAccountId = null;
+                educatorGrant.GrantedAt = now;
+                educatorGrant.Reason = "Repaired seeded educator demo account";
+                changed = true;
+            }
+
+            var workspace = await db.EducatorWorkspaces.SingleOrDefaultAsync(candidate =>
+                candidate.CreatedByAccountId == learner.Id
+                && candidate.Type == EducatorWorkspaceType.Individual);
+            if (workspace is null)
+            {
+                var localPart = new string(account.Email.Split('@')[0]
+                    .Where(char.IsLetterOrDigit)
+                    .Select(character => char.ToLowerInvariant(character))
+                    .ToArray());
+                workspace = new EducatorWorkspace
+                {
+                    Type = EducatorWorkspaceType.Individual,
+                    Status = EducatorWorkspaceStatus.Verified,
+                    Name = account.Name,
+                    Slug = $"demo-{localPart}-{learner.Id:N}"[..Math.Min(100, $"demo-{localPart}-{learner.Id:N}".Length)],
+                    CreatedByAccountId = learner.Id,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+                db.EducatorWorkspaces.Add(workspace);
+                changed = true;
+            }
+            else if (workspace.Status != EducatorWorkspaceStatus.Verified)
+            {
+                workspace.Status = EducatorWorkspaceStatus.Verified;
+                workspace.SuspendedAt = null;
+                workspace.SuspensionReason = null;
+                workspace.UpdatedAt = now;
+                workspace.AuthorizationVersion++;
+                changed = true;
+            }
+
+            var membership = await db.WorkspaceMemberships.SingleOrDefaultAsync(candidate =>
+                candidate.WorkspaceId == workspace.Id && candidate.AccountId == learner.Id);
+            if (membership is null)
+            {
+                membership = new WorkspaceMembership
+                {
+                    WorkspaceId = workspace.Id,
+                    AccountId = learner.Id,
+                    Role = WorkspaceMembershipRole.Owner,
+                    State = WorkspaceMembershipState.Active,
+                    CreatedAt = now,
+                    AcceptedAt = now
+                };
+                db.WorkspaceMemberships.Add(membership);
+                changed = true;
+            }
+            else if (membership.Role != WorkspaceMembershipRole.Owner
+                || membership.State != WorkspaceMembershipState.Active
+                || membership.RevokedAt.HasValue)
+            {
+                membership.Role = WorkspaceMembershipRole.Owner;
+                membership.State = WorkspaceMembershipState.Active;
+                membership.AcceptedAt ??= now;
+                membership.SuspendedAt = null;
+                membership.RevokedAt = null;
+                changed = true;
+            }
+
+            var instructorProfile = await db.WorkspaceInstructorProfiles.SingleOrDefaultAsync(candidate =>
+                candidate.MembershipId == membership.Id);
+            if (instructorProfile is null)
+            {
+                db.WorkspaceInstructorProfiles.Add(new WorkspaceInstructorProfile
+                {
+                    MembershipId = membership.Id,
+                    DisplayName = account.Name,
+                    PhotoUrl = account.AvatarUrl,
+                    UpdatedAt = now
+                });
+            }
+
+            return changed;
         }
 
         // -------------------------------------------------------------------

@@ -7,13 +7,16 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
 WORKDIR /src
 
 # Copy project files for dependency resolution
-COPY src/IFA.Domain/IFA.Domain.csproj src/IFA.Domain/
-COPY src/IFA.Application/IFA.Application.csproj src/IFA.Application/
-COPY src/IFA.Infrastructure/IFA.Infrastructure.csproj src/IFA.Infrastructure/
-COPY src/IFA.API/IFA.API.csproj src/IFA.API/
+COPY Directory.Build.props ./
+COPY src/IFA.Domain/IFA.Domain.csproj src/IFA.Domain/packages.lock.json src/IFA.Domain/
+COPY src/IFA.Application/IFA.Application.csproj src/IFA.Application/packages.lock.json src/IFA.Application/
+COPY src/IFA.Infrastructure/IFA.Infrastructure.csproj src/IFA.Infrastructure/packages.lock.json src/IFA.Infrastructure/
+COPY src/IFA.API/IFA.API.csproj src/IFA.API/packages.lock.json src/IFA.API/
+COPY src/IFA.Worker/IFA.Worker.csproj src/IFA.Worker/packages.lock.json src/IFA.Worker/
 
 # Restore NuGet packages
-RUN dotnet restore src/IFA.API/IFA.API.csproj
+RUN dotnet restore src/IFA.API/IFA.API.csproj --locked-mode \
+    && dotnet restore src/IFA.Worker/IFA.Worker.csproj --locked-mode
 
 # Copy all source code
 COPY src/ src/
@@ -22,6 +25,14 @@ COPY src/ src/
 RUN dotnet publish src/IFA.API/IFA.API.csproj \
     -c Release \
     -o /app/publish \
+    /p:UseAppHost=false \
+    /p:PublishTrimmed=false
+
+# The release image also carries the one-shot migrator entrypoint. API startup
+# never invokes it; deployment runs it once before rolling API/worker services.
+RUN dotnet publish src/IFA.Worker/IFA.Worker.csproj \
+    -c Release \
+    -o /app/worker \
     /p:UseAppHost=false \
     /p:PublishTrimmed=false
 
@@ -39,6 +50,7 @@ RUN apk add --no-cache \
     icu-libs \
     libgcc \
     libstdc++ \
+    font-dejavu \
     && update-ca-certificates
 
 # Create non-root user for security
@@ -58,6 +70,7 @@ EXPOSE 8080
 
 # Copy published application
 COPY --from=build /app/publish .
+COPY --from=build /app/worker ./worker
 
 # Change ownership to non-root user
 RUN chown -R appuser:appgroup /app

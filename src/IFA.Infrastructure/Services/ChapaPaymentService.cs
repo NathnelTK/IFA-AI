@@ -26,6 +26,8 @@ namespace IFA.Infrastructure.Services
         public string? Status { get; set; }
         public decimal Amount { get; set; }
         public string? Currency { get; set; }
+        public string? ProviderTransactionId { get; set; }
+        public string? PayloadHash { get; set; }
         public string? Error { get; set; }
     }
 
@@ -55,14 +57,13 @@ namespace IFA.Infrastructure.Services
     /// <summary>
     /// Verifies a Chapa webhook signature: HMAC-SHA256 of the raw request
     /// body using CHAPA_WEBHOOK_SECRET, hex-encoded in the
-    /// x-chapa-signature header. Skips verification only when no secret is
-    /// configured.
+    /// x-chapa-signature header. Missing configuration fails closed.
     /// </summary>
     public static class ChapaWebhookVerifier
     {
         public static bool IsValid(string rawBody, string? signatureHeader, string? secret)
         {
-            if (string.IsNullOrWhiteSpace(secret)) return true; // not configured - skip
+            if (string.IsNullOrWhiteSpace(secret)) return false;
             if (string.IsNullOrWhiteSpace(signatureHeader)) return false;
 
             using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
@@ -189,13 +190,16 @@ namespace IFA.Infrastructure.Services
                     else if (amt.ValueKind == JsonValueKind.String && decimal.TryParse(amt.GetString(), out var d2)) amount = d2;
                 }
                 var currency = data.TryGetProperty("currency", out var cur) ? cur.GetString() : null;
+                var providerTransactionId = TryGetString(data, "reference") ?? TryGetString(data, "id");
 
                 return new ChapaVerifyResult
                 {
                     Success = string.Equals(status, "success", StringComparison.OrdinalIgnoreCase),
                     Status = status,
                     Amount = amount,
-                    Currency = currency
+                    Currency = currency,
+                    ProviderTransactionId = providerTransactionId,
+                    PayloadHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(body))).ToLowerInvariant()
                 };
             }
             catch (Exception ex)

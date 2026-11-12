@@ -47,14 +47,35 @@ namespace IFA.Infrastructure.Data.Configurations
             builder.Property(c => c.ChapaReference).HasMaxLength(128);
             builder.Property(c => c.CoverImageUrl).HasMaxLength(2048);
             builder.Property(c => c.CoverImageSource).HasMaxLength(16);
+            builder.Property(c => c.Slug).HasMaxLength(120);
+            builder.Property(c => c.CompletionRule).IsRequired().HasMaxLength(2000);
+            builder.Property(c => c.TargetAudience).IsRequired().HasMaxLength(300);
 
             builder.HasIndex(c => c.ShareCode);
             builder.HasIndex(c => c.IsPublic);
             builder.HasIndex(c => new { c.IsPublished, c.Visibility });
+            builder.HasIndex(c => new { c.WorkspaceId, c.Slug })
+                .IsUnique()
+                .HasFilter("\"WorkspaceId\" IS NOT NULL AND \"Slug\" IS NOT NULL");
 
             builder.HasOne(c => c.CreatorLearner)
                 .WithMany(l => l.AuthoredCourses)
                 .HasForeignKey(c => c.CreatorLearnerId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.HasOne<EducatorWorkspace>()
+                .WithMany()
+                .HasForeignKey(c => c.WorkspaceId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne<Asset>()
+                .WithMany()
+                .HasForeignKey(c => c.CoverAssetId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.HasOne<CourseRelease>()
+                .WithMany()
+                .HasForeignKey(c => c.ActiveReleaseId)
                 .OnDelete(DeleteBehavior.SetNull);
         }
     }

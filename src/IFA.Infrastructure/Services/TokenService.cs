@@ -12,10 +12,12 @@ namespace IFA.Infrastructure.Services
     public class TokenService : ITokenService
     {
         private readonly IConfiguration _configuration;
+        private readonly TimeProvider _timeProvider;
 
-        public TokenService(IConfiguration configuration)
+        public TokenService(IConfiguration configuration, TimeProvider timeProvider)
         {
             _configuration = configuration;
+            _timeProvider = timeProvider;
         }
 
         private string SecretKey
@@ -33,15 +35,16 @@ namespace IFA.Infrastructure.Services
             }
         }
 
-        private string Issuer => _configuration["Jwt:Issuer"] ?? "IFA.API";
-        private string Audience => _configuration["Jwt:Audience"] ?? "IFA.Client";
+        private string Issuer => _configuration["Auth:Issuer"] ?? _configuration["Jwt:Issuer"] ?? "Witforge.Auth";
+        private string Audience => _configuration["Auth:LegacyAudience"] ?? _configuration["Jwt:Audience"] ?? "Witforge.LegacyClient";
 
         public TokenResult GenerateToken(Learner learner)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.UTF8.GetBytes(SecretKey);
 
-            var expiresAt = DateTime.UtcNow.AddDays(7);
+            var issuedAt = _timeProvider.GetUtcNow().UtcDateTime;
+            var expiresAt = issuedAt.AddDays(7);
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(new[]
@@ -51,6 +54,8 @@ namespace IFA.Infrastructure.Services
                     new Claim(ClaimTypes.Email, learner.Email ?? ""),
                     new Claim(ClaimTypes.Role, learner.Role)
                 }),
+                IssuedAt = issuedAt,
+                NotBefore = issuedAt,
                 Expires = expiresAt,
                 Issuer = Issuer,
                 Audience = Audience,

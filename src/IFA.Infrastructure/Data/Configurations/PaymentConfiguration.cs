@@ -17,9 +17,17 @@ namespace IFA.Infrastructure.Data.Configurations
             builder.Property(p => p.ProviderTxRef).IsRequired().HasMaxLength(128);
             builder.Property(p => p.Status).HasMaxLength(16);
             builder.Property(p => p.CheckoutUrl).HasMaxLength(2048);
+            builder.Property(p => p.ReturnUrl).HasMaxLength(2048);
+            builder.Property(p => p.IdempotencyKey).IsRequired().HasMaxLength(128);
+            builder.Property(p => p.ProviderTransactionId).HasMaxLength(256);
+            builder.Property(p => p.VerificationPayloadHash).HasMaxLength(64);
+            builder.Property(p => p.LeaseOwner).HasMaxLength(200);
+            builder.Property(p => p.FailureCode).HasMaxLength(100);
 
             builder.HasIndex(p => p.ProviderTxRef).IsUnique();
             builder.HasIndex(p => new { p.CourseId, p.LearnerId });
+            builder.HasIndex(p => p.IdempotencyKey).IsUnique();
+            builder.HasIndex(p => new { p.Status, p.NextVerificationAt });
             builder.HasIndex(p => new { p.CourseId, p.LearnerId, p.Status })
                 .HasDatabaseName("IX_Payments_OneOpenCheckout")
                 .HasFilter("\"Status\" IN ('Pending', 'Initializing')")
@@ -29,6 +37,19 @@ namespace IFA.Infrastructure.Data.Configurations
                 .WithMany()
                 .HasForeignKey(p => p.LearnerId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne<CourseOffer>()
+                .WithMany()
+                .HasForeignKey(p => p.OfferId)
+                .OnDelete(DeleteBehavior.Restrict);
+            builder.HasOne<CourseRelease>()
+                .WithMany()
+                .HasForeignKey(p => p.ReleaseId)
+                .OnDelete(DeleteBehavior.Restrict);
+            builder.HasOne<CourseCohort>()
+                .WithMany()
+                .HasForeignKey(p => p.CohortId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             builder.HasOne(p => p.Course)
                 .WithMany()

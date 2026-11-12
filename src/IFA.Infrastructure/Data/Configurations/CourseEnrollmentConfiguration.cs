@@ -27,6 +27,16 @@ namespace IFA.Infrastructure.Data.Configurations
                 .WithMany(l => l.Enrollments)
                 .HasForeignKey(e => e.LearnerId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne<CourseRelease>()
+                .WithMany()
+                .HasForeignKey(e => e.ReleaseId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne<CourseCohort>()
+                .WithMany()
+                .HasForeignKey(e => e.CohortId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

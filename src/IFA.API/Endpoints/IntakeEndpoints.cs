@@ -15,9 +15,11 @@ namespace IFA.API.Endpoints
         {
             var group = app.MapGroup("/api/learners/{learnerId:guid}/intake").WithTags("Intake").RequireAuthorization();
             group.MapPost("/sessions", StartSession);
-            group.MapPost("/sessions/{sessionId:guid}/messages", SendMessage);
+            group.MapPost("/sessions/{sessionId:guid}/messages", SendMessage)
+                .RequireRateLimiting("generation");
 
-            group.MapPost("/sessions/{sessionId:guid}/finalize", FinalizeSession);
+            group.MapPost("/sessions/{sessionId:guid}/finalize", FinalizeSession)
+                .RequireRateLimiting("generation");
         }
 
         public static async Task<IResult> StartSession(Guid learnerId, ClaimsPrincipal user, IApplicationDbContext db, CancellationToken ct)

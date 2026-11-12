@@ -116,7 +116,7 @@ namespace IFA.Infrastructure.Services
                 throw new InvalidOperationException("Use at most 20 included sources per analysis or blueprint.");
             if (included.Any(s => s.Status != "Extracted" || string.IsNullOrWhiteSpace(s.ExtractedContent) ||
                 !string.IsNullOrWhiteSpace(s.FailureReason) ||
-                s.Type?.ToLowerInvariant() is not ("pdf" or "website" or "article" or "other" or "video")))
+                s.Type?.ToLowerInvariant() is not ("pdf" or "website" or "article" or "other" or "video" or "image" or "ppt")))
                 throw new InvalidOperationException("Some included sources have no usable extracted text. Exclude, replace or successfully extract them before continuing; metadata alone is not evidence.");
             return included;
         }

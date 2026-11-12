@@ -1,1858 +1,423 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
   import {
     ArrowRight,
-    Play,
-    Check,
-    Sparkles,
-    Bot,
-    Layers,
+    BadgeCheck,
     BookOpen,
-    Mic,
-    Search,
-    Users,
-    BarChart3,
-    GraduationCap,
-    Code2,
-    Database,
-    Target,
-    Shield,
-    Monitor,
-    Sun,
-    Moon,
-    Cpu,
-    Server,
-    Terminal,
-    MessageSquare,
-    FileText,
-    Link2,
-    Youtube,
-    TrendingUp,
-    Award,
-    ListChecks,
+    Check,
     ChevronRight,
-    Compass,
-    Globe,
-    Rocket,
-    Waves,
-    AudioLines,
-    FlaskConical,
-    CircuitBoard,
-    Route,
-    Zap
+    CirclePlay,
+    FileStack,
+    Globe2,
+    GraduationCap,
+    Layers3,
+    Menu,
+    MousePointer2,
+    PenTool,
+    ShieldCheck,
+    Sparkles,
+    Users,
+    X
   } from 'lucide-svelte';
-  import { theme, toggleTheme } from '$lib/stores/uiStore';
-  import { prefersReducedMotion } from '$lib/stores/preferencesStore';
-  import { voxideEnabled } from '$lib/voxide';
+  import { parallax, reveal, withGsap } from '$lib/motion/premiumMotion';
 
-  function handleSignIn() {
-    goto('/login');
-  }
+  let root: HTMLElement;
+  let mobileNavOpen = false;
 
-  function handleGetStarted() {
-    goto('/register');
-  }
-
-  function handleWatchDemo() {
-    // The sign-in page exposes a one-click demo learner so visitors can explore
-    // the real app (courses, skills, progress) without registering.
-    goto('/login');
-  }
-
-  function scrollTo(id: string) {
-    if (typeof document === 'undefined') return;
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  /* ------------------------------------------------------------------ */
-  /* Scroll-reveal action                                                */
-  /* ------------------------------------------------------------------ */
-
-  /**
-   * Adds a staggered fade-up once an element enters the viewport. The hidden
-   * initial state is gated behind `html.lp-motion-ready`, which is only set on
-   * mount — so with JS disabled (or before hydration) all content stays
-   * visible instead of being stuck at opacity 0.
-   */
-  function reveal(node: HTMLElement, delay = 0) {
-    node.classList.add('lp-reveal');
-    node.style.setProperty('--lp-delay', `${delay}ms`);
-    if (typeof IntersectionObserver === 'undefined') {
-      node.classList.add('is-visible');
-      return {};
+  const story = [
+    {
+      number: '01',
+      label: 'Shape the source',
+      title: 'Start with expertise, not a blank prompt.',
+      body: 'Write directly, begin from a bounded template, or attach verified links and clean files. Every path creates the same saved draft, ready for review.',
+      metric: 'One draft model',
+      detail: 'Manual · template · assisted'
+    },
+    {
+      number: '02',
+      label: 'Release with intent',
+      title: 'Publish a version learners can trust.',
+      body: 'Review the outline, refine every lesson, set access and enrollment rules, then publish an immutable release. Future edits never rewrite someone’s learning history.',
+      metric: 'Version-bound',
+      detail: 'Content · cohort · offer'
+    },
+    {
+      number: '03',
+      label: 'Prove the outcome',
+      title: 'Turn activity into credible progress.',
+      body: 'Lessons, quizzes and assignments contribute to release-level progress. Completion produces a verifiable record and, when enabled, a downloadable certificate.',
+      metric: 'Evidence-led',
+      detail: 'Progress · completion · proof'
     }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('is-visible');
-            observer.unobserve(entry.target);
-          }
-        }
-      },
-      { rootMargin: '0px 0px -8% 0px', threshold: 0.12 }
-    );
-    observer.observe(node);
-    return {
-      destroy() {
-        observer.disconnect();
-      }
-    };
-  }
-
-  /* ------------------------------------------------------------------ */
-  /* Hero pipeline animation                                             */
-  /* ------------------------------------------------------------------ */
-
-  const pipelineStages = [
-    { label: 'Intake' },
-    { label: 'Blueprint' },
-    { label: 'Research' },
-    { label: 'Module 1' }
   ];
 
-  let stage = 0;
-  let autoPlay = true;
-
-  const blueprintRows = [
-    { n: '01', title: 'Foundations & mental model', meta: '4 topics · 5h' },
-    { n: '02', title: 'APIs, routing & persistence', meta: '5 topics · 7h' },
-    { n: '03', title: 'Testing & deployment', meta: '4 topics · 6h' }
+  const audiences = [
+    {
+      id: 'learners',
+      eyebrow: 'For learners',
+      title: 'A clear path through the work.',
+      body: 'Know what to do next, why it matters, and what counts toward completion. Your enrollment remains tied to the exact release you started.',
+      items: ['Structured course player', 'Course-aware study assistant', 'Assignments and scored assessments', 'Release-bound certificates'],
+      color: 'signal'
+    },
+    {
+      id: 'educators',
+      eyebrow: 'For educators',
+      title: 'Your expertise, with operational rigor.',
+      body: 'Move from an idea or source pack to a reviewable course without losing ownership of the curriculum, audience, objectives or publishing decision.',
+      items: ['Courses-first Studio', 'Durable background generation', 'Team roles and instructor assignments', 'Offers, cohorts and analytics'],
+      color: 'coral'
+    },
+    {
+      id: 'organizations',
+      eyebrow: 'For organizations',
+      title: 'A learning presence that feels like yours.',
+      body: 'Give instructors a shared workspace, publish a bounded microsite, connect a verified domain and keep enrollment inside the secure Witforge experience.',
+      items: ['Organization workspaces', 'Eight purposeful site pages', 'Verified custom domains', 'Public course discovery'],
+      color: 'cobalt'
+    }
   ];
 
-  const researchRows = [
-    { icon: FlaskConical, label: 'Academic papers · OpenAlex · Semantic Scholar · arXiv', meta: 'peer-reviewed sources', tone: 'purple' },
-    { icon: Globe, label: 'Web resources · Tavily · Wikimedia Commons', meta: 'official docs & references', tone: 'blue' },
-    { icon: Youtube, label: 'YouTube walkthroughs', meta: 'matched to your creator', tone: 'pink' }
+  const expectations = [
+    { icon: ShieldCheck, title: 'Deliberate access', body: 'Workspace roles, scoped sessions and exact-host policies protect authoring and learner data.' },
+    { icon: Layers3, title: 'Durable operations', body: 'Long-running work is leased, retried and visible instead of disappearing inside an API request.' },
+    { icon: BadgeCheck, title: 'Stable learning history', body: 'Releases, payments, progress and certificates preserve the context in which they were created.' }
   ];
-
-  function selectStage(index: number) {
-    stage = index;
-    autoPlay = false;
-  }
 
   onMount(() => {
-    if (typeof document !== 'undefined') {
-      document.documentElement.classList.add('lp-motion-ready');
-    }
+    let cleanup = () => {};
+    void withGsap((gsap, ScrollTrigger) => {
+      const context = gsap.context(() => {
+        const intro = gsap.timeline({ defaults: { ease: 'power3.out' } });
+        intro
+          .from('[data-hero-nav]', { y: -18, autoAlpha: 0, duration: 0.65 })
+          .from('[data-hero-kicker]', { y: 18, autoAlpha: 0, duration: 0.55 }, '-=0.25')
+          .from('[data-hero-line]', { yPercent: 115, duration: 0.9, stagger: 0.1 }, '-=0.2')
+          .from('[data-hero-copy], [data-hero-actions]', { y: 24, autoAlpha: 0, duration: 0.7, stagger: 0.1 }, '-=0.45')
+          .from('[data-hero-stage]', { x: 70, rotate: 2.5, autoAlpha: 0, duration: 1 }, '-=0.85')
+          .from('[data-float-card]', { y: 30, autoAlpha: 0, duration: 0.7, stagger: 0.12 }, '-=0.55');
 
-    const reduced =
-      prefersReducedMotion() ||
-      (typeof document !== 'undefined' && document.documentElement.dataset.reducedMotion === 'true');
+        const media = gsap.matchMedia();
+        media.add('(min-width: 1024px)', () => {
+          gsap.to('[data-stage-back]', {
+            y: -90,
+            rotate: -4,
+            ease: 'none',
+            scrollTrigger: { trigger: '[data-hero]', start: 'top top', end: 'bottom top', scrub: 1.1 }
+          });
+          gsap.to('[data-stage-front]', {
+            y: 45,
+            rotate: 2,
+            ease: 'none',
+            scrollTrigger: { trigger: '[data-hero]', start: 'top top', end: 'bottom top', scrub: 1.1 }
+          });
 
-    if (reduced) {
-      autoPlay = false;
-      return () => {
-        if (typeof document !== 'undefined') document.documentElement.classList.remove('lp-motion-ready');
-      };
-    }
+          ScrollTrigger.create({
+            trigger: '[data-story]',
+            start: 'top 12%',
+            end: 'bottom bottom',
+            pin: '[data-story-sticky]',
+            pinSpacing: false
+          });
+          gsap.utils.toArray<HTMLElement>('[data-story-card]').forEach((card) => {
+            const index = Number(card.dataset.storyCard ?? 0);
+            ScrollTrigger.create({
+              trigger: card,
+              start: 'top 58%',
+              end: 'bottom 42%',
+              onToggle: ({ isActive }) => {
+                if (!isActive) return;
+                document.querySelectorAll('[data-story-index]').forEach((item) => {
+                  item.toggleAttribute('data-active', item.getAttribute('data-story-index') === String(index));
+                });
+                gsap.to('[data-story-orbit]', { rotate: index * 120, duration: 0.85, ease: 'power3.inOut' });
+              }
+            });
+          });
 
-    const timer = window.setInterval(() => {
-      if (autoPlay) stage = (stage + 1) % pipelineStages.length;
-    }, 3600);
-
-    return () => {
-      window.clearInterval(timer);
-      if (typeof document !== 'undefined') document.documentElement.classList.remove('lp-motion-ready');
-    };
+          const panels = gsap.utils.toArray<HTMLElement>('[data-audience-panel]');
+          if (panels.length > 1) {
+            gsap.to(panels, {
+              xPercent: -100 * (panels.length - 1),
+              ease: 'none',
+              scrollTrigger: {
+                trigger: '[data-audience-section]',
+                start: 'top top',
+                end: () => `+=${window.innerWidth * (panels.length - 1)}`,
+                pin: true,
+                scrub: 1,
+                anticipatePin: 1,
+                invalidateOnRefresh: true
+              }
+            });
+          }
+        });
+        cleanup = () => {
+          media.revert();
+          context.revert();
+        };
+      }, root);
+      return context;
+    });
+    return () => cleanup();
   });
 
-  /* ------------------------------------------------------------------ */
-  /* Content                                                             */
-  /* ------------------------------------------------------------------ */
-
-  const partners = [
-    { icon: FlaskConical, name: 'OpenAlex', role: 'Academic research' },
-    { icon: FlaskConical, name: 'Semantic Scholar', role: 'Paper search' },
-    { icon: FlaskConical, name: 'arXiv', role: 'Preprints' },
-    { icon: AudioLines, name: 'Voxide', role: 'Voice navigation' },
-    { icon: Sparkles, name: 'Gemini', role: 'Conversational AI' },
-    { icon: Zap, name: 'Groq', role: 'Fast inference' },
-    { icon: Youtube, name: 'YouTube', role: 'Video sources' },
-    { icon: Database, name: 'PostgreSQL', role: 'Learner state' }
-  ];
-
-  const pipeline = [
-    {
-      step: '01',
-      model: 'Model 1',
-      name: 'Conversational advisor',
-      icon: MessageSquare,
-      accent: 'green',
-      summary:
-        'Educators share the topic, audience, and teaching goals. Witforge turns those inputs into a course brief without taking control away from the author.',
-      points: [
-        'Describe the course and intended learners in plain language',
-        'Capture level, learning outcomes, duration, and materials',
-        'Review the course brief before generating a blueprint'
-      ]
-    },
-    {
-      step: '02',
-      model: 'Model 2',
-      name: 'Course architect',
-      icon: Route,
-      accent: 'blue',
-      summary:
-        'A reviewable blueprint lands before a single lesson is written — modules, key topics and hour estimates you can edit.',
-      points: [
-        'Module-by-module plan with topics and estimated hours',
-        'Paste links, docs or repos the course must consider',
-        'Nothing is generated until you approve the blueprint'
-      ]
-    },
-    {
-      step: '03',
-      model: 'Model 3',
-      name: 'Course builder',
-      icon: CircuitBoard,
-      accent: 'purple',
-      summary:
-        'Lessons and exam-style quizzes are written one module at a time, grounded in research and shaped by your assessment results.',
-      points: [
-        'Academic papers, web and YouTube gathered per module',
-        'Lesson + quiz generated on demand, saved to the course',
-        'Adaptive: weak areas return with more depth and practice'
-      ]
-    }
-  ];
-
-  const features = [
-    {
-      icon: Layers,
-      accent: 'green',
-      title: 'Three-model pipeline',
-      body: 'Intake, architecture and building are separate models with separate jobs — not one prompt asked to do everything.'
-    },
-    {
-      icon: GraduationCap,
-      accent: 'blue',
-      title: 'Educator Studio',
-      body: 'Turn linked materials — PDFs, videos, websites, articles, slides — into structured courses with AI research suggestions, conflict resolution, blueprint review and background generation.'
-    },
-    {
-      icon: MessageSquare,
-      accent: 'green',
-      title: 'AI-assisted course authoring',
-      body: 'Educators can describe a course in chat, review its proposed blueprint, and save an editable draft in Studio.'
-    },
-    {
-      icon: Users,
-      accent: 'amber',
-      title: 'One-click course sharing',
-      body: 'Share any course with a link — friends create a free account and enroll in one click. No codes to copy.'
-    },
-    {
-      icon: TrendingUp,
-      accent: 'orange',
-      title: 'Paid courses, Ethiopian payments',
-      body: 'Sell your courses in ETB with Telebirr and Chapa checkout. Learners pay securely; educators see every enrollment.'
-    },
-    {
-      icon: FlaskConical,
-      accent: 'purple',
-      title: 'Academic research grounding',
-      body: 'Search across OpenAlex, Semantic Scholar, arXiv, Tavily and Wikimedia Commons, saved as a reusable research package per course.'
-    },
-    {
-      icon: Mic,
-      accent: 'pink',
-      title: 'Voxide voice control',
-      body: 'Talk to the app: jump to a section, open educator course creation, or ask the learner tutor for help.'
-    },
-    {
-      icon: BarChart3,
-      accent: 'blue',
-      title: 'Skills & progress',
-      body: 'Skill breakdowns and progress analytics computed from your real assessment data, with weak areas called out.'
-    }
-  ];
-
-  const voiceCapabilities = [
-    {
-      icon: Compass,
-      trigger: '“Take me to my progress”',
-      title: 'Navigate',
-      body: 'Moves the app to any section: home, courses, marketplace, recommendations, skills, progress, research, settings or tutor.'
-    },
-    {
-      icon: Rocket,
-      trigger: '“Create a GraphQL course”',
-      title: 'Create with AI',
-      body: 'Educators can start a course draft from a topic; learners are directed to the AI tutor to study it.'
-    },
-    {
-      icon: GraduationCap,
-      trigger: '“Explain pointers”',
-      title: 'Open the tutor',
-      body: 'Opens the AI tutor focused on the topic you named, ready to explain or drill you.'
-    }
-  ];
-
-  const stack = [
-    {
-      icon: Monitor,
-      title: 'Frontend',
-      items: ['SvelteKit 2 · Svelte 5', 'TypeScript', 'Tailwind CSS design system', 'Lucide icon set']
-    },
-    {
-      icon: Server,
-      title: 'Backend',
-      items: ['ASP.NET Core (.NET 10)', 'Clean Architecture layers', 'Entity Framework Core', 'PostgreSQL']
-    },
-    {
-      icon: Cpu,
-      title: 'AI & integrations',
-      items: ['Gemini — conversational AI', 'Groq — fast inference', 'OpenAlex · Semantic Scholar · arXiv — research', 'Voxide — voice interface']
-    }
-  ];
-
-  const domains = [
-    { name: 'Engineering', icon: Code2 },
-    { name: 'Medicine & Health', icon: Target },
-    { name: 'Computer Science', icon: Terminal },
-    { name: 'Science', icon: FlaskConical },
-    { name: 'Business', icon: Award }
-  ];
-
-  const checkpoints = [
-    { icon: MessageSquare, label: 'Describe your course' },
-    { icon: Route, label: 'Review the blueprint' },
-    { icon: FlaskConical, label: 'Sources are researched' },
-    { icon: ListChecks, label: 'Lessons & quizzes built' }
-  ];
-
-  const stats = [
-    { value: 'Manual', label: 'course creation without AI' },
-    { value: 'Templates', label: 'reusable starting structures' },
-    { value: 'Optional AI', label: 'reviewed, editable proposals' },
-    { value: 'Persisted', label: 'progress and server grading' }
-  ];
+  function scrollTo(id: string) {
+    mobileNavOpen = false;
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+  }
 </script>
 
 <svelte:head>
-  <title>Witforge - Learning and Course Creation</title>
-  <meta
-    name="description"
-    content="Witforge gives learners a course marketplace, AI tutoring, research, and evidence-based progress tools. Educators can create and refine courses in an editable Studio workflow grounded in attributed research sources."
-  />
+  <title>Witforge · Build, teach and learn with proof</title>
+  <meta name="description" content="Witforge gives learners a clear course path, educators a rigorous authoring Studio, and organizations a trusted public learning presence." />
 </svelte:head>
 
-<div class="lp-root min-h-screen bg-ifa-bg text-ifa-text-primary antialiased">
-  <!-- ================= Navigation ================= -->
-  <nav class="fixed top-0 left-0 right-0 z-50 border-b border-ifa-border lp-nav">
-    <div class="max-w-7xl mx-auto px-6 py-3.5 flex items-center justify-between gap-4">
-      <button type="button" class="flex items-center gap-3 group" on:click={() => scrollTo('top')}>
-        <span class="w-10 h-10 rounded-xl bg-ifa-pine text-white flex items-center justify-center shadow-sm lp-logo">
-          <GraduationCap class="w-5 h-5" />
-        </span>
-        <span class="text-left leading-tight">
-          <span class="block text-lg font-extrabold tracking-tight text-ifa-text-primary">Witforge</span>
-          <span class="block text-[10px] font-semibold uppercase tracking-wider text-ifa-text-muted">
-            AI Learning Companion
-          </span>
-        </span>
+<div bind:this={root} class="landing-root">
+  <section data-hero class="hero-shell">
+    <div class="hero-grid" aria-hidden="true"></div>
+    <nav data-hero-nav class="landing-nav" aria-label="Main navigation">
+      <a href="/" class="brand-lockup" aria-label="Witforge home">
+        <span class="brand-mark"><span></span><span></span><span></span></span>
+        <span>Witforge</span>
+      </a>
+      <div class="nav-links">
+        <button on:click={() => scrollTo('product')}>Product</button>
+        <button on:click={() => scrollTo('audiences')}>Who it’s for</button>
+        <button on:click={() => scrollTo('trust')}>Trust</button>
+        <a href="/marketplace">Browse courses</a>
+      </div>
+      <div class="nav-actions">
+        <a href="/login" class="text-link">Sign in</a>
+        <a href="/register" class="nav-cta">Start building <ArrowRight /></a>
+      </div>
+      <button class="mobile-menu-button" on:click={() => (mobileNavOpen = !mobileNavOpen)} aria-expanded={mobileNavOpen} aria-controls="mobile-nav" aria-label="Toggle navigation">
+        {#if mobileNavOpen}<X />{:else}<Menu />{/if}
       </button>
+    </nav>
 
-      <div class="hidden lg:flex items-center gap-1">
-        {#each [
-          { id: 'how', label: 'How it works' },
-          { id: 'studio', label: 'For educators' },
-          { id: 'features', label: 'Features' },
-          { id: 'voice', label: 'Voice' },
-          { id: 'research', label: 'Research' },
-          { id: 'stack', label: 'Stack' }
-        ] as link}
-          <button
-            type="button"
-            on:click={() => scrollTo(link.id)}
-            class="px-3 py-2 rounded-lg text-sm font-medium text-ifa-text-secondary hover:text-ifa-text-primary hover:bg-ifa-card-muted transition"
-          >
-            {link.label}
-          </button>
-        {/each}
+    {#if mobileNavOpen}
+      <div id="mobile-nav" class="mobile-nav">
+        <button on:click={() => scrollTo('product')}>Product</button>
+        <button on:click={() => scrollTo('audiences')}>Who it’s for</button>
+        <button on:click={() => scrollTo('trust')}>Trust</button>
+        <a href="/marketplace">Browse courses</a>
+        <a href="/login">Sign in</a>
+        <a href="/register" class="wf-signal">Create an account</a>
+      </div>
+    {/if}
+
+    <div class="hero-layout">
+      <div class="hero-copy">
+        <p data-hero-kicker class="wf-kicker">Learning infrastructure for people with something to build</p>
+        <h1 class="hero-title wf-display" aria-label="Turn what you know into what people can become">
+          <span class="title-mask"><span data-hero-line>Turn what you know</span></span>
+          <span class="title-mask"><span data-hero-line>into what people</span></span>
+          <span class="title-mask accent-line"><span data-hero-line>can become.</span></span>
+        </h1>
+        <p data-hero-copy class="hero-intro">
+          A serious course platform for learning, teaching and running education at scale. Build reviewable courses, publish stable releases, and give every learner a path they can finish.
+        </p>
+        <div data-hero-actions class="hero-actions">
+          <button on:click={() => goto('/register')} class="primary-action">Create your account <ArrowRight /></button>
+          <button on:click={() => scrollTo('product')} class="secondary-action"><CirclePlay /> See how it works</button>
+        </div>
+        <div class="hero-proof" data-hero-copy>
+          <span><Check /> Manual-first authoring</span>
+          <span><Check /> Optional reviewed assistance</span>
+          <span><Check /> Release-bound progress</span>
+        </div>
       </div>
 
-      <div class="flex items-center gap-2">
-        <button
-          type="button"
-          on:click={toggleTheme}
-          title="Toggle {$theme === 'dark' ? 'light' : 'dark'} mode"
-          aria-label="Toggle theme"
-          class="w-9 h-9 rounded-xl border border-ifa-border bg-ifa-card text-ifa-text-secondary hover:text-ifa-text-primary transition flex items-center justify-center"
-        >
-          {#if $theme === 'dark'}
-            <Sun class="w-4 h-4" />
-          {:else}
-            <Moon class="w-4 h-4" />
-          {/if}
-        </button>
-        <button
-          type="button"
-          on:click={handleSignIn}
-          class="hidden sm:inline-flex px-3.5 py-2 rounded-xl text-sm font-semibold text-ifa-text-secondary hover:text-ifa-text-primary transition"
-        >
-          Sign in
-        </button>
-        <button
-          type="button"
-          on:click={handleGetStarted}
-          class="lp-btn-primary px-4 py-2.5 rounded-xl bg-ifa-pine text-white text-sm font-semibold transition shadow-sm flex items-center gap-1.5"
-        >
-          <span class="relative z-10">Get started</span>
-          <ArrowRight class="relative z-10 w-4 h-4" />
-        </button>
-      </div>
-    </div>
-  </nav>
-
-  <!-- ================= Hero ================= -->
-  <section id="top" class="relative overflow-hidden pt-32 pb-20 px-6">
-    <div class="absolute inset-0 lp-hero-bg pointer-events-none" aria-hidden="true">
-      <div class="absolute inset-0 lp-grid"></div>
-      <div class="absolute lp-blob lp-blob-a"></div>
-      <div class="absolute lp-blob lp-blob-b"></div>
-      <div class="absolute lp-blob lp-blob-c"></div>
-      <svg class="lp-wave lp-wave-slow" viewBox="0 0 2880 320" preserveAspectRatio="none" fill="none">
-        <path class="lp-wave-path-1" d="M0 160 C 360 260 720 60 1080 160 C 1440 260 1800 60 2160 160 C 2520 260 2700 110 2880 160 L 2880 320 L 0 320 Z" />
-      </svg>
-      <svg class="lp-wave lp-wave-mid" viewBox="0 0 2880 320" preserveAspectRatio="none" fill="none">
-        <path class="lp-wave-path-2" d="M0 200 C 480 100 960 300 1440 200 C 1920 100 2400 300 2880 200 L 2880 320 L 0 320 Z" />
-      </svg>
-      <svg class="lp-wave lp-wave-fast" viewBox="0 0 2880 320" preserveAspectRatio="none" fill="none">
-        <path class="lp-wave-path-3" d="M0 240 C 720 160 1440 320 2160 240 C 2520 200 2700 260 2880 240 L 2880 320 L 0 320 Z" />
-      </svg>
-    </div>
-
-    <div class="relative max-w-7xl mx-auto">
-      <div class="grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] gap-14 items-center">
-        <!-- Copy -->
-        <div class="space-y-7">
-          <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-ifa-pine/30 bg-ifa-card/80 backdrop-blur">
-            <span class="lp-live-dot"></span>
-            <span class="text-[11px] font-bold uppercase tracking-wider text-ifa-pine">
-              AI-powered learning · built for Ethiopia
-            </span>
+      <div data-hero-stage class="hero-stage" aria-label="A preview of the Witforge course workflow">
+        <div data-stage-back class="stage-back">
+          <div class="stage-label">Source pack</div>
+          <div class="source-row"><FileStack /><span>Field notes.pdf</span><BadgeCheck /></div>
+          <div class="source-row"><Globe2 /><span>Verified reference</span><BadgeCheck /></div>
+          <div class="source-row"><PenTool /><span>Original lesson draft</span><BadgeCheck /></div>
+        </div>
+        <div data-stage-front class="stage-front">
+          <div class="stage-topline"><span>Course release · 03</span><span class="status-dot">Ready</span></div>
+          <div class="course-mini-cover">
+            <span class="mini-code">CS / 204</span>
+            <h2 class="wf-display">Systems that keep their promises</h2>
+            <p>Four modules · twelve lessons · one practical assessment</p>
           </div>
-
-          <h1
-            class="text-4xl md:text-5xl lg:text-[3.35rem] font-extrabold tracking-tight leading-[1.06] text-ifa-text-primary"
-          >
-            Learn with clarity.<br />
-            Teach with <span class="lp-underline">confidence</span>.
-          </h1>
-
-          <p class="text-lg text-ifa-text-secondary max-w-xl leading-relaxed">
-            Learners discover courses, research topics, and track progress. Educators use Witforge Studio to turn their
-            knowledge and materials into editable courses, with AI-assisted research and a blueprint they review
-            before publishing.
-          </p>
-
-          <div class="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              on:click={handleGetStarted}
-              class="lp-btn-primary px-6 py-3.5 rounded-xl bg-ifa-pine text-white text-sm font-bold transition shadow-elevated flex items-center gap-2"
-            >
-              <span class="relative z-10">Start learning free</span>
-              <ArrowRight class="relative z-10 w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              on:click={handleWatchDemo}
-              class="px-6 py-3.5 rounded-xl border border-ifa-border bg-ifa-card/90 backdrop-blur text-ifa-text-primary text-sm font-bold hover:bg-ifa-card-muted transition flex items-center gap-2"
-            >
-              <Play class="w-4 h-4" />
-              Explore the live demo
-            </button>
-            <button
-              type="button"
-              on:click={() => goto('/register?role=Educator')}
-              class="px-6 py-3.5 rounded-xl text-sm font-bold text-ifa-pine hover:bg-ifa-card/70 transition"
-            >
-              Create as an educator
-            </button>
-          </div>
-
-          <p class="text-xs text-ifa-text-muted">
-            One-click demo learner on the sign-in page — no setup, no credit card, real data.
-          </p>
-
-          <div class="flex flex-wrap gap-2 pt-1">
-            {#each [
-              { icon: Layers, label: 'Manual course builder' },
-              { icon: FlaskConical, label: 'Optional research tools' },
-              { icon: ListChecks, label: 'Reusable templates' },
-              { icon: Zap, label: 'Persisted learner progress' }
-            ] as chip}
-              <span
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-ifa-border bg-ifa-card/90 backdrop-blur text-[11px] font-semibold text-ifa-text-secondary"
-              >
-                <svelte:component this={chip.icon} class="w-3.5 h-3.5 text-ifa-pine" />
-                {chip.label}
-              </span>
+          <div class="module-list">
+            {#each ['Model the boundary', 'Design the contract', 'Handle the failure', 'Ship with evidence'] as item, index}
+              <div class:complete={index < 2} class="module-row"><span>{String(index + 1).padStart(2, '0')}</span><strong>{item}</strong>{#if index < 2}<Check />{:else}<ChevronRight />{/if}</div>
             {/each}
           </div>
         </div>
-
-        <!-- Animated pipeline mock -->
-        <div class="relative lp-float-in">
-          <div class="lp-stage-ring" aria-hidden="true"></div>
-
-          <div class="relative rounded-3xl border border-ifa-border bg-ifa-card shadow-elevated overflow-hidden">
-            <div class="flex items-center gap-2 px-4 py-3 border-b border-ifa-border bg-ifa-card-muted/60">
-              <span class="w-2.5 h-2.5 rounded-full bg-ifa-accent-pink"></span>
-              <span class="w-2.5 h-2.5 rounded-full bg-ifa-accent-amber"></span>
-              <span class="w-2.5 h-2.5 rounded-full bg-ifa-accent-green"></span>
-              <span class="ml-2 text-[11px] font-semibold text-ifa-text-muted">Witforge Studio · workflow preview</span>
-            </div>
-
-            <div class="grid grid-cols-4 gap-1.5 p-3">
-              {#each pipelineStages as s, i}
-                <button
-                  type="button"
-                  on:click={() => selectStage(i)}
-                  class="lp-step {i === stage ? 'is-active' : ''} {i < stage ? 'is-done' : ''}"
-                  aria-label={`Show ${s.label} stage`}
-                >
-                  {s.label}
-                </button>
-              {/each}
-            </div>
-
-            <div class="px-4 pb-4 h-[292px]">
-              {#key stage}
-                <div class="lp-stage-body h-full flex flex-col">
-                  {#if stage === 0}
-                    <div class="space-y-2.5 flex-1">
-                      <div class="lp-bubble lp-bubble-user">I teach backend APIs and want a beginner course.</div>
-                      <div class="lp-bubble lp-bubble-ai">
-                        <Bot class="w-3.5 h-3.5 text-ifa-pine shrink-0 mt-0.5" />
-                        <span>Who are your learners, and what should they be able to do?</span>
-                      </div>
-                      <div class="lp-bubble lp-bubble-user">Beginners should build a REST API.</div>
-                      <div class="lp-bubble lp-bubble-ai">
-                        <Bot class="w-3.5 h-3.5 text-ifa-pine shrink-0 mt-0.5" />
-                        <span>Great. Add any materials you want included.</span>
-                      </div>
-                    </div>
-                    <div class="flex items-center gap-2 text-[11px] text-ifa-text-muted pt-3">
-                      <span class="lp-typing"><i></i><i></i><i></i></span>
-                      Witforge is organizing the course brief
-                    </div>
-                  {:else if stage === 1}
-                    <div class="space-y-2 flex-1">
-                      <p class="text-[11px] font-bold uppercase tracking-wider text-ifa-text-muted">
-                        Blueprint · waiting for your approval
-                      </p>
-                      {#each blueprintRows as row}
-                        <div class="lp-row">
-                          <span class="lp-row-num">{row.n}</span>
-                          <span class="min-w-0">
-                            <span class="block text-xs font-semibold text-ifa-text-primary truncate">{row.title}</span>
-                            <span class="block text-[10px] text-ifa-text-muted">{row.meta}</span>
-                          </span>
-                          <Check class="w-3.5 h-3.5 text-ifa-pine ml-auto shrink-0" />
-                        </div>
-                      {/each}
-                    </div>
-                    <div class="flex items-center gap-2 pt-3">
-                      <span class="lp-pill">Approve &amp; generate</span>
-                      <span class="text-[11px] text-ifa-text-muted">nothing is written yet</span>
-                    </div>
-                  {:else if stage === 2}
-                    <div class="space-y-2 flex-1">
-                      <p class="text-[11px] font-bold uppercase tracking-wider text-ifa-text-muted">
-                        Research package · saved with the course
-                      </p>
-                      {#each researchRows as row}
-                        <div class="lp-row">
-                          <span class="lp-row-icon lp-tone-{row.tone}">
-                            <svelte:component this={row.icon} class="w-3.5 h-3.5" />
-                          </span>
-                          <span class="min-w-0">
-                            <span class="block text-xs font-semibold text-ifa-text-primary truncate">{row.label}</span>
-                            <span class="block text-[10px] text-ifa-text-muted">{row.meta}</span>
-                          </span>
-                          <Check class="w-3.5 h-3.5 text-ifa-pine ml-auto shrink-0" />
-                        </div>
-                      {/each}
-                    </div>
-                    <p class="pt-3 text-[11px] text-ifa-text-muted">
-                      Selected sources stay attached to the project for educator review.
-                    </p>
-                  {:else}
-                    <div class="space-y-3 flex-1">
-                      <div class="flex items-center gap-2">
-                        <span class="text-xs font-bold text-ifa-text-primary">Module 1 · Foundations</span>
-                        <span class="lp-badge-ready">Ready</span>
-                        <span class="ml-auto text-[11px] text-ifa-text-muted">learn now</span>
-                      </div>
-                      <div class="lp-progress-track"><span class="lp-progress-fill"></span></div>
-                      {#each [
-                        { label: '4 lessons written', icon: BookOpen },
-                        { label: '3 exam-style quizzes', icon: ListChecks },
-                        { label: 'Sources attached', icon: FileText },
-                        { label: 'You are enrolled', icon: Users }
-                      ] as item}
-                        <div class="flex items-center gap-2 text-[11px] text-ifa-text-secondary">
-                          <svelte:component this={item.icon} class="w-3.5 h-3.5 text-ifa-pine" />
-                          {item.label}
-                        </div>
-                      {/each}
-                    </div>
-                    <p class="pt-3 text-[11px] text-ifa-text-muted">
-                      Later modules generate on demand, reusing this research.
-                    </p>
-                  {/if}
-                </div>
-              {/key}
-            </div>
-          </div>
-
-          <!-- Floating integration chips -->
-          <div class="hidden xl:flex absolute -left-8 top-24 lp-chip-float">
-            <FlaskConical class="w-3.5 h-3.5 text-ifa-accent-purple" />
-            <span>Academic sources</span>
-          </div>
-          <div class="hidden xl:flex absolute -right-7 top-40 lp-chip-float lp-chip-delay">
-            <AudioLines class="w-3.5 h-3.5 text-ifa-accent-pink" />
-            <span>Voxide voice</span>
-          </div>
-          <div class="hidden xl:flex absolute -left-6 bottom-16 lp-chip-float lp-chip-delay-2">
-            <Zap class="w-3.5 h-3.5 text-ifa-accent-amber" />
-            <span>JIT modules</span>
-          </div>
+        <div data-float-card use:parallax={{ y: -46 }} class="float-card float-progress">
+          <span class="ring-progress">68<small>%</small></span>
+          <span><strong>Progress with context</strong><small>Bound to release 03</small></span>
         </div>
+        <div data-float-card use:parallax={{ y: 38 }} class="float-card float-certificate">
+          <GraduationCap /><span><strong>Completion record</strong><small>Verifiable by serial</small></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-ticker" aria-label="Witforge capabilities">
+      <div>
+        <span>Author with control</span><i></i><span>Publish immutable releases</span><i></i><span>Teach with a team</span><i></i><span>Learn with evidence</span><i></i><span>Build a public presence</span>
       </div>
     </div>
   </section>
 
-  <!-- ================= Partners marquee ================= -->
-  <section class="py-8 border-y border-ifa-border bg-ifa-bg-warm overflow-hidden">
-    <p class="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-ifa-text-muted mb-6">
-      Integrations activate only when configured
-    </p>
-    <div class="lp-marquee-mask">
-      <div class="lp-marquee">
-        {#each [...partners, ...partners] as partner, i}
-          <div class="lp-partner" aria-hidden={i >= partners.length}>
-            <svelte:component this={partner.icon} class="w-5 h-5 text-ifa-pine" />
-            <span class="text-sm font-bold text-ifa-text-primary">{partner.name}</span>
-            <span class="text-xs text-ifa-text-muted">{partner.role}</span>
-          </div>
+  <section id="product" data-story class="story-section">
+    <div data-story-sticky class="story-sticky">
+      <div class="story-heading" use:reveal>
+        <p class="wf-kicker">One connected lifecycle</p>
+        <h2 class="wf-display">From lived knowledge to trusted outcome.</h2>
+        <p>Witforge keeps authoring, delivery and proof in one product without collapsing them into one screen.</p>
+      </div>
+      <div class="story-orbit-wrap" aria-hidden="true">
+        <div data-story-orbit class="story-orbit">
+          <span><PenTool /></span><span><BookOpen /></span><span><BadgeCheck /></span>
+        </div>
+        <div class="orbit-core">WF</div>
+      </div>
+      <ol class="story-index" aria-label="Product lifecycle steps">
+        {#each story as item, index}
+          <li data-story-index={index} data-active={index === 0 ? '' : undefined}><span>{item.number}</span>{item.label}</li>
         {/each}
-      </div>
+      </ol>
     </div>
-  </section>
-
-  <!-- ================= How it works ================= -->
-  <section id="how" class="py-24 px-6">
-    <div class="max-w-7xl mx-auto">
-      <div class="max-w-3xl mb-14" use:reveal>
-        <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-ifa-pine mb-3">How it works</p>
-        <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight text-ifa-text-primary mb-4">
-          A clear course workflow, with the educator in control
-        </h2>
-        <p class="text-ifa-text-secondary leading-relaxed">
-          AI helps with research, structure, and drafting; educators review and edit each step before learners see a
-          published course.
-        </p>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr_auto_1fr] gap-6 items-stretch">
-        {#each pipeline as step, i}
-          {#if i > 0}
-            <div class="hidden lg:flex items-center justify-center lp-connector" aria-hidden="true">
-              <ChevronRight class="w-5 h-5 text-ifa-text-muted" />
-            </div>
-          {/if}
-          <div class="lp-card rounded-2xl border border-ifa-border bg-ifa-card p-6 shadow-card" use:reveal={i * 90}>
-            <div class="flex items-center justify-between mb-5">
-              <span class="lp-step-num">{step.step}</span>
-              <span class="lp-model-chip lp-tone-{step.accent}">
-                <svelte:component this={step.icon} class="w-3.5 h-3.5" />
-                {step.model}
-              </span>
-            </div>
-            <h3 class="text-lg font-bold text-ifa-text-primary mb-1">{step.name}</h3>
-            <p class="text-sm text-ifa-text-secondary leading-relaxed mb-4">{step.summary}</p>
-            <ul class="space-y-2">
-              {#each step.points as point}
-                <li class="flex items-start gap-2 text-xs text-ifa-text-secondary leading-relaxed">
-                  <Check class="w-3.5 h-3.5 text-ifa-pine shrink-0 mt-0.5" />
-                  <span>{point}</span>
-                </li>
-              {/each}
-            </ul>
-          </div>
-        {/each}
-      </div>
-
-      <div class="mt-10 flex flex-wrap items-center gap-3" use:reveal={120}>
-        {#each checkpoints as cp}
-          <span class="lp-checkpoint">
-            <svelte:component this={cp.icon} class="w-3.5 h-3.5 text-ifa-pine" />
-            {cp.label}
-          </span>
-        {/each}
-      </div>
-    </div>
-  </section>
-
-  <!-- ================= Features ================= -->
-  <section id="features" class="py-24 px-6 bg-ifa-bg-warm">
-    <div class="max-w-7xl mx-auto">
-      <div class="max-w-3xl mb-14" use:reveal>
-        <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-ifa-pine mb-3">Platform</p>
-        <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight text-ifa-text-primary mb-4">
-          Everything you need after the course exists
-        </h2>
-        <p class="text-ifa-text-secondary leading-relaxed">
-          Witforge is a learning companion, not a content dump: courses you can actually enrol in, skills you can measure,
-          research you can revisit, and peer comparisons that clearly handle insufficient data.
-        </p>
-      </div>
-
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {#each features as feature, i}
-          <div class="lp-card rounded-2xl border border-ifa-border bg-ifa-card p-5 shadow-soft" use:reveal={i * 60}>
-            <span class="lp-feature-icon lp-tone-{feature.accent}">
-              <svelte:component this={feature.icon} class="w-5 h-5" />
-            </span>
-            <h3 class="text-sm font-bold text-ifa-text-primary mt-4 mb-1.5">{feature.title}</h3>
-            <p class="text-xs text-ifa-text-secondary leading-relaxed">{feature.body}</p>
-          </div>
-        {/each}
-      </div>
-    </div>
-  </section>
-
-  <!-- ================= Educator Studio ================= -->
-  <section id="studio" class="py-24 px-6 bg-ifa-bg-warm">
-    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-14 items-center">
-      <div use:reveal>
-        <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-ifa-pine mb-3">Educator Studio</p>
-        <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight text-ifa-text-primary mb-4">
-          Turn your materials into a course students finish
-        </h2>
-        <p class="text-ifa-text-secondary leading-relaxed mb-6">
-          Add the links you already teach from: supported PDFs, videos, websites, and articles. Witforge extracts supported text,
-          suggests additional academic sources, and flags conflicts before a single lesson is written.
-        </p>
-        <ul class="space-y-3">
-          {#each [
-            { icon: Link2, text: 'Add supported public PDF, text, and web links with bounded extraction.' },
-            { icon: Search, text: 'Configured research providers can suggest additional sources for review.' },
-            { icon: Shield, text: 'Conflict analysis is shown only when the configured AI service completes it.' },
-            { icon: ListChecks, text: 'Review the blueprint module by module, then generate in the background.' }
-          ] as item}
-            <li class="flex items-start gap-3">
-              <span class="lp-feature-icon lp-tone-blue shrink-0">
-                <svelte:component this={item.icon} class="w-4 h-4" />
-              </span>
-              <span class="text-sm text-ifa-text-secondary leading-relaxed pt-1.5">{item.text}</span>
-            </li>
-          {/each}
-        </ul>
-        <div class="mt-6 flex flex-wrap gap-3">
-          <button
-            type="button"
-            on:click={() => goto('/register?role=Educator')}
-            class="lp-btn-primary px-5 py-3 rounded-xl bg-ifa-pine text-white text-sm font-bold transition shadow-elevated flex items-center gap-2"
-          >
-            <span class="relative z-10">Start teaching with Witforge</span>
-            <ArrowRight class="relative z-10 w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            on:click={handleGetStarted}
-            class="px-5 py-3 rounded-xl border border-ifa-border bg-ifa-card text-ifa-text-primary text-sm font-bold hover:bg-ifa-card-muted transition flex items-center gap-2"
-          >
-            <Sparkles class="w-4 h-4" />
-            See the full platform
-          </button>
-        </div>
-      </div>
-
-      <!-- Studio mock panel -->
-      <div class="lp-card rounded-3xl border border-ifa-border bg-ifa-card p-6 shadow-elevated" use:reveal={100}>
-        <div class="flex items-center justify-between mb-5">
-          <span class="flex items-center gap-2 text-sm font-bold text-ifa-text-primary">
-            <GraduationCap class="w-5 h-5 text-ifa-pine" />
-            Example project · Introduction to Databases
-          </span>
-          <span class="lp-badge-ready">12 sources</span>
-        </div>
-        <div class="space-y-2.5">
-          {#each [
-            { title: 'lecture-01-relational-model.pdf', meta: 'PDF · extracted', tone: 'green', icon: FileText },
-            { title: 'Normalization explained — YouTube', meta: 'Video · extracted', tone: 'green', icon: Youtube },
-            { title: 'ACID properties — wiki article', meta: 'Article · extracted', tone: 'green', icon: Globe },
-            { title: 'AI suggestion: survey paper on query optimization', meta: 'Added by AI research', tone: 'purple', icon: FlaskConical }
-          ] as row}
-            <div class="lp-row">
-              <span class="lp-row-icon lp-tone-{row.tone}">
-                <svelte:component this={row.icon} class="w-3.5 h-3.5" />
-              </span>
-              <span class="min-w-0">
-                <span class="block text-xs font-semibold text-ifa-text-primary truncate">{row.title}</span>
-                <span class="block text-[10px] text-ifa-text-muted">{row.meta}</span>
-              </span>
-              <Check class="w-3.5 h-3.5 text-ifa-pine ml-auto shrink-0" />
-            </div>
-          {/each}
-        </div>
-        <div class="mt-5 rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
-          <p class="text-[11px] font-bold uppercase tracking-wider text-amber-700 mb-1">Conflict detected</p>
-          <p class="text-xs text-amber-800 leading-relaxed">
-            Two sources define normalization differently — pick one or keep both before generating the blueprint.
-          </p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ================= Voice (Voxide) ================= -->
-  <section id="voice" class="py-24 px-6">
-    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-14 items-center">
-      <div use:reveal>
-        <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-ifa-pine mb-3">Voice navigation</p>
-        <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight text-ifa-text-primary mb-4">
-          Hands-free, powered by Voxide
-        </h2>
-        <p class="text-ifa-text-secondary leading-relaxed mb-6">
-          Voxide maps your speech onto capabilities the app registers — so a spoken request runs the same code path as a
-          click. No fake transcripts, no dead ends: if Witforge cannot do it, it tells you.
-        </p>
-
-        <div class="space-y-3">
-          {#each voiceCapabilities as cap}
-            <div class="lp-card rounded-2xl border border-ifa-border bg-ifa-card p-4 shadow-soft flex items-start gap-3">
-              <span class="lp-feature-icon lp-tone-green">
-                <svelte:component this={cap.icon} class="w-5 h-5" />
-              </span>
-              <div class="min-w-0">
-                <div class="flex flex-wrap items-center gap-2">
-                  <h3 class="text-sm font-bold text-ifa-text-primary">{cap.title}</h3>
-                  <span class="lp-quote">{cap.trigger}</span>
-                </div>
-                <p class="text-xs text-ifa-text-secondary leading-relaxed mt-1">{cap.body}</p>
-              </div>
-            </div>
-          {/each}
-        </div>
-
-        <div class="mt-5 flex items-start gap-2 text-xs">
-          {#if voxideEnabled}
-            <span class="lp-badge-ready shrink-0">Key detected</span>
-            <span class="text-ifa-text-secondary">
-              A Voxide publishable key is configured, so the mic is armed after sign-in.
-            </span>
-          {:else}
-            <span class="lp-badge-warn shrink-0">Key missing</span>
-            <span class="text-ifa-text-secondary">
-              Add <code class="font-mono text-ifa-text-primary">VITE_VOXIDE_KEY</code> (a
-              <code class="font-mono text-ifa-text-primary">vox_pub_…</code> publishable key) to
-              <code class="font-mono text-ifa-text-primary">client/.env</code> to arm the mic.
-            </span>
-          {/if}
-        </div>
-      </div>
-
-      <div class="lp-voice-panel rounded-3xl border border-ifa-border p-8" use:reveal={100}>
-        <div class="flex items-center justify-between mb-8">
-          <span class="flex items-center gap-2">
-            <AudioLines class="w-5 h-5 text-ifa-pine" />
-            <span class="text-sm font-bold text-ifa-text-primary">Witforge voice console</span>
-          </span>
-          <span class="lp-live-pill"><span class="lp-live-dot"></span> listening</span>
-        </div>
-
-        <div class="lp-wavebars" aria-hidden="true">
-          {#each Array(36) as _, i}
-            <span
-              class="lp-bar"
-              style={`--h: ${28 + ((i * 37) % 62)}%; --d: ${(i % 9) * 90}ms`}
-            ></span>
-          {/each}
-        </div>
-
-        <div class="mt-8 space-y-2.5">
-          <div class="lp-bubble lp-bubble-user ml-auto">Create a course on data structures</div>
-          <div class="lp-bubble lp-bubble-ai">
-            <Bot class="w-3.5 h-3.5 text-ifa-pine shrink-0 mt-0.5" />
-            <span>On it — 5 hours a week. Opening your new course…</span>
-          </div>
-          <div class="lp-bubble lp-bubble-user ml-auto">Take me to my progress</div>
-          <div class="lp-bubble lp-bubble-ai">
-            <Bot class="w-3.5 h-3.5 text-ifa-pine shrink-0 mt-0.5" />
-            <span>Done. Here is your progress dashboard.</span>
-          </div>
-        </div>
-
-        <p class="mt-7 text-[11px] text-ifa-text-muted leading-relaxed">
-          The browser SDK only ever uses the publishable <code class="font-mono">vox_pub_…</code> key; the secret
-          <code class="font-mono">vox_sk_…</code> key never leaves the server. Whitelist your origin in the Voxide
-          dashboard.
-        </p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ================= Research (academic sources) ================= -->
-  <section id="research" class="py-24 px-6 bg-ifa-bg-warm">
-    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-14 items-center">
-      <div class="lp-research-card rounded-3xl border border-ifa-border bg-ifa-card p-6 shadow-elevated" use:reveal>
-        <div class="flex items-center justify-between mb-5">
-          <span class="flex items-center gap-2 text-sm font-bold text-ifa-text-primary">
-            <FlaskConical class="w-5 h-5 text-ifa-accent-purple" />
-            Research package
-          </span>
-          <span class="lp-model-chip lp-tone-purple">Academic + web search</span>
-        </div>
-
-        <div class="space-y-3">
-          {#each [
-            { icon: FlaskConical, title: 'Academic papers', meta: 'OpenAlex · Semantic Scholar · arXiv', count: 'ranked by relevance' },
-            { icon: Globe, title: 'Web resources', meta: 'Tavily search and Wikimedia Commons media', count: 'fetched per topic' },
-            { icon: Youtube, title: 'YouTube walkthroughs', meta: 'Matched to the creator you asked for', count: 'transcript-ready' }
-          ] as source}
-            <div class="lp-row">
-              <span class="lp-row-icon lp-tone-purple">
-                <svelte:component this={source.icon} class="w-3.5 h-3.5" />
-              </span>
-              <span class="min-w-0">
-                <span class="block text-xs font-semibold text-ifa-text-primary">{source.title}</span>
-                <span class="block text-[10px] text-ifa-text-muted">{source.meta}</span>
-              </span>
-              <span class="ml-auto text-[10px] font-semibold text-ifa-text-muted shrink-0">{source.count}</span>
-            </div>
-          {/each}
-        </div>
-
-        <div class="mt-5 rounded-2xl border border-ifa-border bg-ifa-card-muted/60 p-4">
-          <p class="text-[11px] font-bold uppercase tracking-wider text-ifa-text-muted mb-2">In the lesson</p>
-          <p class="text-xs text-ifa-text-secondary leading-relaxed">
-            Sources are folded into the prompt and appended to the lesson under
-            <span class="font-semibold text-ifa-text-primary">Course Sources</span> — and your own links go in there
-            too, so nothing you supplied gets dropped.
-          </p>
-        </div>
-      </div>
-
-      <div use:reveal={100}>
-        <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-ifa-pine mb-3">Research</p>
-        <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight text-ifa-text-primary mb-4">
-          Backed by real academic sources, not vibes
-        </h2>
-        <p class="text-ifa-text-secondary leading-relaxed mb-6">
-          Research runs once per course and is stored as a reusable package, so every module you generate later is
-          grounded in the same evidence — without paying to search again.
-        </p>
-        <ul class="space-y-3">
-          {#each [
-            { icon: FlaskConical, text: 'OpenAlex, Semantic Scholar and arXiv for peer-reviewed starting points.' },
-            { icon: Globe, text: 'Web references via Tavily and images from Wikimedia Commons.' },
-            { icon: Youtube, text: 'Video resources matched to the creator you prefer.' },
-            { icon: FileText, text: 'Your pasted links and cover image are treated as first-class sources.' }
-          ] as item}
-            <li class="flex items-start gap-3">
-              <span class="lp-feature-icon lp-tone-purple shrink-0">
-                <svelte:component this={item.icon} class="w-4 h-4" />
-              </span>
-              <span class="text-sm text-ifa-text-secondary leading-relaxed pt-1.5">{item.text}</span>
-            </li>
-          {/each}
-        </ul>
-      </div>
-    </div>
-  </section>
-
-  <!-- ================= Stats ================= -->
-  <section class="py-16 px-6">
-    <div class="max-w-7xl mx-auto grid grid-cols-2 lg:grid-cols-4 gap-5">
-      {#each stats as stat, i}
-        <div class="lp-stat rounded-2xl border border-ifa-border bg-ifa-card p-6 text-center" use:reveal={i * 70}>
-          <p class="text-3xl font-extrabold tracking-tight text-ifa-pine">{stat.value}</p>
-          <p class="text-xs text-ifa-text-secondary mt-1.5">{stat.label}</p>
-        </div>
+    <div class="story-cards">
+      {#each story as item, index}
+        <article data-story-card={index} class="story-card" use:reveal={{ y: 54 }}>
+          <div class="story-card-meta"><span>{item.number}</span><span>{item.label}</span></div>
+          <h3 class="wf-display">{item.title}</h3>
+          <p>{item.body}</p>
+          <div class="story-card-proof"><strong>{item.metric}</strong><span>{item.detail}</span></div>
+        </article>
       {/each}
     </div>
   </section>
 
-  <!-- ================= Domains ================= -->
-  <section id="domains" class="py-16 px-6 pb-24">
-    <div class="max-w-7xl mx-auto">
-      <div class="text-center max-w-2xl mx-auto mb-10" use:reveal>
-        <h2 class="text-2xl md:text-3xl font-extrabold tracking-tight text-ifa-text-primary mb-3">
-          Built for exam prep across five domains
-        </h2>
-        <p class="text-sm text-ifa-text-secondary">
-          Computer science, engineering, medicine and health, science and business — the pipeline adapts to the subject,
-          not the other way around.
-        </p>
-      </div>
-      <div class="flex flex-wrap justify-center gap-3" use:reveal={80}>
-        {#each domains as domain}
-          <span class="lp-domain">
-            <svelte:component this={domain.icon} class="w-4 h-4 text-ifa-pine" />
-            {domain.name}
-          </span>
-        {/each}
-      </div>
-    </div>
-  </section>
-
-  <!-- ================= Stack ================= -->
-  <section id="stack" class="py-24 px-6 bg-ifa-bg-warm">
-    <div class="max-w-7xl mx-auto">
-      <div class="max-w-3xl mb-14" use:reveal>
-        <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-ifa-pine mb-3">Under the hood</p>
-        <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight text-ifa-text-primary mb-4">
-          Engineered, not assembled
-        </h2>
-        <p class="text-ifa-text-secondary leading-relaxed">
-          A typed SvelteKit client on top of a clean-architecture .NET API, with AI providers and research wired in as
-          first-class services.
-        </p>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {#each stack as group, i}
-          <div class="lp-card rounded-2xl border border-ifa-border bg-ifa-card p-6 shadow-card" use:reveal={i * 80}>
-            <span class="lp-feature-icon lp-tone-blue">
-              <svelte:component this={group.icon} class="w-5 h-5" />
-            </span>
-            <h3 class="text-sm font-bold text-ifa-text-primary mt-4 mb-3">{group.title}</h3>
-            <ul class="space-y-2">
-              {#each group.items as item}
-                <li class="flex items-start gap-2 text-xs text-ifa-text-secondary">
-                  <Terminal class="w-3.5 h-3.5 text-ifa-text-muted shrink-0 mt-0.5" />
-                  <span>{item}</span>
-                </li>
-              {/each}
+  <section id="audiences" data-audience-section class="audience-section">
+    <div class="audience-track">
+      {#each audiences as audience, index}
+        <article data-audience-panel class="audience-panel audience-{audience.color}">
+          <div class="audience-number">0{index + 1}</div>
+          <div class="audience-copy">
+            <p class="wf-kicker">{audience.eyebrow}</p>
+            <h2 class="wf-display">{audience.title}</h2>
+            <p>{audience.body}</p>
+            <ul>
+              {#each audience.items as item}<li><Check />{item}</li>{/each}
             </ul>
           </div>
-        {/each}
-      </div>
-
-      <div class="mt-6 flex flex-wrap items-center gap-3 text-xs text-ifa-text-muted" use:reveal={160}>
-        <span class="inline-flex items-center gap-1.5"><Shield class="w-3.5 h-3.5" /> JWT auth &amp; learner-scoped data</span>
-        <span class="lp-dot">•</span>
-        <span class="inline-flex items-center gap-1.5"><Waves class="w-3.5 h-3.5" /> Responsive, theme-aware UI</span>
-        <span class="lp-dot">•</span>
-        <span class="inline-flex items-center gap-1.5"><BookOpen class="w-3.5 h-3.5" /> Docker &amp; Docker Compose</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- ================= Final CTA ================= -->
-  <section class="px-6 py-20">
-    <div class="max-w-6xl mx-auto lp-cta rounded-3xl overflow-hidden border border-ifa-border">
-      <div class="relative px-8 py-16 text-center">
-        <div class="absolute inset-0 lp-cta-bg pointer-events-none" aria-hidden="true">
-          <div class="absolute lp-blob lp-blob-cta"></div>
-        </div>
-        <div class="relative">
-          <span class="lp-live-pill mb-5"><Sparkles class="w-3.5 h-3.5" /> Free to try</span>
-          <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight text-ifa-text-primary mb-4">
-            Your next course is one conversation away
-          </h2>
-          <p class="text-ifa-text-secondary max-w-2xl mx-auto mb-8 leading-relaxed">
-            Describe the goal, approve the blueprint, and start learning from a research-backed module today. Or sign in
-            with the demo learner and let Voxide drive.
-          </p>
-          <div class="flex flex-wrap items-center justify-center gap-3">
-            <button
-              type="button"
-              on:click={handleGetStarted}
-              class="lp-btn-primary px-7 py-3.5 rounded-xl bg-ifa-pine text-white text-sm font-bold shadow-elevated transition flex items-center gap-2"
-            >
-              <span class="relative z-10">Create your free account</span>
-              <ArrowRight class="relative z-10 w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              on:click={handleWatchDemo}
-              class="px-7 py-3.5 rounded-xl border border-ifa-border bg-ifa-card text-ifa-text-primary text-sm font-bold hover:bg-ifa-card-muted transition flex items-center gap-2"
-            >
-              <Play class="w-4 h-4" />
-              Try the demo learner
-            </button>
+          <div class="audience-art" aria-hidden="true">
+            {#if audience.id === 'learners'}
+              <div class="learner-path"><span class="path-head">Current release</span>{#each ['Orientation', 'Core practice', 'Assessment', 'Completion'] as item, i}<div class:done={i < 2}><b>{i + 1}</b><span>{item}</span><em>{i < 2 ? 'Done' : i === 2 ? 'Next' : 'Locked'}</em></div>{/each}</div>
+            {:else if audience.id === 'educators'}
+              <div class="studio-board"><div class="studio-bar"><span></span><span></span><span></span></div><div class="studio-canvas"><aside>{#each ['Overview', 'Curriculum', 'Assignments', 'Release'] as item}<span>{item}</span>{/each}</aside><main><small>Module 03</small><strong>Handle the failure</strong><div class="editor-lines"></div><div class="editor-lines short"></div><button>Review draft</button></main></div></div>
+            {:else}
+              <div class="site-board"><div class="site-nav"><strong>Northline</strong><span>Courses&nbsp;&nbsp; Instructors&nbsp;&nbsp; About</span></div><div class="site-hero"><small>LEARNING STUDIO</small><strong class="wf-display">Build capability that lasts.</strong><span></span></div><div class="domain-chip"><Globe2 /> learn.northline.org <BadgeCheck /></div></div>
+            {/if}
           </div>
-        </div>
+        </article>
+      {/each}
+    </div>
+  </section>
+
+  <section id="trust" class="trust-section">
+    <div class="trust-intro" use:reveal>
+      <p class="wf-kicker">Designed for the long run</p>
+      <h2 class="wf-display">Professional does not mean complicated. It means dependable.</h2>
+      <p>Every product decision is shaped around clarity for the person learning and control for the person responsible.</p>
+    </div>
+    <div class="expectation-grid">
+      {#each expectations as expectation, index}
+        <article use:reveal={{ delay: index * 0.08 }}>
+          <span><svelte:component this={expectation.icon} /></span>
+          <h3>{expectation.title}</h3>
+          <p>{expectation.body}</p>
+        </article>
+      {/each}
+    </div>
+    <div class="trust-rail" use:reveal>
+      <p>What you will not find here</p>
+      <div><span>Surprise publishing</span><span>Fabricated progress</span><span>Mutable learner history</span><span>Hidden payment state</span></div>
+    </div>
+  </section>
+
+  <section class="course-window-section">
+    <div class="course-window-copy" use:reveal>
+      <p class="wf-kicker">The learner experience</p>
+      <h2 class="wf-display">Less dashboard theatre. More useful next steps.</h2>
+      <p>A focused home surfaces the active course, today’s work and the evidence that is moving completion forward.</p>
+      <a href="/register">See your learning workspace <ArrowRight /></a>
+    </div>
+    <div class="course-window" use:reveal={{ y: 60 }}>
+      <div class="window-nav"><span class="brand-mark mini"><span></span><span></span><span></span></span><b>My learning</b><span>Search&nbsp;&nbsp; Notifications&nbsp;&nbsp; Profile</span></div>
+      <div class="window-body">
+        <aside><small>IN PROGRESS</small><strong>Systems that keep their promises</strong><div class="window-progress"><i></i></div><span>68% complete</span></aside>
+        <main><small>TODAY’S FOCUS</small><h3 class="wf-display">Handle the failure before it handles you.</h3><p>Lesson 3 of 4 · 14 min</p><button>Continue lesson <ArrowRight /></button></main>
+        <div class="evidence-card"><BadgeCheck /><span><strong>2 skills strengthened</strong><small>From quiz and assignment evidence</small></span></div>
       </div>
     </div>
   </section>
 
-  <!-- ================= Footer ================= -->
-  <footer id="contact" class="border-t border-ifa-border bg-ifa-bg px-6 py-14">
-    <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-[1.4fr_1fr_1fr_1.2fr] gap-10">
-      <div>
-        <div class="flex items-center gap-3 mb-4">
-          <span class="w-9 h-9 rounded-xl bg-ifa-pine text-white flex items-center justify-center">
-            <GraduationCap class="w-5 h-5" />
-          </span>
-          <span class="text-lg font-extrabold tracking-tight text-ifa-text-primary">Witforge</span>
-        </div>
-        <p class="text-sm text-ifa-text-secondary leading-relaxed max-w-xs">
-          Your AI learning companion. Personalized courses, research-backed lessons and hands-free navigation.
-        </p>
-        <div class="flex items-center gap-2 mt-5 text-[11px] font-bold uppercase tracking-wider text-ifa-text-muted">
-          <span>Study</span><span class="lp-dot">•</span><span>Grow</span><span class="lp-dot">•</span><span>Achieve</span>
-        </div>
-      </div>
-
-      <div>
-        <h3 class="text-xs font-bold uppercase tracking-wider text-ifa-text-primary mb-4">Explore</h3>
-        <ul class="space-y-2.5">
-          {#each [
-            { id: 'how', label: 'How it works' },
-            { id: 'features', label: 'Features' },
-            { id: 'voice', label: 'Voice (Voxide)' },
-            { id: 'research', label: 'Research sources' },
-            { id: 'stack', label: 'Tech stack' }
-          ] as link}
-            <li>
-              <button
-                type="button"
-                on:click={() => scrollTo(link.id)}
-                class="text-sm text-ifa-text-secondary hover:text-ifa-pine transition"
-              >
-                {link.label}
-              </button>
-            </li>
-          {/each}
-        </ul>
-      </div>
-
-      <div>
-        <h3 class="text-xs font-bold uppercase tracking-wider text-ifa-text-primary mb-4">Get started</h3>
-        <ul class="space-y-2.5">
-          <li>
-            <button type="button" on:click={handleGetStarted} class="text-sm text-ifa-text-secondary hover:text-ifa-pine transition">
-              Create an account
-            </button>
-          </li>
-          <li>
-            <button type="button" on:click={handleSignIn} class="text-sm text-ifa-text-secondary hover:text-ifa-pine transition">
-              Sign in
-            </button>
-          </li>
-          <li>
-            <button type="button" on:click={handleWatchDemo} class="text-sm text-ifa-text-secondary hover:text-ifa-pine transition">
-              Demo learner
-            </button>
-          </li>
-        </ul>
-      </div>
-
-      <div>
-        <h3 class="text-xs font-bold uppercase tracking-wider text-ifa-text-primary mb-4">For educators</h3>
-        <ul class="space-y-2.5 text-sm text-ifa-text-secondary">
-          <li><a href="#studio" class="hover:text-ifa-pine transition">Educator Studio</a></li>
-          <li><a href="#features" class="hover:text-ifa-pine transition">Paid courses &amp; payments</a></li>
-          <li><a href="#research" class="hover:text-ifa-pine transition">Research sources</a></li>
-        </ul>
-        <p class="text-xs text-ifa-text-muted mt-4">Turn your materials into structured courses.</p>
-      </div>
+  <section class="final-cta">
+    <div class="cta-rule"></div>
+    <div use:reveal>
+      <p class="wf-kicker">Start where you are</p>
+      <h2 class="wf-display">Bring the knowledge.<br />Witforge gives it a path.</h2>
+      <p>Learn something deeply, teach it deliberately, or build a home for your organization’s courses.</p>
+      <div><a href="/register" class="wf-signal">Create an account <ArrowRight /></a><a href="/marketplace">Browse public courses <MousePointer2 /></a></div>
     </div>
+  </section>
 
-    <div
-      class="max-w-7xl mx-auto mt-12 pt-6 border-t border-ifa-border flex flex-col sm:flex-row items-center justify-between gap-3"
-    >
-      <p class="text-xs text-ifa-text-muted">© 2026 Witforge. All rights reserved.</p>
-      <p class="text-xs text-ifa-text-muted flex items-center gap-2">
-        <Compass class="w-3.5 h-3.5" /> Academic research from OpenAlex, Semantic Scholar, arXiv, Tavily &amp; Wikimedia Commons · Voice by Voxide
-      </p>
-    </div>
+  <footer class="landing-footer">
+    <a href="/" class="brand-lockup"><span class="brand-mark"><span></span><span></span><span></span></span><span>Witforge</span></a>
+    <p>Learning, authoring and proof in one dependable system.</p>
+    <div><a href="/marketplace">Courses</a><a href="/login">Sign in</a><a href="/register">Create account</a></div>
+    <small>© {new Date().getFullYear()} Witforge</small>
   </footer>
 </div>
 
 <style>
-  /* ------------------------------------------------------------------ */
-  /* Shared primitives                                                   */
-  /* ------------------------------------------------------------------ */
-
-  .lp-nav {
-    background: rgba(248, 246, 240, 0.82);
-    backdrop-filter: blur(14px);
-  }
-  :global(.dark) .lp-nav {
-    background: rgba(10, 10, 10, 0.82);
-  }
-
-  .lp-btn-primary {
-    position: relative;
-    overflow: hidden;
-  }
-  .lp-btn-primary::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(105deg, transparent 32%, rgba(255, 255, 255, 0.4) 50%, transparent 68%);
-    transform: translateX(-130%);
-    transition: transform 0.75s ease;
-  }
-  .lp-btn-primary:hover::after {
-    transform: translateX(130%);
-  }
-
-  /* Highlight bar under the headline — an inline background, so it can never
-     slip behind the hero layers the way a negative z-index would. */
-  .lp-underline {
-    background-image: linear-gradient(rgba(42, 157, 104, 0.32), rgba(42, 157, 104, 0.32));
-    background-repeat: no-repeat;
-    background-size: 100% 0.34em;
-    background-position: 0 88%;
-  }
-  :global(.dark) .lp-underline {
-    background-image: linear-gradient(rgba(34, 197, 94, 0.3), rgba(34, 197, 94, 0.3));
-  }
-
-  .lp-live-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 9999px;
-    background: #2a9d68;
-    box-shadow: 0 0 0 0 rgba(42, 157, 104, 0.55);
-    animation: lp-pulse 2.1s ease-out infinite;
-  }
-  :global(.dark) .lp-live-dot {
-    background: #22c55e;
-  }
-  @keyframes lp-pulse {
-    0% { box-shadow: 0 0 0 0 rgba(42, 157, 104, 0.5); }
-    70% { box-shadow: 0 0 0 8px rgba(42, 157, 104, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(42, 157, 104, 0); }
-  }
-
-  .lp-dot {
-    color: #b8b0a0;
-  }
-  :global(.dark) .lp-dot {
-    color: #4a4a4a;
-  }
-
-  /* ------------------------------------------------------------------ */
-  /* Hero background                                                     */
-  /* ------------------------------------------------------------------ */
-
-  .lp-root {
-    position: relative;
-  }
-
-  .lp-hero-bg {
-    background: linear-gradient(165deg, #eef3ea 0%, #f8f6f0 52%, #e8f1e8 100%);
-  }
-  :global(.dark) .lp-hero-bg {
-    background: linear-gradient(165deg, #0c1a12 0%, #0a0a0a 52%, #0f1c14 100%);
-  }
-
-  .lp-grid {
-    background-image:
-      linear-gradient(to right, rgba(27, 61, 47, 0.07) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(27, 61, 47, 0.07) 1px, transparent 1px);
-    background-size: 46px 46px;
-    mask-image: radial-gradient(120% 90% at 50% 0%, #000 0%, transparent 78%);
-    -webkit-mask-image: radial-gradient(120% 90% at 50% 0%, #000 0%, transparent 78%);
-  }
-  :global(.dark) .lp-grid {
-    background-image:
-      linear-gradient(to right, rgba(34, 197, 94, 0.09) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(34, 197, 94, 0.09) 1px, transparent 1px);
-  }
-
-  .lp-blob {
-    border-radius: 9999px;
-    filter: blur(70px);
-    opacity: 0.75;
-  }
-  .lp-blob-a {
-    width: 32rem;
-    height: 32rem;
-    top: -12rem;
-    right: -8rem;
-    background: rgba(42, 157, 104, 0.3);
-    animation: lp-float 16s ease-in-out infinite alternate;
-  }
-  .lp-blob-b {
-    width: 24rem;
-    height: 24rem;
-    bottom: -10rem;
-    left: -6rem;
-    background: rgba(124, 92, 252, 0.16);
-    animation: lp-float 20s ease-in-out infinite alternate-reverse;
-  }
-  .lp-blob-c {
-    width: 18rem;
-    height: 18rem;
-    top: 30%;
-    left: 40%;
-    background: rgba(37, 99, 235, 0.12);
-    animation: lp-float 24s ease-in-out infinite alternate;
-  }
-  :global(.dark) .lp-blob-a { background: rgba(34, 197, 94, 0.2); }
-  :global(.dark) .lp-blob-b { background: rgba(168, 85, 247, 0.12); }
-  :global(.dark) .lp-blob-c { background: rgba(59, 130, 246, 0.1); }
-
-  @keyframes lp-float {
-    from { transform: translate3d(0, 0, 0) scale(1); }
-    to { transform: translate3d(-3rem, 2.5rem, 0) scale(1.12); }
-  }
-
-  .lp-wave {
-    position: absolute;
-    left: 0;
-    bottom: -2px;
-    width: 200%;
-    will-change: transform;
-  }
-  .lp-wave-slow { height: 60%; animation: lp-wave-drift 30s linear infinite; }
-  .lp-wave-mid { height: 44%; opacity: 0.7; animation: lp-wave-drift 20s linear infinite reverse; }
-  .lp-wave-fast { height: 30%; opacity: 0.5; animation: lp-wave-drift 13s linear infinite; }
-
-  @keyframes lp-wave-drift {
-    from { transform: translateX(0); }
-    to { transform: translateX(-50%); }
-  }
-
-  .lp-wave-path-1 { fill: rgba(42, 157, 104, 0.16); }
-  .lp-wave-path-2 { fill: rgba(27, 61, 47, 0.1); }
-  .lp-wave-path-3 { fill: rgba(42, 157, 104, 0.2); }
-  :global(.dark) .lp-wave-path-1 { fill: rgba(34, 197, 94, 0.1); }
-  :global(.dark) .lp-wave-path-2 { fill: rgba(34, 197, 94, 0.06); }
-  :global(.dark) .lp-wave-path-3 { fill: rgba(34, 197, 94, 0.13); }
-
-  /* ------------------------------------------------------------------ */
-  /* Hero pipeline mock                                                  */
-  /* ------------------------------------------------------------------ */
-
-  .lp-float-in {
-    animation: lp-rise 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-  @keyframes lp-rise {
-    from { opacity: 0; transform: translateY(26px) scale(0.98); }
-    to { opacity: 1; transform: none; }
-  }
-
-  .lp-stage-ring {
-    position: absolute;
-    inset: -3.5rem -2rem;
-    border-radius: 3rem;
-    border: 1px dashed rgba(42, 157, 104, 0.28);
-    animation: lp-spin 46s linear infinite;
-    pointer-events: none;
-  }
-  :global(.dark) .lp-stage-ring {
-    border-color: rgba(34, 197, 94, 0.22);
-  }
-  @keyframes lp-spin {
-    to { transform: rotate(360deg); }
-  }
-
-  .lp-step {
-    padding: 0.4rem 0.25rem;
-    border-radius: 0.6rem;
-    border: 1px solid var(--color-ifa-border, #e8e3da);
-    background: rgba(247, 245, 240, 0.7);
-    color: #8b978f;
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    transition: all 0.3s ease;
-  }
-  :global(.dark) .lp-step {
-    border-color: #333333;
-    background: rgba(38, 38, 38, 0.5);
-    color: #737373;
-  }
-  .lp-step.is-active {
-    border-color: rgba(42, 157, 104, 0.6);
-    background: rgba(42, 157, 104, 0.12);
-    color: #1b3d2f;
-  }
-  :global(.dark) .lp-step.is-active {
-    border-color: rgba(34, 197, 94, 0.6);
-    background: rgba(34, 197, 94, 0.16);
-    color: #4ade80;
-  }
-  .lp-step.is-done {
-    color: #2a9d68;
-  }
-
-  .lp-stage-body {
-    animation: lp-stage-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-  @keyframes lp-stage-in {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: none; }
-  }
-
-  .lp-bubble {
-    display: flex;
-    gap: 0.5rem;
-    padding: 0.6rem 0.75rem;
-    border-radius: 0.9rem;
-    font-size: 11.5px;
-    line-height: 1.5;
-    max-width: 92%;
-  }
-  .lp-bubble-user {
-    margin-left: auto;
-    background: #1b3d2f;
-    color: #ffffff;
-  }
-  :global(.dark) .lp-bubble-user {
-    background: #22c55e;
-    color: #06210f;
-  }
-  .lp-bubble-ai {
-    background: rgba(247, 245, 240, 0.95);
-    border: 1px solid #e8e3da;
-    color: #606c64;
-  }
-  :global(.dark) .lp-bubble-ai {
-    background: rgba(38, 38, 38, 0.85);
-    border-color: #333333;
-    color: #a3a3a3;
-  }
-
-  .lp-typing {
-    display: inline-flex;
-    gap: 3px;
-  }
-  .lp-typing i {
-    width: 4px;
-    height: 4px;
-    border-radius: 9999px;
-    background: currentColor;
-    animation: lp-typing 1.2s ease-in-out infinite;
-  }
-  .lp-typing i:nth-child(2) { animation-delay: 0.15s; }
-  .lp-typing i:nth-child(3) { animation-delay: 0.3s; }
-  @keyframes lp-typing {
-    0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
-    30% { opacity: 1; transform: translateY(-2px); }
-  }
-
-  .lp-row {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    padding: 0.55rem 0.65rem;
-    border-radius: 0.8rem;
-    border: 1px solid #e8e3da;
-    background: rgba(255, 255, 255, 0.75);
-  }
-  :global(.dark) .lp-row {
-    border-color: #333333;
-    background: rgba(26, 26, 26, 0.85);
-  }
-
-  .lp-row-num {
-    width: 1.6rem;
-    height: 1.6rem;
-    border-radius: 0.5rem;
-    background: rgba(42, 157, 104, 0.14);
-    color: #1b3d2f;
-    font-size: 10px;
-    font-weight: 800;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-  :global(.dark) .lp-row-num {
-    background: rgba(34, 197, 94, 0.18);
-    color: #4ade80;
-  }
-
-  .lp-row-icon {
-    width: 1.6rem;
-    height: 1.6rem;
-    border-radius: 0.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-
-  .lp-pill {
-    padding: 0.4rem 0.7rem;
-    border-radius: 0.7rem;
-    background: #1b3d2f;
-    color: #ffffff;
-    font-size: 10.5px;
-    font-weight: 700;
-  }
-  :global(.dark) .lp-pill {
-    background: #22c55e;
-    color: #06210f;
-  }
-
-  .lp-badge-ready {
-    padding: 0.2rem 0.5rem;
-    border-radius: 9999px;
-    background: rgba(42, 157, 104, 0.16);
-    color: #1b3d2f;
-    font-size: 10px;
-    font-weight: 700;
-  }
-  :global(.dark) .lp-badge-ready {
-    background: rgba(34, 197, 94, 0.2);
-    color: #4ade80;
-  }
-
-  .lp-badge-warn {
-    padding: 0.2rem 0.5rem;
-    border-radius: 9999px;
-    background: rgba(217, 119, 6, 0.16);
-    color: #9a3412;
-    font-size: 10px;
-    font-weight: 700;
-  }
-  :global(.dark) .lp-badge-warn {
-    background: rgba(234, 179, 8, 0.2);
-    color: #eab308;
-  }
-
-  .lp-progress-track {
-    height: 6px;
-    border-radius: 9999px;
-    background: rgba(232, 227, 218, 0.9);
-    overflow: hidden;
-  }
-  :global(.dark) .lp-progress-track {
-    background: #333333;
-  }
-  .lp-progress-fill {
-    display: block;
-    height: 100%;
-    width: 100%;
-    border-radius: 9999px;
-    background: linear-gradient(90deg, #2a9d68, #1b3d2f);
-    transform-origin: left center;
-    animation: lp-fill 1.1s cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-  :global(.dark) .lp-progress-fill {
-    background: linear-gradient(90deg, #22c55e, #16a34a);
-  }
-  @keyframes lp-fill {
-    from { transform: scaleX(0); }
-    to { transform: scaleX(1); }
-  }
-
-  .lp-chip-float {
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.45rem 0.75rem;
-    border-radius: 9999px;
-    border: 1px solid #e8e3da;
-    background: rgba(255, 255, 255, 0.92);
-    backdrop-filter: blur(8px);
-    font-size: 11px;
-    font-weight: 700;
-    color: #1f2923;
-    box-shadow: 0 10px 30px -8px rgba(27, 61, 47, 0.18);
-    animation: lp-bob 6s ease-in-out infinite;
-  }
-  :global(.dark) .lp-chip-float {
-    border-color: #333333;
-    background: rgba(26, 26, 26, 0.92);
-    color: #e5e5e5;
-  }
-  .lp-chip-delay { animation-delay: 1.6s; }
-  .lp-chip-delay-2 { animation-delay: 3.1s; }
-  @keyframes lp-bob {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
-  }
-
-  /* ------------------------------------------------------------------ */
-  /* Marquee                                                             */
-  /* ------------------------------------------------------------------ */
-
-  .lp-marquee-mask {
-    position: relative;
-    overflow: hidden;
-    mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
-    -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
-  }
-  .lp-marquee {
-    display: flex;
-    align-items: center;
-    gap: 3.5rem;
-    width: max-content;
-    animation: lp-marquee 34s linear infinite;
-  }
-  .lp-marquee:hover {
-    animation-play-state: paused;
-  }
-  @keyframes lp-marquee {
-    from { transform: translateX(0); }
-    to { transform: translateX(-50%); }
-  }
-  .lp-partner {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    white-space: nowrap;
-  }
-
-  /* ------------------------------------------------------------------ */
-  /* Cards, tones, sections                                              */
-  /* ------------------------------------------------------------------ */
-
-  .lp-card {
-    transition: transform 0.32s ease, box-shadow 0.32s ease, border-color 0.32s ease;
-  }
-  .lp-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 18px 40px -14px rgba(27, 61, 47, 0.22);
-    border-color: rgba(42, 157, 104, 0.45);
-  }
-
-  .lp-feature-icon {
-    width: 2.4rem;
-    height: 2.4rem;
-    border-radius: 0.8rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: transform 0.32s ease;
-  }
-  .lp-card:hover .lp-feature-icon {
-    transform: scale(1.08) rotate(-4deg);
-  }
-
-  .lp-tone-green { background: rgba(42, 157, 104, 0.14); color: #2a9d68; }
-  .lp-tone-blue { background: rgba(37, 99, 235, 0.12); color: #2563eb; }
-  .lp-tone-purple { background: rgba(124, 92, 252, 0.14); color: #7c5cfc; }
-  .lp-tone-orange { background: rgba(224, 122, 95, 0.16); color: #e07a5f; }
-  .lp-tone-amber { background: rgba(217, 119, 6, 0.14); color: #d97706; }
-  .lp-tone-pink { background: rgba(225, 29, 72, 0.12); color: #e11d48; }
-
-  :global(.dark) .lp-tone-green { background: rgba(34, 197, 94, 0.16); color: #4ade80; }
-  :global(.dark) .lp-tone-blue { background: rgba(59, 130, 246, 0.16); color: #3b82f6; }
-  :global(.dark) .lp-tone-purple { background: rgba(168, 85, 247, 0.16); color: #a855f7; }
-  :global(.dark) .lp-tone-orange { background: rgba(249, 115, 22, 0.16); color: #f97316; }
-  :global(.dark) .lp-tone-amber { background: rgba(234, 179, 8, 0.16); color: #eab308; }
-  :global(.dark) .lp-tone-pink { background: rgba(236, 72, 153, 0.16); color: #ec4899; }
-
-  .lp-step-num {
-    font-size: 1.5rem;
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    color: rgba(27, 61, 47, 0.18);
-  }
-  :global(.dark) .lp-step-num {
-    color: rgba(34, 197, 94, 0.25);
-  }
-
-  .lp-model-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.28rem 0.6rem;
-    border-radius: 9999px;
-    font-size: 10px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-
-  .lp-connector {
-    padding-top: 3rem;
-    animation: lp-nudge 2.4s ease-in-out infinite;
-  }
-  @keyframes lp-nudge {
-    0%, 100% { transform: translateX(0); opacity: 0.6; }
-    50% { transform: translateX(4px); opacity: 1; }
-  }
-
-  .lp-checkpoint {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.5rem 0.85rem;
-    border-radius: 9999px;
-    border: 1px solid #e8e3da;
-    background: rgba(255, 255, 255, 0.7);
-    font-size: 11.5px;
-    font-weight: 600;
-    color: #606c64;
-  }
-  :global(.dark) .lp-checkpoint {
-    border-color: #333333;
-    background: rgba(38, 38, 38, 0.6);
-    color: #a3a3a3;
-  }
-
-  .lp-quote {
-    padding: 0.2rem 0.55rem;
-    border-radius: 9999px;
-    border: 1px dashed rgba(42, 157, 104, 0.45);
-    font-size: 10.5px;
-    font-weight: 600;
-    color: #2a9d68;
-  }
-  :global(.dark) .lp-quote {
-    border-color: rgba(34, 197, 94, 0.45);
-    color: #4ade80;
-  }
-
-  /* ------------------------------------------------------------------ */
-  /* Voice panel                                                         */
-  /* ------------------------------------------------------------------ */
-
-  .lp-voice-panel {
-    background: linear-gradient(160deg, #eef3ea 0%, #f8f6f0 60%, #e6f0e7 100%);
-    box-shadow: 0 24px 60px -30px rgba(27, 61, 47, 0.35);
-  }
-  :global(.dark) .lp-voice-panel {
-    background: linear-gradient(160deg, #0d1a12 0%, #101010 60%, #0f1c14 100%);
-  }
-
-  .lp-live-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.35rem 0.7rem;
-    border-radius: 9999px;
-    border: 1px solid rgba(42, 157, 104, 0.4);
-    background: rgba(42, 157, 104, 0.1);
-    font-size: 10.5px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: #1b3d2f;
-  }
-  :global(.dark) .lp-live-pill {
-    border-color: rgba(34, 197, 94, 0.4);
-    background: rgba(34, 197, 94, 0.14);
-    color: #4ade80;
-  }
-
-  .lp-wavebars {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    height: 7rem;
-  }
-  .lp-bar {
-    width: 4px;
-    border-radius: 9999px;
-    background: linear-gradient(180deg, #2a9d68, rgba(42, 157, 104, 0.35));
-    height: var(--h, 40%);
-    animation: lp-bars 1.5s ease-in-out infinite;
-    animation-delay: var(--d, 0ms);
-  }
-  :global(.dark) .lp-bar {
-    background: linear-gradient(180deg, #4ade80, rgba(34, 197, 94, 0.3));
-  }
-  @keyframes lp-bars {
-    0%, 100% { transform: scaleY(0.55); }
-    50% { transform: scaleY(1.15); }
-  }
-
-  /* ------------------------------------------------------------------ */
-  /* Research card, stats, domains, CTA                                  */
-  /* ------------------------------------------------------------------ */
-
-  .lp-research-card {
-    position: relative;
-  }
-  .lp-research-card::before {
-    content: '';
-    position: absolute;
-    inset: -1px;
-    border-radius: 1.6rem;
-    padding: 1px;
-    background: linear-gradient(140deg, rgba(124, 92, 252, 0.5), transparent 45%, rgba(42, 157, 104, 0.5));
-    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    mask-composite: exclude;
-    pointer-events: none;
-  }
-
-  .lp-stat {
-    transition: transform 0.3s ease, border-color 0.3s ease;
-  }
-  .lp-stat:hover {
-    transform: translateY(-3px);
-    border-color: rgba(42, 157, 104, 0.5);
-  }
-
-  .lp-domain {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.7rem 1.15rem;
-    border-radius: 9999px;
-    border: 1px solid #e8e3da;
-    background: rgba(255, 255, 255, 0.8);
-    font-size: 13px;
-    font-weight: 600;
-    color: #1f2923;
-    transition: transform 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease;
-  }
-  .lp-domain:hover {
-    transform: translateY(-3px);
-    border-color: rgba(42, 157, 104, 0.5);
-    box-shadow: 0 12px 28px -14px rgba(27, 61, 47, 0.3);
-  }
-  :global(.dark) .lp-domain {
-    border-color: #333333;
-    background: rgba(26, 26, 26, 0.85);
-    color: #e5e5e5;
-  }
-
-  .lp-cta {
-    background: #ffffff;
-  }
-  :global(.dark) .lp-cta {
-    background: #121212;
-  }
-  .lp-cta-bg {
-    overflow: hidden;
-  }
-  .lp-blob-cta {
-    width: 34rem;
-    height: 34rem;
-    top: -18rem;
-    left: 50%;
-    margin-left: -17rem;
-    background: rgba(42, 157, 104, 0.24);
-    animation: lp-float 18s ease-in-out infinite alternate;
-  }
-  :global(.dark) .lp-blob-cta {
-    background: rgba(34, 197, 94, 0.16);
-  }
-
-  /* ------------------------------------------------------------------ */
-  /* Scroll reveal                                                       */
-  /* ------------------------------------------------------------------ */
-
-  :global(html.lp-motion-ready) .lp-reveal {
-    opacity: 0;
-    transform: translateY(18px);
-    transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1) var(--lp-delay, 0ms),
-      transform 0.6s cubic-bezier(0.22, 1, 0.36, 1) var(--lp-delay, 0ms);
-  }
-  :global(html.lp-motion-ready) .lp-reveal.is-visible {
-    opacity: 1;
-    transform: none;
-  }
-
-  @media (max-width: 640px) {
-    .lp-wavebars { gap: 3px; height: 5rem; }
-    .lp-bar { width: 3px; }
-    .lp-stage-ring { display: none; }
-  }
+  :global(html) { scroll-behavior: smooth; }
+  .landing-root { overflow: clip; color: var(--wf-text); background: var(--wf-surface-canvas); }
+  .hero-shell { position: relative; min-height: 100svh; padding: 0 4vw 3rem; background: #f2efe7; }
+  :global(.dark) .hero-shell { background: #101511; }
+  .hero-grid { position: absolute; inset: 0; opacity: .34; pointer-events: none; background-image: linear-gradient(rgba(23,34,28,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(23,34,28,.1) 1px, transparent 1px); background-size: clamp(42px,5vw,76px) clamp(42px,5vw,76px); mask-image: linear-gradient(to bottom,#000 0%,transparent 90%); }
+  .landing-nav { position: relative; z-index: 20; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; height: 5.5rem; border-bottom: 1px solid rgba(23,34,28,.18); }
+  .brand-lockup { display: inline-flex; align-items: center; gap: .75rem; width: max-content; color: inherit; font-size: 1rem; font-weight: 800; letter-spacing: -.03em; }
+  .brand-mark { display: inline-flex; align-items: end; gap: 2px; width: 1.55rem; height: 1.55rem; padding: 5px; border: 1px solid currentColor; border-radius: 50%; }
+  .brand-mark span { display: block; width: 3px; background: currentColor; border-radius: 2px; }.brand-mark span:nth-child(1){height:38%}.brand-mark span:nth-child(2){height:80%}.brand-mark span:nth-child(3){height:58%}.brand-mark.mini{width:1.3rem;height:1.3rem;padding:4px}
+  .nav-links { display: flex; gap: 1.7rem; font-size: .78rem; font-weight: 700; }.nav-links button,.nav-links a,.text-link{transition:opacity .2s}.nav-links button:hover,.nav-links a:hover,.text-link:hover{opacity:.55}
+  .nav-actions { display: flex; justify-content: flex-end; align-items: center; gap: 1.35rem; font-size: .8rem; font-weight: 750; }
+  .nav-cta { display: inline-flex; align-items: center; gap: .55rem; padding: .7rem 1rem; border-radius: 999px; color: #f6f3eb; background: #17221c; }.nav-cta :global(svg){width:1rem}.mobile-menu-button,.mobile-nav{display:none}
+  .hero-layout { position: relative; z-index: 2; display: grid; grid-template-columns: minmax(0,1.04fr) minmax(31rem,.96fr); gap: clamp(3rem,7vw,8rem); align-items: center; width: min(92rem,100%); min-height: calc(100svh - 9rem); margin: 0 auto; padding: 5.5rem 0 7rem; }
+  .hero-copy .wf-kicker { color: #465249; }.hero-title { margin: 2rem 0 1.6rem; font-size: clamp(4rem,7.4vw,8.5rem); font-weight: 420; line-height: .82; letter-spacing: -.065em; }.title-mask{display:block;overflow:hidden;padding-bottom:.08em}.title-mask>span{display:block}.accent-line{color:#176b4a;font-style:italic}
+  .hero-intro { max-width: 42rem; color: #4c574f; font-size: clamp(1rem,1.28vw,1.22rem); line-height: 1.75; }
+  .hero-actions { display:flex;flex-wrap:wrap;gap:.75rem;margin-top:2.25rem}.primary-action,.secondary-action{display:inline-flex;align-items:center;justify-content:center;gap:.75rem;min-height:3.3rem;padding:0 1.4rem;border-radius:999px;font-size:.82rem;font-weight:800}.primary-action{color:#17221c;background:#c7f464}.secondary-action{border:1px solid rgba(23,34,28,.26);background:rgba(251,250,246,.55)}.primary-action :global(svg),.secondary-action :global(svg){width:1.05rem}
+  .hero-proof{display:flex;flex-wrap:wrap;gap:1rem 1.4rem;margin-top:2rem;color:#536057;font-size:.7rem;font-weight:700}.hero-proof span{display:inline-flex;align-items:center;gap:.4rem}.hero-proof :global(svg){width:.85rem;color:#176b4a}
+  .hero-stage { position: relative; min-height: 43rem; perspective: 1200px; }.stage-back,.stage-front{position:absolute;border:1px solid rgba(23,34,28,.22);background:#fbfaf6;box-shadow:0 45px 90px -55px rgba(23,34,28,.55)}.stage-back{top:3.5rem;left:0;width:72%;padding:1.4rem;transform:rotate(-5deg);background:#eae5d9}.stage-front{right:0;top:8rem;width:78%;overflow:hidden;transform:rotate(1.8deg)}
+  .stage-label,.stage-topline{display:flex;justify-content:space-between;color:#5d685f;font-size:.65rem;font-weight:850;letter-spacing:.12em;text-transform:uppercase}.source-row{display:grid;grid-template-columns:1.2rem 1fr 1rem;gap:.65rem;align-items:center;margin-top:.75rem;padding:.85rem;border-top:1px solid rgba(23,34,28,.15);font-size:.72rem}.source-row :global(svg){width:1rem;color:#176b4a}.stage-topline{padding:1rem 1.2rem;border-bottom:1px solid #cfc8b9}.status-dot{display:inline-flex;align-items:center;gap:.35rem}.status-dot:before{width:.45rem;height:.45rem;border-radius:50%;background:#176b4a;content:''}
+  .course-mini-cover{min-height:12.5rem;padding:2.2rem 2rem;color:#f3f0e8;background:#17221c}.mini-code{font-size:.64rem;font-weight:800;letter-spacing:.15em}.course-mini-cover h2{max-width:18rem;margin:.9rem 0;font-size:2.35rem;font-weight:450;line-height:.95}.course-mini-cover p{color:#b9c2bb;font-size:.7rem}.module-list{padding:.7rem 1.2rem 1.2rem}.module-row{display:grid;grid-template-columns:1.5rem 1fr 1rem;gap:.6rem;align-items:center;padding:.8rem 0;border-bottom:1px solid #ded8cb;color:#657068;font-size:.69rem}.module-row strong{color:#17221c;font-size:.75rem}.module-row.complete>span{color:#176b4a}.module-row :global(svg){width:.9rem}.module-row.complete :global(svg){color:#176b4a}
+  .float-card{position:absolute;z-index:4;display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;border:1px solid rgba(23,34,28,.22);background:rgba(251,250,246,.92);box-shadow:0 20px 50px -30px rgba(23,34,28,.7);backdrop-filter:blur(12px)}.float-card strong,.float-card small{display:block}.float-card strong{font-size:.68rem}.float-card small{margin-top:.12rem;color:#657068;font-size:.56rem}.float-progress{left:-7%;bottom:6rem}.float-certificate{right:-5%;top:2.5rem}.float-certificate :global(svg){width:1.4rem;color:#176b4a}.ring-progress{display:grid;place-items:center;width:2.8rem;height:2.8rem;border:4px solid #c7f464;border-left-color:#ded8cb;border-radius:50%;font-size:.72rem;font-weight:850}.ring-progress small{display:inline;font-size:.46rem}
+  .hero-ticker{position:absolute;right:0;bottom:0;left:0;overflow:hidden;border-top:1px solid rgba(23,34,28,.18);border-bottom:1px solid rgba(23,34,28,.18);background:rgba(242,239,231,.75)}.hero-ticker>div{display:flex;align-items:center;justify-content:center;gap:1.4rem;min-width:max-content;padding:.75rem 2rem;color:#4c574f;font-size:.65rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase}.hero-ticker i{width:.32rem;height:.32rem;border-radius:50%;background:#ff735d}
+  .story-section{display:grid;grid-template-columns:minmax(22rem,.85fr) minmax(0,1.15fr);gap:8vw;padding:10rem 5vw;background:#17221c;color:#f3f0e8}.story-sticky{align-self:start;min-height:75vh}.story-heading h2{max-width:37rem;margin:1.5rem 0;font-size:clamp(3.1rem,5vw,6rem);font-weight:400;line-height:.92;letter-spacing:-.05em}.story-heading>p:last-child{max-width:32rem;color:#aeb8b1;line-height:1.75}.story-heading .wf-kicker{color:#c7f464}
+  .story-orbit-wrap{position:relative;display:grid;place-items:center;width:15rem;height:15rem;margin:4rem 0 3rem}.story-orbit{position:absolute;inset:0;border:1px solid #4a574e;border-radius:50%}.story-orbit:before,.story-orbit:after{position:absolute;inset:2rem;border:1px dashed #3c4840;border-radius:50%;content:''}.story-orbit span{position:absolute;display:grid;place-items:center;width:3rem;height:3rem;border-radius:50%;color:#17221c;background:#c7f464}.story-orbit span:nth-child(1){top:-1.5rem;left:6rem}.story-orbit span:nth-child(2){right:-.8rem;bottom:2rem}.story-orbit span:nth-child(3){bottom:1rem;left:-.5rem}.story-orbit :global(svg){width:1.2rem}.orbit-core{display:grid;place-items:center;width:5rem;height:5rem;border-radius:50%;border:1px solid #657168;font-family:'Newsreader Variable';font-size:1.4rem}
+  .story-index{display:flex;gap:1.4rem;list-style:none}.story-index li{display:flex;align-items:center;gap:.45rem;color:#7f8c83;font-size:.65rem;font-weight:750;transition:color .35s}.story-index li span{font-variant-numeric:tabular-nums}.story-index li[data-active]{color:#c7f464}
+  .story-cards{display:flex;flex-direction:column;gap:24vh;padding-top:8vh;padding-bottom:12vh}.story-card{min-height:60vh;padding:clamp(2rem,5vw,5rem);border:1px solid #465249;background:#202a23}.story-card:nth-child(2){background:#29231f}.story-card:nth-child(3){background:#192529}.story-card-meta{display:flex;justify-content:space-between;color:#c7f464;font-size:.65rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase}.story-card h3{max-width:42rem;margin:clamp(4rem,12vh,8rem) 0 1.5rem;font-size:clamp(3rem,5.4vw,6.4rem);font-weight:400;line-height:.92;letter-spacing:-.05em}.story-card>p{max-width:39rem;color:#b8c0ba;font-size:1rem;line-height:1.8}.story-card-proof{display:flex;justify-content:space-between;gap:1rem;margin-top:4rem;padding-top:1.25rem;border-top:1px solid #465249}.story-card-proof strong{color:#f3f0e8;font-size:.8rem}.story-card-proof span{color:#8d998f;font-size:.7rem}
+  .audience-section{height:100svh;overflow:hidden;background:#f2efe7}.audience-track{display:flex;width:300%;height:100%}.audience-panel{position:relative;display:grid;grid-template-columns:.18fr .82fr 1fr;align-items:center;width:100vw;height:100%;padding:7rem 6vw;overflow:hidden}.audience-number{align-self:start;font-family:'Newsreader Variable';font-size:clamp(5rem,11vw,12rem);line-height:.8;opacity:.17}.audience-copy{max-width:39rem}.audience-copy h2{margin:1.5rem 0;font-size:clamp(3.5rem,6vw,7rem);font-weight:420;line-height:.88;letter-spacing:-.055em}.audience-copy>p{max-width:36rem;color:#4c574f;line-height:1.8}.audience-copy ul{display:grid;grid-template-columns:1fr 1fr;gap:.85rem;margin-top:2rem}.audience-copy li{display:flex;align-items:center;gap:.55rem;font-size:.74rem;font-weight:750}.audience-copy li :global(svg){width:.9rem}.audience-art{justify-self:end;width:min(38rem,92%);min-height:31rem;padding:1.5rem;border:1px solid rgba(23,34,28,.22);background:rgba(251,250,246,.62);box-shadow:0 40px 100px -65px rgba(23,34,28,.65)}.audience-signal{background:#c7f464}.audience-coral{background:#ff735d}.audience-cobalt{color:#f7f5ee;background:#3d63dd}.audience-cobalt .audience-copy>p{color:#dbe2ff}.audience-cobalt .audience-art{color:#17221c}
+  .learner-path{padding:1rem;background:#fbfaf6}.path-head{display:block;padding:.5rem;color:#657068;font-size:.65rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase}.learner-path>div{display:grid;grid-template-columns:2.3rem 1fr auto;align-items:center;gap:.7rem;padding:1.1rem .7rem;border-top:1px solid #ded8cb}.learner-path b{display:grid;place-items:center;width:1.8rem;height:1.8rem;border:1px solid #cfc8b9;border-radius:50%;font-size:.65rem}.learner-path span{font-size:.8rem;font-weight:750}.learner-path em{color:#657068;font-size:.62rem;font-style:normal}.learner-path div.done b{color:#17221c;border-color:#c7f464;background:#c7f464}
+  .studio-board{border:1px solid #cfc8b9;background:#fbfaf6}.studio-bar{display:flex;gap:.3rem;padding:.7rem;border-bottom:1px solid #ded8cb}.studio-bar span{width:.45rem;height:.45rem;border-radius:50%;background:#cfc8b9}.studio-canvas{display:grid;grid-template-columns:8rem 1fr;min-height:27rem}.studio-canvas aside{display:flex;flex-direction:column;gap:.2rem;padding:1rem;border-right:1px solid #ded8cb;background:#eae5d9}.studio-canvas aside span{padding:.6rem;color:#5d685f;font-size:.62rem;font-weight:700}.studio-canvas main{padding:3rem 2.5rem}.studio-canvas small{color:#657068;font-size:.62rem;font-weight:800;letter-spacing:.12em}.studio-canvas strong{display:block;margin:.75rem 0 2rem;font-family:'Newsreader Variable';font-size:2rem}.editor-lines{height:.6rem;margin-top:.7rem;background:#ded8cb}.editor-lines.short{width:64%}.studio-canvas button{margin-top:4rem;padding:.65rem 1rem;border-radius:999px;color:#fff;background:#17221c;font-size:.65rem;font-weight:800}
+  .site-board{position:relative;min-height:28rem;border:1px solid #cfc8b9;background:#fbfaf6}.site-nav{display:flex;justify-content:space-between;padding:1rem 1.4rem;border-bottom:1px solid #ded8cb;font-size:.65rem}.site-hero{padding:5rem 2.5rem}.site-hero small{font-size:.6rem;font-weight:800;letter-spacing:.16em}.site-hero strong{display:block;max-width:26rem;margin-top:1rem;font-size:3.6rem;line-height:.9}.site-hero>span{display:block;width:8rem;height:.65rem;margin-top:2rem;background:#3d63dd}.domain-chip{position:absolute;right:1.4rem;bottom:1.4rem;display:flex;align-items:center;gap:.55rem;padding:.7rem 1rem;border:1px solid #cfc8b9;background:#fff;font-size:.64rem;font-weight:750}.domain-chip :global(svg){width:.9rem;color:#176b4a}
+  .trust-section{padding:10rem 5vw;background:#eae5d9}.trust-intro{display:grid;grid-template-columns:.5fr 1.3fr 1fr;gap:4vw;align-items:start}.trust-intro h2{font-size:clamp(3.3rem,5.8vw,7rem);font-weight:400;line-height:.9;letter-spacing:-.055em}.trust-intro>p:last-child{color:#4c574f;line-height:1.8}.expectation-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:7rem;border:1px solid #cfc8b9;background:#cfc8b9}.expectation-grid article{padding:2.2rem;background:#f2efe7}.expectation-grid article>span{display:grid;place-items:center;width:3rem;height:3rem;border-radius:50%;background:#c7f464}.expectation-grid :global(svg){width:1.2rem}.expectation-grid h3{margin:3rem 0 .8rem;font-size:1rem}.expectation-grid p{color:#5d685f;font-size:.78rem;line-height:1.7}.trust-rail{display:grid;grid-template-columns:.5fr 2.3fr;gap:4vw;margin-top:5rem;padding-top:1.5rem;border-top:1px solid #bdb5a5}.trust-rail p{font-size:.68rem;font-weight:850;text-transform:uppercase}.trust-rail div{display:flex;flex-wrap:wrap;gap:.7rem}.trust-rail span{padding:.55rem .8rem;border:1px solid #bdb5a5;border-radius:999px;font-size:.65rem;font-weight:700}
+  .course-window-section{display:grid;grid-template-columns:.58fr 1.42fr;gap:6vw;padding:10rem 5vw;background:#f2efe7}.course-window-copy{align-self:center}.course-window-copy h2{margin:1.5rem 0;font-size:clamp(3.2rem,5vw,6rem);font-weight:400;line-height:.92;letter-spacing:-.05em}.course-window-copy>p{color:#4c574f;line-height:1.8}.course-window-copy>a{display:inline-flex;align-items:center;gap:.65rem;margin-top:2rem;font-size:.78rem;font-weight:850}.course-window-copy>a :global(svg){width:1rem}.course-window{overflow:hidden;border:1px solid #cfc8b9;background:#fbfaf6;box-shadow:0 50px 110px -75px #17221c}.window-nav{display:flex;align-items:center;gap:.7rem;padding:.85rem 1rem;border-bottom:1px solid #ded8cb;font-size:.65rem}.window-nav>span:last-child{margin-left:auto;color:#657068}.window-body{position:relative;display:grid;grid-template-columns:15rem 1fr;min-height:31rem}.window-body>aside{padding:2rem 1.4rem;border-right:1px solid #ded8cb;background:#eae5d9}.window-body small{display:block;color:#657068;font-size:.57rem;font-weight:800;letter-spacing:.12em}.window-body aside strong{display:block;margin:1.2rem 0;font-family:'Newsreader Variable';font-size:1.45rem;line-height:1.05}.window-progress{height:.45rem;margin:2rem 0 .5rem;background:#cfc8b9}.window-progress i{display:block;width:68%;height:100%;background:#176b4a}.window-body aside>span{font-size:.62rem}.window-body>main{padding:4rem 3rem}.window-body main h3{max-width:32rem;margin:1rem 0;font-size:3.2rem;font-weight:430;line-height:.95}.window-body main p{color:#657068;font-size:.7rem}.window-body main button{display:inline-flex;align-items:center;gap:.6rem;margin-top:5rem;padding:.8rem 1rem;border-radius:999px;color:#17221c;background:#c7f464;font-size:.68rem;font-weight:850}.window-body main :global(svg){width:.9rem}.evidence-card{position:absolute;right:1.2rem;bottom:1.2rem;display:flex;align-items:center;gap:.7rem;padding:.75rem 1rem;border:1px solid #cfc8b9;background:#fff}.evidence-card :global(svg){width:1.1rem;color:#176b4a}.evidence-card strong,.evidence-card small{display:block}.evidence-card strong{font-size:.65rem}.evidence-card small{margin-top:.15rem;color:#657068;font-size:.55rem}
+  .final-cta{position:relative;display:grid;place-items:center;min-height:88svh;padding:8rem 5vw;color:#f3f0e8;text-align:center;background:#17221c}.cta-rule{position:absolute;inset:2rem;border:1px solid #465249;pointer-events:none}.final-cta>div:last-child{position:relative}.final-cta .wf-kicker{color:#c7f464}.final-cta h2{margin:1.6rem 0;font-size:clamp(4rem,8vw,9rem);font-weight:400;line-height:.84;letter-spacing:-.06em}.final-cta p{max-width:42rem;margin:0 auto;color:#b8c0ba;line-height:1.8}.final-cta>div>div{display:flex;justify-content:center;gap:.8rem;margin-top:2.2rem}.final-cta a{display:inline-flex;align-items:center;gap:.65rem;padding:.85rem 1.2rem;border:1px solid #536057;border-radius:999px;font-size:.72rem;font-weight:850}.final-cta a :global(svg){width:.9rem}.final-cta a.wf-signal{border-color:#c7f464}
+  .landing-footer{display:grid;grid-template-columns:1fr 1.4fr 1fr auto;gap:2rem;align-items:center;padding:2.3rem 4vw;border-top:1px solid #cfc8b9;background:#eae5d9}.landing-footer p{color:#5d685f;font-size:.7rem}.landing-footer>div{display:flex;gap:1rem;font-size:.68rem;font-weight:750}.landing-footer small{color:#657068;font-size:.6rem}
+  :global(.dark) .hero-shell,:global(.dark) .audience-section,:global(.dark) .course-window-section{background:#101511}:global(.dark) .hero-intro{color:#b8c0ba}
+  @media(max-width:1100px){.nav-links{display:none}.landing-nav{grid-template-columns:1fr 1fr}.hero-layout{grid-template-columns:1fr;padding-top:4rem}.hero-copy{max-width:55rem}.hero-stage{width:min(44rem,100%);margin:0 auto}.story-section{grid-template-columns:1fr}.story-sticky{min-height:auto}.story-orbit-wrap{display:none}.story-cards{gap:2rem;padding:3rem 0}.story-card{min-height:auto}.audience-section{height:auto;overflow:visible}.audience-track{display:block;width:100%}.audience-panel{grid-template-columns:.18fr 1fr;height:auto;min-height:48rem}.audience-art{grid-column:2;margin-top:3rem;justify-self:start}.trust-intro{grid-template-columns:1fr}.course-window-section{grid-template-columns:1fr}.landing-footer{grid-template-columns:1fr 1fr}.mobile-menu-button{display:none}}
+  @media(max-width:760px){.hero-shell{padding:0 1rem 2rem}.landing-nav{height:4.5rem}.nav-actions,.nav-links{display:none}.mobile-menu-button{display:grid;place-items:center;justify-self:end;width:2.6rem;height:2.6rem;border:1px solid rgba(23,34,28,.22);border-radius:50%}.mobile-menu-button :global(svg){width:1.1rem}.mobile-nav{position:absolute;z-index:30;top:4.6rem;right:1rem;left:1rem;display:flex;flex-direction:column;padding:1rem;border:1px solid #cfc8b9;background:#fbfaf6;box-shadow:0 30px 60px -35px #17221c}.mobile-nav>*{padding:.75rem;text-align:left;font-size:.78rem;font-weight:750}.mobile-nav .wf-signal{margin-top:.4rem;text-align:center}.hero-layout{display:block;min-height:auto;padding:5rem 0 7rem}.hero-title{font-size:clamp(3.6rem,18vw,5.4rem)}.hero-stage{min-height:33rem;margin-top:4rem}.stage-back{display:none}.stage-front{top:1rem;width:94%}.course-mini-cover{min-height:10rem}.course-mini-cover h2{font-size:1.8rem}.float-progress{left:0;bottom:2rem}.float-certificate{right:0;top:-1rem}.hero-proof{display:grid}.hero-ticker>div{justify-content:flex-start}.story-section{padding:7rem 1rem}.story-heading h2{font-size:3.5rem}.story-index{flex-direction:column}.story-card{padding:2rem 1.3rem}.story-card h3{margin-top:5rem;font-size:3.3rem}.audience-panel{display:block;min-height:auto;padding:6rem 1rem}.audience-number{font-size:5rem}.audience-copy h2{font-size:3.6rem}.audience-copy ul{grid-template-columns:1fr}.audience-art{width:100%;min-height:0;margin-top:2.5rem}.studio-canvas{grid-template-columns:5.5rem 1fr}.studio-canvas main{padding:2rem 1rem}.site-hero{padding:3rem 1rem}.site-hero strong{font-size:2.5rem}.trust-section,.course-window-section{padding:7rem 1rem}.trust-intro h2,.course-window-copy h2{font-size:3.6rem}.expectation-grid{grid-template-columns:1fr;margin-top:4rem}.trust-rail{grid-template-columns:1fr}.window-body{display:block}.window-body>aside{border-right:0;border-bottom:1px solid #ded8cb}.window-body>main{padding:2.5rem 1.25rem 7rem}.window-body main h3{font-size:2.6rem}.window-nav>span:last-child{display:none}.final-cta{padding:7rem 1rem}.final-cta h2{font-size:4.2rem}.final-cta>div>div{flex-direction:column}.landing-footer{grid-template-columns:1fr}.landing-footer>div{flex-wrap:wrap}.cta-rule{inset:.7rem}}
+  @media(prefers-reduced-motion:reduce){.story-card,.hero-stage,.float-card{transform:none!important}}
 </style>

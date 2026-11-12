@@ -15,6 +15,11 @@ namespace IFA.Infrastructure.Data.Configurations
             builder.Property(n => n.Title).IsRequired().HasMaxLength(200);
             builder.Property(n => n.Message).IsRequired().HasMaxLength(1000);
             builder.Property(n => n.LinkUrl).HasMaxLength(500);
+            builder.Property(n => n.DedupeKey).HasMaxLength(200);
+
+            builder.HasIndex(n => n.DedupeKey)
+                .IsUnique()
+                .HasFilter("\"DedupeKey\" IS NOT NULL");
 
             builder.HasOne(n => n.Learner)
                 .WithMany(l => l.Notifications)

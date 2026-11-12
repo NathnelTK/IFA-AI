@@ -7,16 +7,16 @@
 
   $: menuItems = isEducator
     ? [
-        { label: 'Educator Studio', icon: Layout, href: '/studio' },
+        { label: 'Educator Studio', icon: Layout, href: '/studio/courses' },
         { label: 'Create Course', icon: Target, href: '/studio/create' },
         { divider: true },
         { label: 'Settings', icon: Settings, href: '/settings' },
         { label: 'Sign Out', icon: LogOut, action: 'signout' }
       ]
     : [
-        { label: 'My Courses', icon: BookOpen, href: '/courses' },
+        { label: 'My Courses', icon: BookOpen, href: '/app/courses' },
         { label: 'Skills', icon: Target, href: '/my-skills' },
-        { label: 'Progress', icon: Trophy, href: '/progress' },
+        { label: 'Progress', icon: Trophy, href: '/app/progress' },
         { divider: true },
         { label: 'Settings', icon: Settings, href: '/settings' },
         { label: 'Sign Out', icon: LogOut, action: 'signout' }

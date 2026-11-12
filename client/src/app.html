@@ -2,23 +2,21 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<link rel="icon" href="%sveltekit.assets%/favicon.png" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<link rel="preconnect" href="https://fonts.googleapis.com">
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-		<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<title>Witforge - Learning and Course Creation</title>
-		<script>
+		<script nonce="%sveltekit.nonce%">
 			// Apply the saved/system color scheme before first paint so a first-time
 			// visitor follows their OS preference and a returning visitor keeps their
 			// choice — no light->dark flash and no defaulting to night mode.
 			(function () {
 				try {
-					var theme = 'system';
+					var theme = 'light';
 					var stored = localStorage.getItem('witforge-preferences:device') || localStorage.getItem('ifa-preferences');
 					if (stored) {
 						var parsed = JSON.parse(stored);
-						if (parsed && typeof parsed.theme === 'string') theme = parsed.theme;
+						if (parsed?.theme === 'light' || parsed?.theme === 'dark') theme = parsed.theme;
+						if (parsed?.theme === 'system' && parsed?.themeVersion === 2) theme = parsed.theme;
 					}
 					var prefersDark =
 						window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;

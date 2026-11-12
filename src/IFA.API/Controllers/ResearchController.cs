@@ -7,6 +7,7 @@ using IFA.Domain.Entities;
 using IFA.Infrastructure.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace IFA.API.Controllers
@@ -26,6 +27,7 @@ namespace IFA.API.Controllers
         }
 
         [HttpGet]
+        [EnableRateLimiting("generation")]
         public async Task<IActionResult> GetOrConductResearch(
             [FromQuery] string topic,
             [FromQuery] Guid? courseId,

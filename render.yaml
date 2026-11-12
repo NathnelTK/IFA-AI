@@ -1,9 +1,9 @@
 # ---------------------------------------------------------------------------
-# Render Blueprint — IFA API (backend)
+# Render Blueprint — Witforge API and durable worker
 #
 # The web frontend deploys separately to Vercel; this blueprint only covers the
-# ASP.NET Core API, which runs as a Docker web service against the existing
-# Supabase PostgreSQL database.
+# ASP.NET Core API and worker, which run against the existing Supabase
+# PostgreSQL database. The API pre-deploy command is the sole migration owner.
 #
 # Usage: Render Dashboard -> New -> Blueprint -> pick this repo/branch.
 # Every env var marked `sync: false` is prompted for in the dashboard and is
@@ -13,17 +13,23 @@ services:
   - type: web
     name: ifa-api
     runtime: docker
-    plan: free
+    plan: starter
     # Supabase project lives in eu-central-1 (Frankfurt); keep the API adjacent.
     region: frankfurt
     dockerfilePath: ./docker/Dockerfile.backend
     dockerContext: .
+    preDeployCommand: dotnet worker/IFA.Worker.dll migrate
     healthCheckPath: /api/health
+    autoDeployTrigger: checksPass
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
       - key: DB_PROVIDER
         value: postgres
+      - key: DB_INITIALIZATION_MODE
+        value: none
+      - key: DEMO_DATA_ENABLED
+        value: "true"
       - key: AI_DEFAULT_PROVIDER
         value: Groq
 
@@ -42,6 +48,64 @@ services:
       # --- Secrets ----------------------------------------------------------
       - key: JWT_SECRET
         sync: false
+      - key: BFF_INTERNAL_SECRET
+        sync: false
+      - key: AUTH_CONTEXT_PEPPER
+        sync: false
+      - key: AUTH_DATA_PROTECTION_KEY
+        sync: false
+      - key: Email__DeliveryMode
+        value: Resend
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: AUTH_PUBLIC_URL
+        value: https://auth.witforge.com
+      - key: ADMIN_BOOTSTRAP_EMAIL
+        sync: false
+      - key: ADMIN_BOOTSTRAP_TOTP_SECRET
+        sync: false
+      - key: Features__OpaqueSessions
+        value: "false"
+      - key: Features__Workspaces
+        value: "false"
+      - key: Features__UnifiedAuthoring
+        value: "false"
+      - key: Features__AssetUploads
+        value: "false"
+      - key: Features__ImmutableReleases
+        value: "false"
+      - key: Features__Social
+        value: "false"
+      - key: Features__Certificates
+        value: "false"
+      - key: Features__Offers
+        value: "false"
+      - key: PUBLIC_BASE_URL
+        value: https://witforge.com
+      - key: Features__PublicPresence
+        value: "false"
+      - key: Features__CustomDomains
+        value: "false"
+      - key: VERCEL_API_TOKEN
+        sync: false
+      - key: VERCEL_PROJECT_ID
+        sync: false
+      - key: VERCEL_TEAM_ID
+        sync: false
+      - key: CUSTOM_DOMAIN_CNAME_TARGET
+        value: domains.witforge.com
+      - key: R2_SERVICE_URL
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_PUBLIC_BASE_URL
+        sync: false
       - key: GEMINI_API_KEY
         sync: false
       - key: GROQ_API_KEY
@@ -56,13 +120,136 @@ services:
         sync: false
       - key: CHAPA_WEBHOOK_SECRET
         sync: false
+      - key: CHAPA_CALLBACK_URL
+        sync: false
+      - key: PAYMENT_RETURN_ORIGINS
+        sync: false
       - key: CHAPA_BASE_URL
         value: https://api.chapa.co/v1
-      # Apply EF migrations at startup instead of the create-if-empty flow.
-      - key: DB_USE_MIGRATIONS
-        value: "true"
-
       # --- Set this to the Vercel domain once the frontend is live ----------
       # Example: https://ifa-ai.vercel.app
       - key: CORS_ALLOWED_ORIGINS
         sync: false
+
+  - type: worker
+    name: witforge-worker
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    dockerfilePath: ./docker/Dockerfile.worker
+    dockerContext: .
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: DOTNET_ENVIRONMENT
+        value: Production
+      - key: DB_PROVIDER
+        value: postgres
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: SEMANTIC_SCHOLAR_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: YOUTUBE_API_KEY
+        sync: false
+      - key: AI_DEFAULT_PROVIDER
+        value: Groq
+      - key: AI_ALLOW_CROSS_PROVIDER_FAILOVER
+        value: "false"
+      - key: Workers__Generation__Enabled
+        value: "true"
+      - key: Workers__Outbox__Enabled
+        value: "true"
+      - key: BFF_INTERNAL_SECRET
+        sync: false
+      - key: AUTH_CONTEXT_PEPPER
+        sync: false
+      - key: AUTH_DATA_PROTECTION_KEY
+        sync: false
+      - key: Email__DeliveryMode
+        value: Resend
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: AUTH_PUBLIC_URL
+        value: https://auth.witforge.com
+      - key: Features__OpaqueSessions
+        value: "false"
+      - key: Features__Workspaces
+        value: "false"
+      - key: Features__UnifiedAuthoring
+        value: "false"
+      - key: Features__AssetUploads
+        value: "false"
+      - key: Features__ImmutableReleases
+        value: "false"
+      - key: Features__Social
+        value: "false"
+      - key: Features__Certificates
+        value: "false"
+      - key: Features__Offers
+        value: "false"
+      - key: Features__PublicPresence
+        value: "false"
+      - key: Features__CustomDomains
+        value: "false"
+      - key: PUBLIC_BASE_URL
+        value: https://witforge.com
+      - key: R2_SERVICE_URL
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_PUBLIC_BASE_URL
+        sync: false
+      - key: CLAMAV_HOST
+        value: witforge-clamav
+      - key: CLAMAV_PORT
+        value: "3310"
+      - key: OCR_SERVICE_URL
+        sync: false
+      - key: OCR_API_KEY
+        sync: false
+      - key: VERCEL_API_TOKEN
+        sync: false
+      - key: VERCEL_PROJECT_ID
+        sync: false
+      - key: VERCEL_TEAM_ID
+        sync: false
+      - key: CUSTOM_DOMAIN_CNAME_TARGET
+        value: domains.witforge.com
+      - key: CHAPA_SECRET_KEY
+        sync: false
+      - key: CHAPA_WEBHOOK_SECRET
+        sync: false
+      - key: CHAPA_CALLBACK_URL
+        sync: false
+      - key: PAYMENT_RETURN_ORIGINS
+        sync: false
+      - key: CHAPA_BASE_URL
+        value: https://api.chapa.co/v1
+
+  - type: pserv
+    name: witforge-clamav
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    dockerfilePath: ./docker/Dockerfile.clamav
+    dockerContext: .
+    autoDeployTrigger: checksPass

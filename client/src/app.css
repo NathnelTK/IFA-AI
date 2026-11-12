@@ -3,16 +3,48 @@
 @tailwind utilities;
 
 :root {
-  --color-ifa-bg: #F8F6F0;
-  --color-ifa-pine: #1B3D2F;
-  /* Appearance preferences (written by preferencesStore.applyPreferences). */
+  --color-ifa-bg: #F2EFE7;
+  --color-ifa-pine: #17221C;
   --ifa-font-scale: 16px;
-  --ifa-accent: #2A9D68;
+  --ifa-accent: #176B4A;
+  --ifa-accent-dark-text: #6EE7B7;
+  --wf-surface-canvas: #F2EFE7;
+  --wf-surface-raised: #FBFAF6;
+  --wf-surface-muted: #EAE5D9;
+  --wf-border: #CFC8B9;
+  --wf-text: #17221C;
+  --wf-text-muted: #5D685F;
+  --wf-brand: var(--ifa-accent);
+  --wf-on-brand: #FFFFFF;
+  --wf-signal: #C7F464;
+  --wf-on-signal: #17221C;
+  --wf-coral: #FF735D;
+  --wf-cobalt: #3D63DD;
+  --wf-success: #137A4B;
+  --wf-on-success: #FFFFFF;
+  --wf-warning: #A15C00;
+  --wf-danger: #B42318;
+  --wf-info: #175CD3;
+  --wf-focus: #175CD3;
 }
 
 .dark {
-  --color-ifa-bg: #0a0a0a;
-  --color-ifa-pine: #22c55e;
+  --color-ifa-bg: #101511;
+  --color-ifa-pine: var(--ifa-accent);
+  --wf-surface-canvas: #101511;
+  --wf-surface-raised: #171E19;
+  --wf-surface-muted: #202A23;
+  --wf-border: #3A463E;
+  --wf-text: #F3F0E8;
+  --wf-text-muted: #B8C0BA;
+  --wf-brand: var(--ifa-accent-dark-text);
+  --wf-on-brand: #FFFFFF;
+  --wf-success: #4ADE80;
+  --wf-on-success: #052E16;
+  --wf-warning: #FBBF24;
+  --wf-danger: #FDA29B;
+  --wf-info: #84ADFF;
+  --wf-focus: #84ADFF;
 }
 
 html {
@@ -20,14 +52,45 @@ html {
 }
 
 body {
-  background-color: var(--color-ifa-bg);
-  color: #1F2923;
+  background-color: var(--wf-surface-canvas);
+  color: var(--wf-text);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  font-family: 'Manrope Variable', 'Manrope', system-ui, sans-serif;
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-.dark body {
-  color: #e5e5e5;
+.wf-display {
+  font-family: 'Newsreader Variable', 'Newsreader', Georgia, serif;
+  font-variation-settings: 'opsz' 72;
+}
+
+.wf-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.wf-kicker::before {
+  width: 1.6rem;
+  height: 1px;
+  background: currentColor;
+  content: '';
+}
+
+.wf-panel {
+  border: 1px solid var(--wf-border);
+  background: color-mix(in srgb, var(--wf-surface-raised) 93%, transparent);
+  box-shadow: 0 24px 80px -48px rgb(23 34 28 / 0.38);
+}
+
+.wf-signal {
+  color: var(--wf-on-signal);
+  background: var(--wf-signal);
 }
 
 /* ------------------------------------------------------------------ */
@@ -36,14 +99,12 @@ body {
 
 /* Accent color: the preference drives the pine buttons and highlights. */
 html[data-accent] .bg-ifa-pine,
-html[data-accent] .bg-emerald-600,
-html[data-accent] .bg-emerald-500 {
+html[data-accent] .wf-brand-bg {
   background-color: var(--ifa-accent) !important;
 }
 
 html[data-accent] .text-ifa-pine,
-html[data-accent] .text-emerald-600,
-html[data-accent] .text-emerald-700 {
+html[data-accent] .wf-brand-text {
   color: var(--ifa-accent) !important;
 }
 
@@ -81,14 +142,35 @@ html[data-reduced-motion='true'] *::after {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html:not([data-reduced-motion='false']) *,
-  html:not([data-reduced-motion='false']) *::before,
-  html:not([data-reduced-motion='false']) *::after {
+  html *,
+  html *::before,
+  html *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+:focus-visible {
+  outline: 3px solid var(--wf-focus);
+  outline-offset: 2px;
+}
+
+.wf-status-success {
+  color: var(--wf-success);
+}
+
+.wf-status-warning {
+  color: var(--wf-warning);
+}
+
+.wf-status-danger {
+  color: var(--wf-danger);
+}
+
+.wf-status-info {
+  color: var(--wf-info);
 }
 
 /* Custom scrollbars */
@@ -180,15 +262,15 @@ html[data-reduced-motion='true'] *::after {
 }
 
 .dark .text-ifa-text-muted {
-  color: #737373 !important;
+  color: #A5B0A9 !important;
 }
 
 .dark .text-ifa-pine {
-  color: #22c55e !important;
+  color: var(--ifa-accent-dark-text) !important;
 }
 
 .dark .bg-ifa-pine {
-  background-color: #22c55e !important;
+  background-color: var(--ifa-accent) !important;
 }
 
 .dark .text-ifa-accent-green {
@@ -204,15 +286,15 @@ html[data-reduced-motion='true'] *::after {
 }
 
 .dark .text-ifa-accent-purple {
-  color: #a855f7 !important;
+  color: #c4b5fd !important;
 }
 
 .dark .text-ifa-accent-blue {
-  color: #3b82f6 !important;
+  color: #93c5fd !important;
 }
 
 .dark .text-ifa-accent-pink {
-  color: #ec4899 !important;
+  color: #f9a8d4 !important;
 }
 
 /* Override emerald colors for progress bars and active states */
@@ -229,7 +311,7 @@ html[data-reduced-motion='true'] *::after {
 }
 
 .dark .text-emerald-700 {
-  color: #16a34a !important;
+  color: #86efac !important;
 }
 
 .dark .text-emerald-300 {
@@ -404,7 +486,7 @@ html[data-reduced-motion='true'] *::after {
 
 /* Override difficulty badge colors in dark mode */
 .dark .text-blue-600 {
-  color: #3b82f6 !important;
+  color: #93c5fd !important;
 }
 
 .dark .bg-blue-50 {
@@ -442,10 +524,6 @@ html[data-reduced-motion='true'] *::after {
 
 .dark .to-emerald-50 {
   --tw-gradient-to: rgba(34, 197, 94, 0.05) !important;
-}
-
-.dark .bg-gradient-to-r {
-  background: linear-gradient(to right, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.05)) !important;
 }
 
 /* Light mode gradient container */

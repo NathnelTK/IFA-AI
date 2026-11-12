@@ -48,16 +48,17 @@
   }
 
   function handleContinueCourse(courseId: string) {
-    goto(`/courses/${courseId}`);
+    goto(`/app/courses/${courseId}/learn`);
   }
 </script>
 
-<div class="p-6 md:p-8 space-y-6 max-w-[1600px] mx-auto">
+<div class="library-shell space-y-6">
   <!-- Header -->
-  <div class="flex items-center justify-between">
+  <div class="library-heading">
     <div>
-      <h1 class="text-2xl font-bold text-ifa-text-primary">Courses</h1>
-      <p class="text-sm text-ifa-text-secondary mt-1">Your personal course library</p>
+      <p class="wf-kicker">Your learning library</p>
+      <h1 class="wf-display">Every path you have <em>chosen.</em></h1>
+      <p>Continue an active release, return to saved work, or review what you have completed.</p>
     </div>
     <div class="flex items-center gap-2">
       <div class="flex items-center gap-1 bg-ifa-card-muted rounded-lg p-1">
@@ -145,3 +146,7 @@
     </div>
   {/if}
 </div>
+
+<style>
+  .library-shell{width:min(100%,94rem);margin:0 auto;padding:clamp(1.5rem,3vw,3rem)}.library-heading{display:flex;align-items:end;justify-content:space-between;gap:2rem;padding:1rem 0 2.8rem;border-bottom:1px solid var(--wf-border)}.library-heading .wf-kicker{color:var(--wf-text-muted)}.library-heading h1{max-width:58rem;margin:1rem 0 .7rem;font-size:clamp(3.5rem,6vw,7rem);font-weight:430;line-height:.84;letter-spacing:-.055em}.library-heading h1 em{color:#176b4a;font-weight:430}.library-heading>div:first-child>p:last-child{max-width:45rem;color:var(--wf-text-muted);font-size:.72rem}.library-shell :global(.rounded-2xl),.library-shell :global(.rounded-xl),.library-shell :global(.rounded-lg){border-radius:0!important}.library-shell :global(.bg-ifa-card){box-shadow:none!important}.library-shell :global(.bg-ifa-pine){color:#17221c!important;background:#c7f464!important}@media(max-width:760px){.library-shell{padding:1rem}.library-heading{display:block}.library-heading h1{font-size:4rem}.library-heading>div+div{margin-top:1rem}}
+</style>

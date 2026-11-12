@@ -1,7 +1,7 @@
 <script lang="ts">
   import { browser } from '$app/environment';
   import { Bot, Send, Trash2, Loader2, Sparkles, Maximize2, Minimize2, History, Plus, ArrowLeft, X } from 'lucide-svelte';
-  import { aiApi, getAuthToken } from '$lib/api';
+  import { aiApi } from '$lib/api';
   import { session } from '$lib/stores/sessionStore';
   import { renderMarkdown } from '$lib/utils/markdown';
 
@@ -10,7 +10,7 @@
    *
    * A learner reading a generated course can ask questions about it and get
    * answers grounded in the course/module/lesson they are currently viewing —
-   * it is NOT a course generator (that flow lives in the home hero / Voxide).
+   * it is NOT a course generator; authoring stays in the saved Studio workflow.
    *
    * The active transcript is persisted per course in localStorage
    * (`ifa.courseChat.<id>`), and past conversations can be archived and revisited
@@ -172,7 +172,7 @@
   async function send() {
     const text = draft.trim();
     if (!text || sending || !$session.authenticated) return;
-    const token = getAuthToken();
+    const learnerId = $session.learnerId;
     const context = loadedFor;
 
     const history = messages
@@ -194,11 +194,11 @@
         moduleId: moduleId ?? undefined,
         lessonId: lessonId ?? undefined
       });
-      if (token !== getAuthToken() || context !== loadedFor) return;
+      if (learnerId !== $session.learnerId || context !== loadedFor) return;
       const reply = response.replyMarkdown?.trim() || 'I could not find an answer for that.';
       messages = [...messages, { role: 'assistant', content: reply, at: Date.now() }];
     } catch (cause) {
-      if (token !== getAuthToken() || context !== loadedFor) return;
+      if (learnerId !== $session.learnerId || context !== loadedFor) return;
       error = cause instanceof Error ? cause.message : 'The assistant is unavailable right now.';
       messages = [
         ...messages,
@@ -210,7 +210,7 @@
       ];
     } finally {
       sending = false;
-      if (token === getAuthToken() && context === loadedFor) {
+      if (learnerId === $session.learnerId && context === loadedFor) {
         writeHistory(courseId, messages);
         await scrollToBottom();
       }
@@ -231,9 +231,12 @@
 </script>
 
 <div
+  role={expanded ? 'dialog' : 'region'}
+  aria-modal={expanded ? 'true' : undefined}
+  aria-labelledby="course-assistant-title"
   class="bg-ifa-card border border-ifa-border shadow-card overflow-hidden flex flex-col {expanded
     ? 'fixed inset-0 z-50 h-screen rounded-none'
-    : 'rounded-2xl h-[600px]'}"
+    : 'rounded-2xl h-[min(600px,75vh)] min-h-[24rem]'}"
 >
   <!-- Header -->
   <div class="px-4 py-3 border-b border-ifa-border flex items-center justify-between gap-2 shrink-0">
@@ -242,7 +245,7 @@
         <Bot class="w-4 h-4" />
       </div>
       <div class="min-w-0">
-        <h3 class="text-sm font-bold text-ifa-text-primary leading-tight">Course Assistant</h3>
+        <h3 id="course-assistant-title" class="text-sm font-bold text-ifa-text-primary leading-tight">Course Assistant</h3>
         <p class="text-[10px] text-ifa-text-muted truncate">{contextLabel}</p>
       </div>
     </div>
@@ -251,6 +254,7 @@
         type="button"
         on:click={() => (showHistory = true)}
         title="Conversation history"
+        aria-label="Open conversation history"
         class="w-7 h-7 rounded-full bg-ifa-card-muted border border-ifa-border flex items-center justify-center text-ifa-text-muted hover:text-ifa-pine transition"
       >
         <History class="w-3.5 h-3.5" />
@@ -259,6 +263,7 @@
         type="button"
         on:click={startNewChat}
         title="New chat"
+        aria-label="Start a new chat"
         class="w-7 h-7 rounded-full bg-ifa-card-muted border border-ifa-border flex items-center justify-center text-ifa-text-muted hover:text-ifa-pine transition"
       >
         <Plus class="w-3.5 h-3.5" />
@@ -267,6 +272,7 @@
         type="button"
         on:click={clearHistory}
         title="Clear conversation"
+        aria-label="Clear conversation"
         class="w-7 h-7 rounded-full bg-ifa-card-muted border border-ifa-border flex items-center justify-center text-ifa-text-muted hover:text-red-600 transition"
       >
         <Trash2 class="w-3.5 h-3.5" />
@@ -275,6 +281,7 @@
         type="button"
         on:click={() => (expanded = !expanded)}
         title={expanded ? 'Exit full screen' : 'Expand to full screen'}
+        aria-label={expanded ? 'Exit full screen' : 'Expand to full screen'}
         class="w-7 h-7 rounded-full bg-ifa-card-muted border border-ifa-border flex items-center justify-center text-ifa-text-muted hover:text-ifa-pine transition"
       >
         {#if expanded}
@@ -326,7 +333,7 @@
   {/if}
 
   <!-- Messages -->
-  <div id="course-chat-scroll" class="flex-1 overflow-y-auto p-4 space-y-3 bg-ifa-bg/40 dark:bg-black/20">
+  <div id="course-chat-scroll" role="log" aria-live="polite" aria-relevant="additions" class="flex-1 overflow-y-auto p-4 space-y-3 bg-ifa-bg/40 dark:bg-black/20">
     {#each messages as msg}
       <div class="flex {msg.role === 'user' ? 'justify-end' : 'justify-start'}">
         <div
@@ -382,12 +389,14 @@
       on:keydown={(e) => e.key === 'Enter' && send()}
       placeholder="Ask about this course…"
       disabled={sending}
+      aria-label="Ask the course assistant"
       class="flex-1 text-xs px-3.5 py-2.5 rounded-xl bg-ifa-card-muted border border-ifa-border text-ifa-text-primary placeholder-ifa-text-muted focus:outline-none focus:ring-1 focus:ring-ifa-pine disabled:opacity-60"
     />
     <button
       type="button"
       on:click={send}
       disabled={sending || !draft.trim()}
+      aria-label="Send message"
       class="w-9 h-9 rounded-xl bg-ifa-pine text-white flex items-center justify-center hover:bg-ifa-pine-light transition disabled:opacity-50 shrink-0"
     >
       <Send class="w-4 h-4" />

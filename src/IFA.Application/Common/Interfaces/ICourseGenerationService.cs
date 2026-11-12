@@ -15,6 +15,17 @@ namespace IFA.Application.Common.Interfaces
         public List<ModuleSummaryDto> Modules { get; set; } = new List<ModuleSummaryDto>();
     }
 
+    public class CourseGenerationPrompt
+    {
+        public string Goal { get; set; } = string.Empty;
+        public string Subject { get; set; } = string.Empty;
+        public string CurrentLevel { get; set; } = "Beginner";
+        public int WeeklyStudyHours { get; set; } = 5;
+        public string Category { get; set; } = "General";
+        public string TargetAudience { get; set; } = "All Learners";
+        public List<string> LearningObjectives { get; set; } = [];
+    }
+
     public class ModuleSummaryDto
     {
         public int ModuleNumber { get; set; }
@@ -54,7 +65,13 @@ namespace IFA.Application.Common.Interfaces
         LearnerProfile profile,
         ResearchPackage? researchPackage,
         CancellationToken cancellationToken = default,
-        IReadOnlyList<string>? externalMaterials = null);
+            IReadOnlyList<string>? externalMaterials = null);
+
+        Task<CoursePipelineProposal> GenerateCoursePipelineProposalAsync(
+            CourseGenerationPrompt prompt,
+            ResearchPackage? researchPackage,
+            CancellationToken cancellationToken = default,
+            IReadOnlyList<string>? externalMaterials = null);
         Task<GeneratedModuleResult> GenerateJitModuleAsync(JitModuleGenerationRequest request, CancellationToken cancellationToken = default);
     }
 }

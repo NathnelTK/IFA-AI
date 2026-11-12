@@ -174,12 +174,13 @@
   });
 </script>
 
-<div class="p-6 md:p-8 space-y-6 max-w-[1600px] mx-auto">
+<div class="market-shell space-y-6">
   <!-- Header -->
-  <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+  <div class="market-heading">
     <div>
-      <h1 class="text-2xl font-bold text-ifa-text-primary">Course Marketplace</h1>
-      <p class="text-sm text-ifa-text-secondary mt-1">Discover courses published by the community</p>
+      <p class="wf-kicker">Public course releases</p>
+      <h1 class="wf-display">Find something worth <em>finishing.</em></h1>
+      <p>Browse real published releases, understand the workload, then enroll on purpose.</p>
     </div>
     <div class="flex items-center gap-2">
       <div class="relative">
@@ -275,3 +276,7 @@
     </div>
   {/if}
 </div>
+
+<style>
+  .market-shell{width:min(100%,94rem);margin:0 auto;padding:clamp(1.5rem,3vw,3rem)}.market-heading{display:flex;align-items:end;justify-content:space-between;gap:2rem;padding:1rem 0 2.8rem;border-bottom:1px solid var(--wf-border)}.market-heading .wf-kicker{color:var(--wf-text-muted)}.market-heading h1{max-width:62rem;margin:1rem 0 .7rem;font-size:clamp(3.5rem,6.3vw,7.3rem);font-weight:430;line-height:.84;letter-spacing:-.055em}.market-heading h1 em{color:#176b4a;font-weight:430}.market-heading>div:first-child>p:last-child{max-width:45rem;color:var(--wf-text-muted);font-size:.72rem}.market-shell :global(.rounded-2xl),.market-shell :global(.rounded-xl),.market-shell :global(.rounded-lg){border-radius:0!important}.market-shell :global(.bg-ifa-card){box-shadow:none!important}.market-shell :global(.bg-ifa-pine){color:#17221c!important;background:#c7f464!important}@media(max-width:760px){.market-shell{padding:1rem}.market-heading{display:block}.market-heading h1{font-size:4rem}.market-heading>div+div{margin-top:1.5rem}}
+</style>

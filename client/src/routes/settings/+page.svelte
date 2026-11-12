@@ -38,7 +38,7 @@
       emailDigest: 'weekly'
     },
     theme: {
-      theme: 'system',
+      theme: 'light',
       accentColor: 'pine',
       fontSize: 'medium',
       compactMode: false,
@@ -178,11 +178,12 @@
   ];
 </script>
 
-<div class="p-6 md:p-8 space-y-6 max-w-[1200px] mx-auto">
+<div class="settings-shell space-y-6">
   <!-- Header -->
-  <div class="flex items-center justify-between">
+  <div class="settings-heading">
     <div>
-      <h1 class="text-2xl font-bold text-ifa-text-primary">Settings</h1>
+      <p class="wf-kicker">Personal controls</p>
+      <h1 class="wf-display">Make Witforge feel <em>like yours.</em></h1>
       <p class="text-sm text-ifa-text-secondary mt-1">
         Edit your learning preferences — they inform recommendations and future learning support.
       </p>
@@ -288,3 +289,7 @@
     </div>
   {/if}
 </div>
+
+<style>
+  .settings-shell{width:min(100%,78rem);margin:0 auto;padding:clamp(1.5rem,3vw,3rem)}.settings-heading{display:flex;align-items:end;justify-content:space-between;gap:2rem;padding:1rem 0 2.8rem;border-bottom:1px solid var(--wf-border)}.settings-heading .wf-kicker{color:var(--wf-text-muted)}.settings-heading h1{max-width:54rem;margin:1rem 0 .7rem;font-size:clamp(3.5rem,6vw,6.7rem);font-weight:430;line-height:.84;letter-spacing:-.055em}.settings-heading h1 em{color:#176b4a;font-weight:430}.settings-heading>div:first-child>p:last-child{max-width:45rem;color:var(--wf-text-muted);font-size:.72rem;line-height:1.7}.settings-shell :global(.rounded-2xl),.settings-shell :global(.rounded-xl),.settings-shell :global(.rounded-lg){border-radius:0!important}.settings-shell :global(.bg-ifa-card){box-shadow:none!important}.settings-shell :global(.bg-ifa-pine){color:#17221c!important;background:#c7f464!important}@media(max-width:760px){.settings-shell{padding:1rem}.settings-heading{display:block}.settings-heading h1{font-size:4rem}.settings-heading>div+div{margin-top:1rem}}
+</style>
