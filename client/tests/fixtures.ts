@@ -1,6 +1,7 @@
 import { expect, test as base, type Page } from '@playwright/test';
 
 export const APP_ORIGIN = 'http://127.0.0.1:4173';
+export const CANVAS_COURSE_ID = '11111111-1111-1111-1111-111111111111';
 
 const API_PREFIX = '/__e2e_api__';
 const FIXED_NOW = new Date('2026-01-15T10:00:00.000Z');
@@ -143,7 +144,11 @@ function responsesFor(role: Role): Map<string, MockResponse> {
 		[`GET /api/skills/${identity.learnerId}`, { body: { categories: [], overallImprovement: 0 } }],
 		['GET /api/recommendations', { body: [] }],
 		['GET /api/activity?limit=6', { body: [] }],
-		['GET /api/courses/marketplace', { body: [] }]
+		['GET /api/courses/marketplace', { body: [] }],
+		['GET /api/studio/courses?workspaceId=00000000-0000-4000-8000-000000000001', { body: [] }],
+		[`GET /api/courses/${CANVAS_COURSE_ID}`, { body: { id: CANVAS_COURSE_ID, title: 'Evidence-led Learning', description: 'A course about credible evidence.', modules: [], isPublished: false, appearance: null } }],
+		[`PUT /api/educator/courses/${CANVAS_COURSE_ID}/appearance`, { body: { appearance: { canvasLayout: 'Presentation', primaryColor: '#176B4A', secondaryColor: '#C7F464', backgroundColor: '#F7F5EF', surfaceColor: '#FFFFFF', textColor: '#252525', headingFont: 'Manrope', bodyFont: 'Inter', contentWidth: 'Standard', spacing: 'Comfortable', cardStyle: 'Rounded', buttonStyle: 'Solid', borderStyle: 'Subtle' }, version: 1, updatedAt: FIXED_NOW.toISOString() } }],
+		[`DELETE /api/educator/courses/${CANVAS_COURSE_ID}/appearance`, { body: null }]
 	];
 
 	if (role === 'Learner') {

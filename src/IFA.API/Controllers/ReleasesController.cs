@@ -208,6 +208,15 @@ namespace IFA.API.Controllers
                 : await _db.ReleaseItemProgress
                     .Where(item => item.EnrollmentId == enrollment.Id)
                     .ToListAsync(cancellationToken);
+            using var snapshot = JsonDocument.Parse(release.SnapshotJson);
+            var courseAssistantEnabled = !snapshot.RootElement.TryGetProperty("courseAssistantEnabled", out var assistantElement)
+                || assistantElement.GetBoolean();
+            var awardsCertificate = !snapshot.RootElement.TryGetProperty("awardsCertificate", out var certificateElement)
+                || certificateElement.GetBoolean();
+            var appearance = snapshot.RootElement.TryGetProperty("appearance", out var appearanceElement)
+                && appearanceElement.ValueKind == JsonValueKind.Object
+                    ? appearanceElement.Clone()
+                    : (JsonElement?)null;
 
             return Ok(new
             {
@@ -217,6 +226,9 @@ namespace IFA.API.Controllers
                 release.Title,
                 release.Slug,
                 release.PublishedAt,
+                courseAssistantEnabled,
+                awardsCertificate,
+                appearance,
                 enrollmentId = enrollment?.Id,
                 progressPercentage = enrollment?.ProgressPercentage ?? 0,
                 modules = modules.Select(module => new

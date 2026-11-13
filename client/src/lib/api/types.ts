@@ -12,6 +12,8 @@ export interface TokenResult {
 	name: string;
 	email: string;
 	role: string;
+	accountType?: 'Learner' | 'Educator';
+	educatorVerificationRequired?: boolean;
 	mfaRequired?: boolean;
 	challengeToken?: string;
 }
@@ -71,6 +73,8 @@ export interface LearnerMeDto {
 	name: string;
 	email: string;
 	role: string;
+	accountType?: 'Learner' | 'Educator';
+	educatorVerificationRequired?: boolean;
 	roles?: string[];
 	workspaces?: Array<{
 		id: string;
@@ -92,6 +96,7 @@ export interface CourseSummaryDto {
 	id: string;
 	title: string;
 	description: string;
+	overview?: string;
 	category: string;
 	targetAudience: string;
 	thumbnailUrl: string;
@@ -211,11 +216,28 @@ export interface BackendModuleDto {
 	quizzes: BackendQuizDto[];
 }
 
+export interface CourseAppearanceDto {
+	canvasLayout: 'Classic' | 'Sidebar' | 'Editorial' | 'Presentation';
+	primaryColor: string;
+	secondaryColor: string;
+	backgroundColor: string;
+	surfaceColor: string;
+	textColor: string;
+	headingFont: 'Manrope' | 'Inter' | 'SourceSerif' | 'Merriweather' | 'IbmPlexSans';
+	bodyFont: 'Manrope' | 'Inter' | 'SourceSerif' | 'Merriweather' | 'IbmPlexSans';
+	contentWidth: 'Narrow' | 'Standard' | 'Wide';
+	spacing: 'Compact' | 'Comfortable' | 'Airy';
+	cardStyle: 'Flat' | 'Rounded' | 'Elevated';
+	buttonStyle: 'Solid' | 'Soft' | 'Outline';
+	borderStyle: 'None' | 'Subtle' | 'Strong';
+}
+
 /** GET /api/courses/{id} — full course with modules, lessons, and quizzes. */
 export interface CourseDetailDto {
 	id: string;
 	title: string;
 	description: string;
+	overview?: string;
 	category: string;
 	targetAudience: string;
 	thumbnailUrl: string;
@@ -237,6 +259,21 @@ export interface CourseDetailDto {
 	language?: string;
 	learningObjectives?: string[];
 	requirePassingQuizzes?: boolean;
+	courseAssistantEnabled?: boolean;
+	awardsCertificate?: boolean;
+	appearance?: CourseAppearanceDto | null;
+	appearanceVersion?: number;
+	assignmentCount?: number;
+	quizCount?: number;
+	examCount?: number;
+	upcomingSessions?: Array<{
+		id: string;
+		title: string;
+		description: string;
+		startTime: string;
+		durationMinutes: number;
+		timeZone: string;
+	}>;
 	enrollmentLimit?: number | null;
 	enrollmentOpensAt?: string | null;
 	enrollmentClosesAt?: string | null;

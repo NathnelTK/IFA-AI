@@ -11,8 +11,11 @@ export interface SessionState {
 	name: string | null;
 	email: string | null;
 	role: string | null;
+	accountType: 'Learner' | 'Educator' | null;
+	educatorVerificationRequired: boolean;
 	roles: string[];
 	workspaces: LearnerMeDto['workspaces'];
+	activeWorkspaceId: string | null;
 	avatarUrl: string | null;
 }
 
@@ -38,8 +41,11 @@ const initialState: SessionState = {
 	name: null,
 	email: null,
 	role: null,
+	accountType: null,
+	educatorVerificationRequired: false,
 	roles: [],
 	workspaces: [],
+	activeWorkspaceId: null,
 	avatarUrl: null
 };
 
@@ -97,9 +103,12 @@ function apply(next: SessionState): SessionState {
 function applyMe(me: LearnerMeDto, demo: boolean): SessionState {
 	setPreferenceScope(me.id);
 	const workspaces = me.workspaces ?? [];
+	let activeWorkspaceId = workspaces[0]?.id ?? null;
 	if (typeof window !== 'undefined') {
 		const selected = window.localStorage.getItem('witforge.activeWorkspace');
-		if (!selected || !workspaces.some((workspace) => workspace.id === selected)) {
+		if (selected && workspaces.some((workspace) => workspace.id === selected)) {
+			activeWorkspaceId = selected;
+		} else {
 			if (workspaces[0]) window.localStorage.setItem('witforge.activeWorkspace', workspaces[0].id);
 			else window.localStorage.removeItem('witforge.activeWorkspace');
 		}
@@ -113,8 +122,11 @@ function applyMe(me: LearnerMeDto, demo: boolean): SessionState {
 		name: me.name ?? null,
 		email: me.email ?? null,
 		role: me.role ?? null,
+		accountType: me.accountType ?? (me.role === 'Educator' ? 'Educator' : 'Learner'),
+		educatorVerificationRequired: me.educatorVerificationRequired ?? false,
 		roles: me.roles ?? [me.role].filter(Boolean),
 		workspaces,
+		activeWorkspaceId,
 		avatarUrl: me.avatarUrl ?? null
 	});
 }
@@ -140,10 +152,11 @@ export async function completeMfaSignIn(challengeToken: string, code: string): P
 export async function register(
 	name: string,
 	email: string,
-	password: string
+	password: string,
+	accountType: 'Learner' | 'Educator'
 ): Promise<RegistrationOutcome> {
 	const version = ++authenticationVersion;
-	const result = await authApi.register({ name, email, password });
+	const result = await authApi.register({ name, email, password, accountType });
 	if (result.verificationRequired) {
 		return {
 			session: null,
@@ -187,6 +200,7 @@ export function setActiveWorkspace(workspaceId: string): void {
 		throw new Error('The selected workspace is not available in this session.');
 	}
 	if (typeof window !== 'undefined') window.localStorage.setItem('witforge.activeWorkspace', workspaceId);
+	session.update((state) => ({ ...state, activeWorkspaceId: workspaceId }));
 }
 
 function sessionContext(): { host: string; site: 'App' } {

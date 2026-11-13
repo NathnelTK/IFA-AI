@@ -65,16 +65,33 @@ namespace IFA.API.Controllers
             public string? TemplateId { get; set; }
             [MaxLength(20)]
             public List<string> SourceUrls { get; set; } = [];
+            [MaxLength(30)]
+            public List<MaterialModuleRequest> MaterialModules { get; set; } = [];
+        }
+
+        public sealed class MaterialModuleRequest
+        {
+            [Required, StringLength(64)]
+            public string ModuleKey { get; set; } = string.Empty;
+            [Required, StringLength(200)]
+            public string Title { get; set; } = string.Empty;
+            [MaxLength(20)]
+            public List<string> SourceUrls { get; set; } = [];
         }
 
         [HttpGet]
-        public async Task<IActionResult> List(CancellationToken cancellationToken)
+        public async Task<IActionResult> List([FromQuery] Guid? workspaceId, CancellationToken cancellationToken)
         {
             if (!_features.UnifiedAuthoring) return NotFound();
             var accountId = await GetCurrentLearnerIdAsync(_db);
+            if (workspaceId.HasValue && !await _authorization.CanManageWorkspaceAsync(accountId, workspaceId.Value, cancellationToken))
+            {
+                return Forbid();
+            }
             var courseIds = await _authorization.GetManageableCourseIdsAsync(accountId, cancellationToken);
             var projects = await _db.AuthoringProjects
-                .Where(project => courseIds.Contains(project.CourseId))
+                .Where(project => courseIds.Contains(project.CourseId)
+                    && (!workspaceId.HasValue || project.WorkspaceId == workspaceId.Value))
                 .Join(_db.Courses,
                     project => project.CourseId,
                     course => course.Id,
@@ -155,7 +172,23 @@ namespace IFA.API.Controllers
             {
                 return BadRequest(new { message = "A generation prompt is required." });
             }
-            var sourceUrls = request.SourceUrls
+            var materialModules = request.MaterialModules
+                .Where(module => !string.IsNullOrWhiteSpace(module.ModuleKey) && !string.IsNullOrWhiteSpace(module.Title))
+                .Select(module => new MaterialModuleRequest
+                {
+                    ModuleKey = module.ModuleKey.Trim(),
+                    Title = module.Title.Trim(),
+                    SourceUrls = module.SourceUrls
+                })
+                .ToList();
+            var moduleByUrl = materialModules
+                .SelectMany(module => module.SourceUrls.Select(url => new { Url = url.Trim(), Module = module }))
+                .Where(item => Uri.TryCreate(item.Url, UriKind.Absolute, out var uri)
+                    && uri.Scheme is "http" or "https"
+                    && string.IsNullOrEmpty(uri.UserInfo))
+                .GroupBy(item => item.Url, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.First().Module, StringComparer.OrdinalIgnoreCase);
+            var sourceUrls = request.SourceUrls.Concat(moduleByUrl.Keys)
                 .Where(value => Uri.TryCreate(value, UriKind.Absolute, out var uri)
                     && uri.Scheme is "http" or "https"
                     && string.IsNullOrEmpty(uri.UserInfo))
@@ -200,6 +233,7 @@ namespace IFA.API.Controllers
                 Title = title,
                 Slug = Slug(title, courseId),
                 Description = description,
+                Overview = description,
                 Category = category,
                 TargetAudience = audience,
                 LearningObjectives = objectives,
@@ -231,7 +265,6 @@ namespace IFA.API.Controllers
             var initialState = mode switch
             {
                 AuthoringMode.Manual or AuthoringMode.Template => AuthoringProjectState.Reviewing,
-                AuthoringMode.Materials when sourceUrls.Count > 0 => AuthoringProjectState.Analyzing,
                 AuthoringMode.Materials => AuthoringProjectState.Draft,
                 _ => AuthoringProjectState.Generating
             };
@@ -271,7 +304,13 @@ namespace IFA.API.Controllers
                 {
                     templateSnapshot = template,
                     requestedTitle = request.Title,
-                    requestedDescription = request.Description
+                    requestedDescription = request.Description,
+                    materialModules = materialModules.Select(module => new
+                    {
+                        module.ModuleKey,
+                        module.Title,
+                        sourceCount = module.SourceUrls.Count
+                    })
                 }, JsonOptions),
                 TemplateId = template?.Id,
                 TemplateVersion = template == null ? null : 1,
@@ -335,13 +374,15 @@ namespace IFA.API.Controllers
                     Kind = AuthoringSourceKind.Url,
                     Locator = url,
                     Status = "Pending",
+                    MetadataJson = moduleByUrl.TryGetValue(url, out var module)
+                        ? JsonSerializer.Serialize(new { module.ModuleKey, module.Title }, JsonOptions)
+                        : "{}",
                     CreatedAt = now,
                     UpdatedAt = now
                 });
             }
 
-            if (mode is AuthoringMode.Prompt or AuthoringMode.Voice
-                || (mode == AuthoringMode.Materials && sourceUrls.Count > 0))
+            if (mode is AuthoringMode.Prompt or AuthoringMode.Voice)
             {
                 _db.Add(new AuthoringJob
                 {
@@ -569,6 +610,8 @@ namespace IFA.API.Controllers
         public async Task<IActionResult> AttachAssetSource(
             Guid id,
             Guid assetId,
+            [FromQuery, StringLength(64)] string? moduleKey,
+            [FromQuery, StringLength(200)] string? moduleTitle,
             CancellationToken cancellationToken)
         {
             if (!_features.UnifiedAuthoring || !_features.AssetUploads) return NotFound();
@@ -608,7 +651,9 @@ namespace IFA.API.Controllers
                 {
                     asset.OriginalFileName,
                     asset.ContentType,
-                    asset.SizeBytes
+                    asset.SizeBytes,
+                    moduleKey,
+                    moduleTitle
                 }),
                 CreatedAt = now,
                 UpdatedAt = now

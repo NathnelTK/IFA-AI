@@ -101,9 +101,15 @@
     notice = '';
     verificationRequired = false;
     try {
-      if (mfaChallenge) await completeMfaSignIn(mfaChallenge, mfaCode.trim());
-      else await signIn(email.trim(), password);
-      const target = redirectTarget?.startsWith('/') && !redirectTarget.startsWith('//') ? redirectTarget : '/app';
+      const activeSession = mfaChallenge
+        ? await completeMfaSignIn(mfaChallenge, mfaCode.trim())
+        : await signIn(email.trim(), password);
+      const requestedTarget = redirectTarget?.startsWith('/') && !redirectTarget.startsWith('//') ? redirectTarget : null;
+      const target = activeSession.educatorVerificationRequired
+        ? '/apply/educator'
+        : activeSession.roles.includes('Educator')
+          ? '/studio/courses'
+          : requestedTarget ?? '/app';
       await goto(target, { replaceState: true });
     } catch (cause) {
       if (cause instanceof MfaRequiredError) {

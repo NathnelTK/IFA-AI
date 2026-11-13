@@ -3,7 +3,8 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { BookOpen, CheckCircle2, ChevronRight, Loader2 } from 'lucide-svelte';
-  import { ApiError, releasesApi } from '$lib/api';
+  import { ApiError, releasesApi, type CourseAppearanceDto } from '$lib/api';
+  import { courseAppearanceStyle, normalizeCourseAppearance } from '$lib/courseAppearance';
   import { renderMarkdown } from '$lib/utils/markdown';
   import CourseChatbot from '$lib/components/CourseChatbot.svelte';
   import ErrorState from '$lib/components/ui/ErrorState.svelte';
@@ -19,6 +20,9 @@
     version: number;
     title: string;
     progressPercentage: number;
+    courseAssistantEnabled: boolean;
+    awardsCertificate: boolean;
+    appearance?: CourseAppearanceDto | null;
     modules: Module[];
     progress: Array<{ itemType: string; itemId: string; completedAt?: string }>;
   };
@@ -33,6 +37,9 @@
   let quizNotice: Record<string, string> = {};
 
   $: courseId = $page.params.courseId;
+  $: customAppearance = release?.appearance ?? null;
+  $: resolvedAppearance = normalizeCourseAppearance(customAppearance);
+  $: resolvedAppearanceStyle = customAppearance ? courseAppearanceStyle(resolvedAppearance) : '';
 
   onMount(load);
 
@@ -113,7 +120,7 @@
 {:else if error || !release}
   <div class="mx-auto max-w-4xl p-6"><ErrorState message={error || 'Course release not found.'} /></div>
 {:else}
-  <div class="grid min-h-[calc(100vh-5rem)] lg:grid-cols-[19rem_minmax(0,1fr)_22rem]">
+  <div class="release-grid min-h-[calc(100vh-5rem)]" class:with-assistant={release.courseAssistantEnabled} data-custom={customAppearance ? 'true' : 'false'} data-canvas={resolvedAppearance.canvasLayout.toLowerCase()} style={resolvedAppearanceStyle}>
     <aside class="border-b border-ifa-border bg-ifa-card p-4 lg:border-b-0 lg:border-r">
       <p class="text-xs font-bold uppercase tracking-wide text-ifa-pine">Release {release.version}</p>
       <h1 class="mt-2 text-lg font-bold text-ifa-text-primary">{release.title}</h1>
@@ -172,6 +179,7 @@
       {/if}
     </main>
 
+    {#if release.courseAssistantEnabled}
     <aside class="border-t border-ifa-border p-4 lg:border-l lg:border-t-0">
       {#if selectedModule}
         <CourseChatbot
@@ -183,5 +191,11 @@
         />
       {/if}
     </aside>
+    {/if}
   </div>
 {/if}
+
+<style>
+  .release-grid{display:grid}.release-grid[data-custom='true']{color:var(--course-text);background:var(--course-background);font-family:var(--course-body-font)}.release-grid[data-custom='true'] :global(h1),.release-grid[data-custom='true'] :global(h2),.release-grid[data-custom='true'] :global(h3){font-family:var(--course-heading-font)}.release-grid[data-custom='true'] :global(article),.release-grid[data-custom='true'] :global(aside){border-radius:var(--course-radius)}.release-grid[data-custom='true'][data-canvas='editorial']>main{max-width:var(--course-content-width);margin-inline:auto;font-size:1.05rem;line-height:1.85}.release-grid[data-custom='true'][data-canvas='presentation']>main{max-width:1200px;margin-inline:auto}.release-grid[data-custom='true'][data-canvas='presentation']>main :global(h1){font-size:clamp(2.5rem,6vw,5.5rem)}
+  @media(min-width:1024px){.release-grid{grid-template-columns:19rem minmax(0,1fr)}.release-grid.with-assistant{grid-template-columns:19rem minmax(0,1fr) 22rem}.release-grid[data-canvas='classic']{grid-template-columns:16rem minmax(0,1fr)}.release-grid[data-canvas='classic'].with-assistant{grid-template-columns:16rem minmax(0,1fr) 22rem}.release-grid[data-canvas='editorial']{grid-template-columns:14rem minmax(0,1fr)}.release-grid[data-canvas='editorial'].with-assistant{grid-template-columns:14rem minmax(0,1fr) 20rem}.release-grid[data-canvas='presentation']{grid-template-columns:11rem minmax(0,1fr)}.release-grid[data-canvas='presentation'].with-assistant{grid-template-columns:11rem minmax(0,1fr) 19rem}}
+</style>

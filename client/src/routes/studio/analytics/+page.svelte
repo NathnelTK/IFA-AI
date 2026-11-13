@@ -4,12 +4,19 @@
   import { session } from '$lib/stores/sessionStore';
   let data: any = null;
   let error = '';
-  $: workspaceId = typeof localStorage === 'undefined' ? $session.workspaces?.[0]?.id : localStorage.getItem('witforge.activeWorkspace') ?? $session.workspaces?.[0]?.id;
-  onMount(async () => {
+  let loadedWorkspace = '';
+  let loading = false;
+  $: workspaceId = $session.activeWorkspaceId;
+  $: if (workspaceId && workspaceId !== loadedWorkspace && !loading) void load();
+  onMount(load);
+  async function load() {
     if (!workspaceId) return;
-    try { data = await analyticsApi.workspace(workspaceId); }
+    loading = true;
+    error = '';
+    try { data = await analyticsApi.workspace(workspaceId); loadedWorkspace = workspaceId; }
     catch (cause) { error = cause instanceof Error ? cause.message : 'Analytics could not be loaded.'; }
-  });
+    finally { loading = false; }
+  }
 </script>
 
 <svelte:head><title>Studio analytics · Witforge</title></svelte:head>

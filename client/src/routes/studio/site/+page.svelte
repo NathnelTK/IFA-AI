@@ -9,7 +9,7 @@
   let domain = '';
   let message = '';
   let error = '';
-  $: workspace = $session.workspaces?.find((item) => item.id === (typeof localStorage === 'undefined' ? '' : localStorage.getItem('witforge.activeWorkspace'))) ?? $session.workspaces?.[0];
+  $: workspace = $session.workspaces?.find((item) => item.id === $session.activeWorkspaceId) ?? $session.workspaces?.[0];
 
   async function save() {
     if (!workspace) return;

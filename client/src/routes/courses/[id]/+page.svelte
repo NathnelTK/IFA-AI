@@ -38,6 +38,7 @@
     type AssignmentDto
   } from '$lib/api';
   import { session } from '$lib/stores/sessionStore';
+  import { courseAppearanceStyle, normalizeCourseAppearance } from '$lib/courseAppearance';
   import {
     courseDetails,
     courseProgress,
@@ -54,8 +55,11 @@
   $: isPreview = course?.isOwner === true || $page.url.searchParams.get('preview') === '1';
   $: hasContentAccess = course?.hasContentAccess === true;
   $: canParticipate = hasContentAccess && !isPreview && $session.authenticated && course?.enrollmentStatus === 'Active';
-  $: courseAccent = /^#[0-9a-f]{6}$/i.test(course?.details?.accentColor || '') ? course!.details!.accentColor! : '#1B3D2F';
-  $: courseThemeEnd = ({ slate: '#334155', emerald: '#065f46', indigo: '#3730a3', teal: '#115e59', amber: '#92400e' } as Record<string, string>)[course?.details?.themeMode || ''] || '#0D1F17';
+  $: courseAccent = course?.details?.appearance?.primaryColor ?? (/^#[0-9a-f]{6}$/i.test(course?.details?.accentColor || '') ? course!.details!.accentColor! : '#1B3D2F');
+  $: courseThemeEnd = course?.details?.appearance?.primaryColor ?? (({ slate: '#334155', emerald: '#065f46', indigo: '#3730a3', teal: '#115e59', amber: '#92400e' } as Record<string, string>)[course?.details?.themeMode || ''] || '#0D1F17');
+  $: customAppearance = course?.details?.appearance ?? null;
+  $: resolvedAppearance = normalizeCourseAppearance(customAppearance);
+  $: resolvedAppearanceStyle = customAppearance ? courseAppearanceStyle(resolvedAppearance) : '';
 
   // View state: course outline, a specific lesson, or a module quiz.
   type View =
@@ -374,7 +378,7 @@
     {#if courseLoadError}<button type="button" on:click={refreshCourse} class="ml-3 text-sm text-ifa-pine underline">Retry</button>{/if}
   </div>
 {:else}
-  <div class="p-4 sm:p-6 md:p-8 max-w-[1400px] mx-auto grid grid-cols-1 {canParticipate ? 'lg:grid-cols-[minmax(0,1fr)_22rem]' : ''} gap-6 items-start">
+  <div class="course-theme p-4 sm:p-6 md:p-8 max-w-[1400px] mx-auto grid grid-cols-1 {canParticipate && course.details?.courseAssistantEnabled !== false ? 'lg:grid-cols-[minmax(0,1fr)_22rem]' : ''} gap-6 items-start" data-custom={customAppearance ? 'true' : 'false'} data-canvas={resolvedAppearance.canvasLayout.toLowerCase()} style={resolvedAppearanceStyle}>
     <!-- Main course column -->
     <div class="min-w-0">
 
@@ -391,8 +395,19 @@
           >
             Return to Studio
           </a>
-        </div>
-      {/if}
+</div>
+{/if}
+
+<style>
+  .course-theme[data-custom='true']{max-width:none!important;padding:var(--course-space);color:var(--course-text);background:var(--course-background);font-family:var(--course-body-font)}
+  .course-theme[data-custom='true'] :global(h1),.course-theme[data-custom='true'] :global(h2),.course-theme[data-custom='true'] :global(h3){font-family:var(--course-heading-font)}
+  .course-theme[data-custom='true'] :global(.bg-ifa-card){background:var(--course-surface)}
+  .course-theme[data-custom='true'] :global(.rounded-2xl){border-radius:var(--course-radius)}
+  .course-theme[data-custom='true'][data-canvas='editorial']>.min-w-0{width:min(100%,var(--course-content-width));margin-inline:auto}
+  .course-theme[data-custom='true'][data-canvas='editorial'] :global(.prose){font-size:1.08rem;line-height:1.85}
+  .course-theme[data-custom='true'][data-canvas='presentation']{min-height:100vh;align-content:start}.course-theme[data-custom='true'][data-canvas='presentation']>.min-w-0{width:min(100%,1200px);margin-inline:auto}.course-theme[data-custom='true'][data-canvas='presentation'] :global(h1){font-size:clamp(2.8rem,6vw,6rem);line-height:.95}
+  .course-theme[data-custom='true'][data-canvas='sidebar']{grid-template-columns:minmax(0,1fr)}
+</style>
 
     {#if view.kind === 'lesson' && activeLesson && activeModule && hasContentAccess}
       <LessonView
@@ -488,6 +503,12 @@
                 <div class="mt-4 text-sm text-ifa-text-secondary"><h2 class="font-semibold text-ifa-text-primary mb-2">What You Will Learn</h2><ul class="list-disc pl-5 space-y-1">{#each course.details.learningObjectives as objective}<li>{objective}</li>{/each}</ul></div>
               {/if}
               {#if course.details?.prerequisites}<p class="mt-3 text-xs text-ifa-text-secondary"><strong>Prerequisites:</strong> {course.details.prerequisites}</p>{/if}
+              <div class="mt-4 grid gap-2 text-xs text-ifa-text-secondary sm:grid-cols-2 lg:grid-cols-4">
+                <span class="rounded-lg bg-ifa-card-muted px-3 py-2"><strong>{course.details?.quizCount ?? 0}</strong> quizzes</span>
+                <span class="rounded-lg bg-ifa-card-muted px-3 py-2"><strong>{course.details?.examCount ?? 0}</strong> exams</span>
+                <span class="rounded-lg bg-ifa-card-muted px-3 py-2"><strong>{course.details?.assignmentCount ?? 0}</strong> assignments</span>
+                <span class="rounded-lg bg-ifa-card-muted px-3 py-2"><strong>{course.details?.awardsCertificate === false ? 'No' : 'Yes'}</strong> certificate</span>
+              </div>
 
               <!-- Progress bar -->
               {#if canParticipate}<div class="mt-4">
@@ -516,6 +537,30 @@
             </div>
           </div>
         </div>
+
+        <section class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_19rem]">
+          <div class="rounded-2xl border border-ifa-border bg-ifa-card p-5 shadow-sm">
+            <h2 class="text-lg font-bold text-ifa-text-primary">Course overview</h2>
+            <p class="mt-3 whitespace-pre-line text-sm leading-7 text-ifa-text-secondary">{course.details?.overview || course.description}</p>
+          </div>
+          <aside class="rounded-2xl border border-ifa-border bg-ifa-card p-5 shadow-sm">
+            <p class="text-[11px] font-bold uppercase tracking-wide text-ifa-text-muted">Instructor</p>
+            <h2 class="mt-2 text-base font-bold text-ifa-text-primary">{course.provider}</h2>
+            {#if course.details?.instructorTitle}<p class="text-xs font-semibold text-ifa-pine">{course.details.instructorTitle}</p>{/if}
+            <p class="mt-3 text-xs leading-6 text-ifa-text-secondary">{course.details?.instructorBio || 'Course educator and curriculum owner.'}</p>
+          </aside>
+        </section>
+
+        {#if course.details?.upcomingSessions?.length}
+          <section class="rounded-2xl border border-ifa-border bg-ifa-card p-5 shadow-sm">
+            <h2 class="text-lg font-bold text-ifa-text-primary">Scheduled live sessions</h2>
+            <div class="mt-3 grid gap-3 sm:grid-cols-2">
+              {#each course.details.upcomingSessions as session}
+                <article class="rounded-xl bg-ifa-card-muted p-4"><h3 class="text-sm font-bold text-ifa-text-primary">{session.title}</h3><p class="mt-1 text-xs text-ifa-text-secondary">{new Date(session.startTime).toLocaleString()} · {session.durationMinutes} minutes</p></article>
+              {/each}
+            </div>
+          </section>
+        {/if}
 
         <!-- Section Navigation Tabs -->
         <div class="flex overflow-x-auto whitespace-nowrap border-b border-ifa-border bg-ifa-card rounded-2xl px-3 border shadow-sm">
@@ -873,7 +918,7 @@
     </div>
 
     <!-- Course chatbot sidebar -->
-    {#if canParticipate}
+    {#if canParticipate && course.details?.courseAssistantEnabled !== false}
     <aside class="lg:sticky lg:top-6">
       <CourseChatbot
         courseId={course.id}

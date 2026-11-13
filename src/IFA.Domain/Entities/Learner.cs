@@ -10,6 +10,7 @@ namespace IFA.Domain.Entities
         public string Email { get; set; } = string.Empty;
         public string? PasswordHash { get; set; }
         public string Role { get; set; } = "Learner";
+        public string RegistrationIntent { get; set; } = "Learner";
         public string AvatarUrl { get; set; } = string.Empty;
         public int OverallProgress { get; set; } = 0;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

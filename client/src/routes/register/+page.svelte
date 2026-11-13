@@ -76,7 +76,7 @@
     error = '';
     status = '';
     try {
-      const outcome = await register(name.trim(), email.trim(), password);
+      const outcome = await register(name.trim(), email.trim(), password, accountType);
       if (outcome.verificationRequired) {
         verificationPending = true;
         status = outcome.message ?? 'Check your email to verify your account.';
@@ -253,7 +253,7 @@
 
       <p class="mt-4 rounded-xl bg-ifa-card-muted p-3 text-xs leading-relaxed text-ifa-text-secondary">
         {accountType === 'Educator'
-          ? 'Your account starts safely with learner access, then continues to educator verification before teaching tools are enabled.'
+          ? 'Educator accounts continue to a focused verification step. Learning and teaching tools stay locked until approval.'
           : 'Learner accounts can take courses immediately and apply for educator access later.'}
       </p>
 

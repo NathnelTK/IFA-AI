@@ -147,6 +147,21 @@ namespace IFA.API.Controllers
         private static bool IsWebUrl(string? value) => Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
             (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) && string.IsNullOrEmpty(uri.UserInfo);
 
+        private static double ContrastRatio(string first, string second)
+        {
+            static double Luminance(string value)
+            {
+                var channels = new[] { value[1..3], value[3..5], value[5..7] }
+                    .Select(channel => Convert.ToInt32(channel, 16) / 255d)
+                    .Select(channel => channel <= 0.03928 ? channel / 12.92 : Math.Pow((channel + 0.055) / 1.055, 2.4))
+                    .ToArray();
+                return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+            }
+            var firstLuminance = Luminance(first);
+            var secondLuminance = Luminance(second);
+            return (Math.Max(firstLuminance, secondLuminance) + 0.05) / (Math.Min(firstLuminance, secondLuminance) + 0.05);
+        }
+
         private static string? SettingsError(string? visibility, string? enrollmentMode, string? accentColor, string? themeMode)
         {
             if (visibility != null && visibility is not ("Public" or "Unlisted" or "Private")) return "Choose Public, Unlisted, or Private visibility.";
@@ -1601,6 +1616,7 @@ namespace IFA.API.Controllers
                 Id = courseId,
                 Title = string.IsNullOrWhiteSpace(dto.Title) ? "Untitled Course" : dto.Title.Trim(),
                 Description = dto.Description?.Trim() ?? string.Empty,
+                Overview = dto.Description?.Trim() ?? string.Empty,
                 Category = string.IsNullOrWhiteSpace(dto.Category) ? "General" : dto.Category.Trim(),
                 TargetAudience = string.IsNullOrWhiteSpace(dto.TargetAudience) ? "All Learners" : dto.TargetAudience.Trim(),
                 EstimatedDuration = string.IsNullOrWhiteSpace(dto.EstimatedDuration) ? "4 weeks" : dto.EstimatedDuration.Trim(),
@@ -1629,7 +1645,11 @@ namespace IFA.API.Controllers
             var curriculum = dto.Modules ?? template?.Modules;
             if (curriculum != null)
             {
-                if (template != null && string.IsNullOrWhiteSpace(dto.Description)) course.Description = template.Description;
+                if (template != null && string.IsNullOrWhiteSpace(dto.Description))
+                {
+                    course.Description = template.Description;
+                    course.Overview = template.Description;
+                }
                 int modIndex = 1;
                 foreach (var modTmpl in curriculum)
                 {
@@ -1887,6 +1907,8 @@ namespace IFA.API.Controllers
             public string? Title { get; set; }
             [StringLength(2000)]
             public string? Description { get; set; }
+            [StringLength(12000)]
+            public string? Overview { get; set; }
             [StringLength(120)]
             public string? Category { get; set; }
             [StringLength(160)]
@@ -1900,6 +1922,8 @@ namespace IFA.API.Controllers
             public int? PassingScorePercentage { get; set; }
             [Range(1, 100)]
             public int? MaxQuizAttempts { get; set; }
+            public bool? CourseAssistantEnabled { get; set; }
+            public bool? AwardsCertificate { get; set; }
             [StringLength(2000)]
             public string? Prerequisites { get; set; }
             [StringLength(4000)]
@@ -1962,6 +1986,7 @@ namespace IFA.API.Controllers
 
             if (!string.IsNullOrWhiteSpace(dto.Title)) course!.Title = dto.Title.Trim();
             if (dto.Description != null) course!.Description = dto.Description.Trim();
+            if (dto.Overview != null) course!.Overview = dto.Overview.Trim();
             if (!string.IsNullOrWhiteSpace(dto.Category)) course!.Category = dto.Category.Trim();
             if (!string.IsNullOrWhiteSpace(dto.TargetAudience)) course!.TargetAudience = dto.TargetAudience.Trim();
             if (!string.IsNullOrWhiteSpace(dto.EstimatedDuration)) course!.EstimatedDuration = dto.EstimatedDuration.Trim();
@@ -1970,6 +1995,8 @@ namespace IFA.API.Controllers
             if (!string.IsNullOrWhiteSpace(dto.EnrollmentMode)) course!.EnrollmentMode = dto.EnrollmentMode.Trim();
             if (dto.PassingScorePercentage.HasValue && dto.PassingScorePercentage > 0) course!.PassingScorePercentage = dto.PassingScorePercentage.Value;
             if (dto.MaxQuizAttempts.HasValue && dto.MaxQuizAttempts > 0) course!.MaxQuizAttempts = dto.MaxQuizAttempts.Value;
+            if (dto.CourseAssistantEnabled.HasValue) course!.CourseAssistantEnabled = dto.CourseAssistantEnabled.Value;
+            if (dto.AwardsCertificate.HasValue) course!.AwardsCertificate = dto.AwardsCertificate.Value;
             if (dto.Prerequisites != null) course!.Prerequisites = dto.Prerequisites.Trim();
             if (dto.InstructorBio != null) course!.InstructorBio = dto.InstructorBio.Trim();
             if (dto.InstructorTitle != null) course!.InstructorTitle = dto.InstructorTitle.Trim();
@@ -1993,6 +2020,68 @@ namespace IFA.API.Controllers
                 course.EnrollmentMode,
                 course.PassingScorePercentage
             });
+        }
+
+        public sealed class UpdateAppearanceDto
+        {
+            [Required, StringLength(24)] public string CanvasLayout { get; set; } = "Classic";
+            [Required, StringLength(32)] public string PrimaryColor { get; set; } = "#176B4A";
+            [Required, StringLength(32)] public string SecondaryColor { get; set; } = "#C7F464";
+            [Required, StringLength(32)] public string BackgroundColor { get; set; } = "#F7F5EF";
+            [Required, StringLength(32)] public string SurfaceColor { get; set; } = "#FFFFFF";
+            [Required, StringLength(32)] public string TextColor { get; set; } = "#252525";
+            [Required, StringLength(32)] public string HeadingFont { get; set; } = "Manrope";
+            [Required, StringLength(32)] public string BodyFont { get; set; } = "Inter";
+            [Required, StringLength(24)] public string ContentWidth { get; set; } = "Standard";
+            [Required, StringLength(24)] public string Spacing { get; set; } = "Comfortable";
+            [Required, StringLength(24)] public string CardStyle { get; set; } = "Rounded";
+            [Required, StringLength(24)] public string ButtonStyle { get; set; } = "Solid";
+            [Required, StringLength(24)] public string BorderStyle { get; set; } = "Subtle";
+        }
+
+        [HttpPut("courses/{courseId:guid}/appearance")]
+        public async Task<IActionResult> UpdateAppearance(Guid courseId, [FromBody] UpdateAppearanceDto dto, CancellationToken ct)
+        {
+            var guard = EducatorGuard();
+            if (guard != null) return guard;
+            var (course, error) = await LoadEditableCourseAsync(courseId, ct);
+            if (error != null) return error;
+
+            string? validationError = null;
+            if (!new[] { "Classic", "Sidebar", "Editorial", "Presentation" }.Contains(dto.CanvasLayout)) validationError = "Choose a supported canvas layout.";
+            else if (new[] { dto.PrimaryColor, dto.SecondaryColor, dto.BackgroundColor, dto.SurfaceColor, dto.TextColor }.Any(color => !Regex.IsMatch(color, "^#[0-9A-Fa-f]{6}$"))) validationError = "Colors must use six-digit hex values.";
+            else if (ContrastRatio(dto.TextColor, dto.BackgroundColor) < 4.5 || ContrastRatio(dto.TextColor, dto.SurfaceColor) < 4.5) validationError = "Text must meet accessible contrast against the background and surface colors.";
+            else if (ContrastRatio(dto.PrimaryColor, "#FFFFFF") < 3) validationError = "The primary color must remain readable with light button text.";
+            else if (!new[] { "Manrope", "Inter", "SourceSerif", "Merriweather", "IbmPlexSans" }.Contains(dto.HeadingFont)
+                || !new[] { "Manrope", "Inter", "SourceSerif", "Merriweather", "IbmPlexSans" }.Contains(dto.BodyFont)) validationError = "Choose a built-in font.";
+            else if (!new[] { "Narrow", "Standard", "Wide" }.Contains(dto.ContentWidth)) validationError = "Choose a supported content width.";
+            else if (!new[] { "Compact", "Comfortable", "Airy" }.Contains(dto.Spacing)) validationError = "Choose a supported spacing scale.";
+            else if (!new[] { "Flat", "Rounded", "Elevated" }.Contains(dto.CardStyle)) validationError = "Choose a supported card style.";
+            else if (!new[] { "Solid", "Soft", "Outline" }.Contains(dto.ButtonStyle)) validationError = "Choose a supported button style.";
+            else if (!new[] { "None", "Subtle", "Strong" }.Contains(dto.BorderStyle)) validationError = "Choose a supported border style.";
+            if (validationError != null) return BadRequest(new { message = validationError });
+
+            course!.AppearanceJson = JsonSerializer.Serialize(dto, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            course.AppearanceVersion++;
+            course.AppearanceUpdatedAt = DateTime.UtcNow;
+            course.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync(ct);
+            return Ok(new { appearance = dto, version = course.AppearanceVersion, updatedAt = course.AppearanceUpdatedAt });
+        }
+
+        [HttpDelete("courses/{courseId:guid}/appearance")]
+        public async Task<IActionResult> ResetAppearance(Guid courseId, CancellationToken ct)
+        {
+            var guard = EducatorGuard();
+            if (guard != null) return guard;
+            var (course, error) = await LoadEditableCourseAsync(courseId, ct);
+            if (error != null) return error;
+            course!.AppearanceJson = null;
+            course.AppearanceVersion++;
+            course.AppearanceUpdatedAt = DateTime.UtcNow;
+            course.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync(ct);
+            return NoContent();
         }
 
         // ------------------------------------------------------------------

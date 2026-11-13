@@ -168,12 +168,28 @@ namespace IFA.API.Controllers
             access.RequireMetadata();
             var progress = await CourseProgress.GetAsync(_context, course,
                 access.IsOwner || access.Enrollment == null ? null : learnerId, HttpContext.RequestAborted);
+            var assignmentCount = await _context.Assignments.CountAsync(assignment => assignment.CourseId == id);
+            var upcomingSessions = await _context.LiveSessions
+                .Where(session => session.CourseId == id && session.StartTime >= DateTime.UtcNow)
+                .OrderBy(session => session.StartTime)
+                .Take(6)
+                .Select(session => new
+                {
+                    session.Id,
+                    session.Title,
+                    session.Description,
+                    session.StartTime,
+                    session.DurationMinutes,
+                    session.TimeZone
+                })
+                .ToListAsync();
 
             return Ok(new
             {
                 course.Id,
                 course.Title,
                 course.Description,
+                course.Overview,
                 course.Category,
                 course.TargetAudience,
                 course.ThumbnailUrl,
@@ -190,6 +206,8 @@ namespace IFA.API.Controllers
                 course.Language,
                 course.LearningObjectives,
                 course.RequirePassingQuizzes,
+                course.CourseAssistantEnabled,
+                course.AwardsCertificate,
                 course.EnrollmentLimit,
                 course.EnrollmentOpensAt,
                 course.EnrollmentClosesAt,
@@ -203,6 +221,8 @@ namespace IFA.API.Controllers
                 course.RequiresApproval,
                 course.AccentColor,
                 course.ThemeMode,
+                Appearance = ParseAppearance(course.AppearanceJson),
+                course.AppearanceVersion,
                 course.EnrollmentMode,
                 course.PassingScorePercentage,
                 course.MaxQuizAttempts,
@@ -211,6 +231,10 @@ namespace IFA.API.Controllers
                 course.InstructorTitle,
                 course.CoverImageUrl,
                 course.CoverImageSource,
+                AssignmentCount = assignmentCount,
+                QuizCount = course.Modules.Sum(module => module.Quizzes.Count(quiz => quiz.Kind == QuizKind.Mini)),
+                ExamCount = course.Modules.Sum(module => module.Quizzes.Count(quiz => quiz.Kind == QuizKind.Exam)),
+                UpcomingSessions = upcomingSessions,
                 access.IsOwner,
                 access.HasContentAccess,
                 EnrollmentStatus = access.Enrollment?.Status,
@@ -223,7 +247,7 @@ namespace IFA.API.Controllers
                     m.CourseId,
                     m.ModuleNumber,
                     m.Title,
-                    Summary = access.HasContentAccess ? m.Summary : string.Empty,
+                    m.Summary,
                     m.EstimatedHours,
                     m.GenerationStatus,
                     m.GeneratedAt,
@@ -231,9 +255,26 @@ namespace IFA.API.Controllers
                     Lessons = m.Lessons.OrderBy(l => l.LessonNumber).Select(l => CourseProgress.LessonDto(l, access.HasContentAccess, progress)),
                     Quizzes = access.HasContentAccess
                         ? m.Quizzes.OrderBy(q => q.OrderIndex).Select(q => CourseProgress.QuizDto(q, course, access.IsOwner, progress))
-                        : Enumerable.Empty<object>()
+                        : m.Quizzes.OrderBy(q => q.OrderIndex).Select(q => (object)new
+                        {
+                            q.Id,
+                            q.ModuleId,
+                            q.Title,
+                            q.Kind,
+                            q.OrderIndex,
+                            q.PassingScorePercentage,
+                            QuestionCount = q.Questions.Count,
+                            Questions = Array.Empty<object>()
+                        })
                 })
             });
+        }
+
+        private static JsonElement? ParseAppearance(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return null;
+            try { return JsonSerializer.Deserialize<JsonElement>(value); }
+            catch (JsonException) { return null; }
         }
 
         [HttpPost("{id}/enroll")]

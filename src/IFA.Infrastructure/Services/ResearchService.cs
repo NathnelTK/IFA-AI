@@ -45,17 +45,22 @@ namespace IFA.Infrastructure.Services
             var cleanTopic = string.IsNullOrWhiteSpace(topic) ? "Software Architecture" : topic.Trim();
 
             var papersTask = _academicResearchService.SearchAsync(cleanTopic, 5, ct);
+            var booksTask = _academicResearchService.SearchAsync($"{cleanTopic} books references", 2, ct);
+            var toolsTask = _academicResearchService.SearchAsync($"{cleanTopic} professional tools frameworks", 2, ct);
             var videosTask = _youtubeService.SearchEducationalVideosAsync(cleanTopic, "", 3, ct);
             var imagesTask = _imageService.SearchImagesAsync(cleanTopic, 3, ct);
             var graphsTask = _imageService.SearchImagesAsync($"{cleanTopic} diagram", 2, ct);
 
-            await Task.WhenAll(papersTask, videosTask, imagesTask, graphsTask);
+            await Task.WhenAll(papersTask, booksTask, toolsTask, videosTask, imagesTask, graphsTask);
 
             var papers = (await papersTask)
                 // Wikimedia images arrive separately below as Image sources.
                 .Where(p => !string.Equals(p.Source, "Wikimedia", StringComparison.OrdinalIgnoreCase))
                 .ToList();
             var videos = await videosTask;
+            var books = (await booksTask).Where(result => papers.All(paper => paper.Url != result.Url)).ToList();
+            var tools = (await toolsTask).Where(result => papers.All(paper => paper.Url != result.Url)
+                && books.All(book => book.Url != result.Url)).ToList();
             var images = await imagesTask;
             var graphs = await graphsTask;
 
@@ -95,6 +100,36 @@ namespace IFA.Infrastructure.Services
                     Snippet = Clamp(paper.Summary, 20000),
                     RelevanceScore = 0,
                     PublishedYear = paper.PublishedDate?.Year
+                });
+            }
+
+            foreach (var book in books)
+            {
+                researchPackage.Sources.Add(new ResearchSource
+                {
+                    Id = Guid.NewGuid(),
+                    ResearchPackageId = researchPackage.Id,
+                    Title = Clamp(book.Title, 300),
+                    Url = Clamp(book.Url, 1000),
+                    SourceType = "Book",
+                    Authors = Clamp(book.Authors, 300),
+                    Snippet = Clamp(book.Summary, 20000),
+                    PublishedYear = book.PublishedDate?.Year
+                });
+            }
+
+            foreach (var tool in tools)
+            {
+                researchPackage.Sources.Add(new ResearchSource
+                {
+                    Id = Guid.NewGuid(),
+                    ResearchPackageId = researchPackage.Id,
+                    Title = Clamp(tool.Title, 300),
+                    Url = Clamp(tool.Url, 1000),
+                    SourceType = "Tool",
+                    Authors = Clamp(tool.Authors, 300),
+                    Snippet = Clamp(tool.Summary, 20000),
+                    PublishedYear = tool.PublishedDate?.Year
                 });
             }
 

@@ -11,9 +11,9 @@
   let role: 'Admin' | 'Instructor' = 'Instructor';
   let error = '';
   let loading = true;
-  $: workspaceId = typeof localStorage === 'undefined'
-    ? $session.workspaces?.[0]?.id
-    : localStorage.getItem('witforge.activeWorkspace') ?? $session.workspaces?.[0]?.id;
+  let loadedWorkspace = '';
+  $: workspaceId = $session.activeWorkspaceId;
+  $: if (workspaceId && workspaceId !== loadedWorkspace && !loading) void load();
 
   onMount(load);
 
@@ -22,6 +22,7 @@
     loading = true;
     try {
       const result = await workspacesApi.members(workspaceId);
+      loadedWorkspace = workspaceId;
       members = result.members;
       pending = result.pendingInvitations;
     } catch (cause) {

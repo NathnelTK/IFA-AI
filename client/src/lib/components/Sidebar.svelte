@@ -27,12 +27,7 @@
   let wasOpen = false;
   let selectedWorkspace = '';
   $: isStudio = mode === 'studio';
-  $: if ($session.workspaces?.length
-    && (!selectedWorkspace || !$session.workspaces.some((workspace) => workspace.id === selectedWorkspace))) {
-    selectedWorkspace = typeof localStorage === 'undefined'
-      ? $session.workspaces[0].id
-      : localStorage.getItem('witforge.activeWorkspace') ?? $session.workspaces[0].id;
-  }
+  $: if ($session.activeWorkspaceId && selectedWorkspace !== $session.activeWorkspaceId) selectedWorkspace = $session.activeWorkspaceId;
   $: if ($sidebarOpen && !wasOpen) void tick().then(() => closeButton?.focus());
   $: wasOpen = $sidebarOpen;
 
@@ -127,9 +122,7 @@
   </div>
 
   <div class="sidebar-foot">
-    {#if isStudio}
-      <a href="/app"><Sparkles /><span><strong>Switch to learning</strong><small>Open your learner workspace</small></span></a>
-    {:else if $session.roles.includes('Educator')}
+    {#if !isStudio && $session.roles.includes('Educator')}
       <a href="/studio/courses"><Sparkles /><span><strong>Open Studio</strong><small>Manage courses and teams</small></span></a>
     {/if}
     <a href="/settings" class="settings-link"><Settings /><span>Settings</span></a>

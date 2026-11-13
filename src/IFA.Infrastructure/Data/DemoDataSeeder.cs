@@ -67,6 +67,7 @@ namespace IFA.Infrastructure.Data
                         Email = email,
                         PasswordHash = PasswordHasher.Hash(account.Password),
                         Role = account.Role,
+                        RegistrationIntent = account.Role,
                         AvatarUrl = account.AvatarUrl,
                         OverallProgress = 0,
                         CreatedAt = now,
@@ -101,6 +102,11 @@ namespace IFA.Infrastructure.Data
                 if (!learner.Role.Equals(account.Role, StringComparison.OrdinalIgnoreCase))
                 {
                     learner.Role = account.Role;
+                    authorizationChanged = true;
+                }
+                if (!learner.RegistrationIntent.Equals(account.Role, StringComparison.OrdinalIgnoreCase))
+                {
+                    learner.RegistrationIntent = account.Role;
                     authorizationChanged = true;
                 }
 
@@ -474,6 +480,7 @@ namespace IFA.Infrastructure.Data
                     Id = Guid.NewGuid(),
                     Title = spec.Title,
                     Description = spec.Description,
+                    Overview = spec.Description,
                     Category = spec.Category,
                     TargetAudience = spec.TargetAudience,
                     ThumbnailUrl = spec.Thumbnail,

@@ -169,6 +169,15 @@ namespace IFA.Infrastructure.Services
                 CompletedAt = completedAt,
                 CreatedAt = _timeProvider.GetUtcNow().UtcDateTime
             };
+            using var releaseSnapshot = JsonDocument.Parse(release.SnapshotJson);
+            var awardsCertificate = !releaseSnapshot.RootElement.TryGetProperty("awardsCertificate", out var certificateSetting)
+                || certificateSetting.GetBoolean();
+            _db.CourseCompletionRecords.Add(completion);
+            if (!awardsCertificate)
+            {
+                await _db.SaveChangesAsync(cancellationToken);
+                return;
+            }
             var certificate = new CourseCertificate
             {
                 CompletionRecordId = completion.Id,
@@ -177,7 +186,6 @@ namespace IFA.Infrastructure.Services
                 Status = "Queued",
                 IssuedAt = completedAt
             };
-            _db.CourseCompletionRecords.Add(completion);
             _db.CourseCertificates.Add(certificate);
             _db.CertificateRenderJobs.Add(new CertificateRenderJob
             {

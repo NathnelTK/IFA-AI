@@ -13,6 +13,7 @@ namespace IFA.Infrastructure.Data.Configurations
 
             builder.Property(c => c.Title).IsRequired().HasMaxLength(200);
             builder.Property(c => c.Description).HasMaxLength(2000);
+            builder.Property(c => c.Overview).HasMaxLength(12000).HasDefaultValue("");
             builder.Property(c => c.Category).HasMaxLength(120);
             builder.Property(c => c.TargetAudience).HasMaxLength(160);
             // Covers may be a plain path ("/ifa.png"), an external URL, or an
@@ -33,8 +34,12 @@ namespace IFA.Infrastructure.Data.Configurations
             builder.Property(c => c.Language).HasMaxLength(64).HasDefaultValue("English");
             builder.Property(c => c.LearningObjectives).HasColumnType("text[]");
             builder.Property(c => c.RequirePassingQuizzes).HasDefaultValue(true);
+            builder.Property(c => c.CourseAssistantEnabled).HasDefaultValue(true);
+            builder.Property(c => c.AwardsCertificate).HasDefaultValue(true);
             builder.Property(c => c.AccentColor).HasMaxLength(16).HasDefaultValue("#1B3D2F");
             builder.Property(c => c.ThemeMode).HasMaxLength(32).HasDefaultValue("pine");
+            builder.Property(c => c.AppearanceJson).HasColumnType("jsonb");
+            builder.Property(c => c.AppearanceVersion).HasDefaultValue(0);
             builder.Property(c => c.EnrollmentMode).HasMaxLength(32).HasDefaultValue("Open");
             builder.Property(c => c.PassingScorePercentage).HasDefaultValue(70);
             builder.Property(c => c.MaxQuizAttempts).HasDefaultValue(3);

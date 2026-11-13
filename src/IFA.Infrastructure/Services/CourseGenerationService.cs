@@ -524,6 +524,7 @@ namespace IFA.Infrastructure.Services
                 Id = courseId,
                 Title = proposal.CourseTitle,
                 Description = proposal.TargetGoal,
+                Overview = proposal.TargetGoal,
                 Category = string.IsNullOrWhiteSpace(proposal.Category) ? "General" : proposal.Category!,
                 TargetAudience = string.IsNullOrWhiteSpace(proposal.TargetAudience) ? "Self-paced Learner" : proposal.TargetAudience!,
                 ThumbnailUrl = string.IsNullOrWhiteSpace(coverImageUrl) ? string.Empty : coverImageUrl!.Trim(),

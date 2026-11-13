@@ -8,6 +8,7 @@ namespace IFA.Domain.Entities
         public Guid Id { get; set; } = Guid.NewGuid();
         public string Title { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
+        public string Overview { get; set; } = string.Empty;
         public string Category { get; set; } = "Software Engineering";
         public string TargetAudience { get; set; } = "Exit Exam / General";
         public string ThumbnailUrl { get; set; } = string.Empty;
@@ -24,6 +25,8 @@ namespace IFA.Domain.Entities
         public string Language { get; set; } = "English";
         public List<string> LearningObjectives { get; set; } = new();
         public bool RequirePassingQuizzes { get; set; } = true;
+        public bool CourseAssistantEnabled { get; set; } = true;
+        public bool AwardsCertificate { get; set; } = true;
         public string CompletionRule { get; set; } = "Complete every required lesson and pass required assessments.";
         public int? EnrollmentLimit { get; set; }
         public DateTime? EnrollmentOpensAt { get; set; }
@@ -54,6 +57,9 @@ namespace IFA.Domain.Entities
         // Course branding & configuration
         public string AccentColor { get; set; } = "#1B3D2F";
         public string ThemeMode { get; set; } = "pine";
+        public string? AppearanceJson { get; set; }
+        public int AppearanceVersion { get; set; }
+        public DateTime? AppearanceUpdatedAt { get; set; }
         public string EnrollmentMode { get; set; } = "Open"; // Open | ApprovalRequired | InviteOnly
         public int PassingScorePercentage { get; set; } = 70;
         public int MaxQuizAttempts { get; set; } = 3;

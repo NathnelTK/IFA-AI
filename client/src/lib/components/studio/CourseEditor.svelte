@@ -77,6 +77,7 @@
   let savingBranding = false;
   let title = '';
   let description = '';
+  let overview = '';
   let category = '';
   let targetAudience = '';
   let estimatedDuration = '';
@@ -90,6 +91,8 @@
   let enrollmentOpensAt = '';
   let enrollmentClosesAt = '';
   let instructorTitle = '';
+  let courseAssistantEnabled = true;
+  let awardsCertificate = true;
 
   // Live Sessions state
   let liveSessions: LiveSessionDto[] = [];
@@ -116,7 +119,7 @@
   let assignmentMaxScore = 100;
   let addingAssignment = false;
 
-  $: settingsDraft = { title, description, category, targetAudience, estimatedDuration, level, language, objectivesText, requirePassingQuizzes, maxQuizAttempts, visibility, enrollmentLimit, enrollmentOpensAt, enrollmentClosesAt, instructorTitle, accentColor, themeMode, enrollmentMode, passingScorePercentage, prerequisites, instructorBio };
+  $: settingsDraft = { title, description, overview, category, targetAudience, estimatedDuration, level, language, objectivesText, requirePassingQuizzes, maxQuizAttempts, visibility, enrollmentLimit, enrollmentOpensAt, enrollmentClosesAt, instructorTitle, accentColor, themeMode, enrollmentMode, passingScorePercentage, prerequisites, instructorBio, courseAssistantEnabled, awardsCertificate };
   $: dirtyModules = Object.keys(moduleDrafts).filter((id) => JSON.stringify(moduleDrafts[id]) !== savedModules[id]);
   $: dirtyQuizzes = Object.keys(quizDrafts).filter((id) => JSON.stringify(quizDrafts[id]) !== savedQuizzes[id]);
   $: settingsDirty = !!course && JSON.stringify(settingsDraft) !== savedSettings;
@@ -185,7 +188,7 @@
       moduleDrafts = Object.fromEntries(Object.entries(moduleDrafts).filter(([id]) => ids.has(id)));
       quizDrafts = Object.fromEntries(Object.entries(quizDrafts).filter(([id]) => ids.has(id)));
       if (!settingsDirty || savedSection === 'settings' || savedSection === 'discard') {
-        title = detail.title; description = detail.description; category = detail.category;
+        title = detail.title; description = detail.description; overview = detail.overview || ''; category = detail.category;
         targetAudience = detail.targetAudience; estimatedDuration = detail.estimatedDuration;
         level = detail.level || 'Beginner'; language = detail.language || 'English';
         objectivesText = (detail.learningObjectives || []).join('\n');
@@ -197,7 +200,8 @@
         accentColor = detail.accentColor || '#1B3D2F'; themeMode = detail.themeMode || 'pine';
         enrollmentMode = detail.enrollmentMode || 'Open'; passingScorePercentage = detail.passingScorePercentage ?? 70;
         prerequisites = detail.prerequisites || ''; instructorBio = detail.instructorBio || '';
-        savedSettings = JSON.stringify({ title, description, category, targetAudience, estimatedDuration, level, language, objectivesText, requirePassingQuizzes, maxQuizAttempts, visibility, enrollmentLimit, enrollmentOpensAt, enrollmentClosesAt, instructorTitle, accentColor, themeMode, enrollmentMode, passingScorePercentage, prerequisites, instructorBio });
+        courseAssistantEnabled = detail.courseAssistantEnabled !== false; awardsCertificate = detail.awardsCertificate !== false;
+        savedSettings = JSON.stringify({ title, description, overview, category, targetAudience, estimatedDuration, level, language, objectivesText, requirePassingQuizzes, maxQuizAttempts, visibility, enrollmentLimit, enrollmentOpensAt, enrollmentClosesAt, instructorTitle, accentColor, themeMode, enrollmentMode, passingScorePercentage, prerequisites, instructorBio, courseAssistantEnabled, awardsCertificate });
       }
       course = detail;
       dispatch('saved', detail);
@@ -351,12 +355,13 @@
     if (readOnly || mutating) return;
     savingBranding = true;
     await mutate(() => educatorApi.updateBranding(courseId, {
-      title, description, category, targetAudience, estimatedDuration, level, language,
+      title, description, overview, category, targetAudience, estimatedDuration, level, language,
       learningObjectives: objectivesText.split('\n').map((item) => item.trim()).filter(Boolean),
       requirePassingQuizzes, maxQuizAttempts, visibility, enrollmentLimit: enrollmentLimit ?? null,
       enrollmentOpensAt: enrollmentOpensAt ? new Date(enrollmentOpensAt).toISOString() : null,
       enrollmentClosesAt: enrollmentClosesAt ? new Date(enrollmentClosesAt).toISOString() : null,
-      instructorTitle, accentColor, themeMode, enrollmentMode, passingScorePercentage, prerequisites, instructorBio
+      instructorTitle, accentColor, themeMode, enrollmentMode, passingScorePercentage, prerequisites, instructorBio,
+      courseAssistantEnabled, awardsCertificate
     }), 'Course details and settings saved.', 'settings');
     savingBranding = false;
   }
@@ -510,6 +515,7 @@
         <span>Preview Saved Course</span>
         <ExternalLink class="w-3 h-3 text-ifa-text-muted" />
       </a>
+      <a href={`/studio/courses/${courseId}/design`} class="px-3.5 py-1.5 rounded-xl border border-ifa-border bg-ifa-card hover:bg-ifa-card-muted text-xs font-semibold text-ifa-text-primary flex items-center gap-1.5 transition shadow-sm"><Palette class="w-3.5 h-3.5 text-ifa-pine" /><span>Canvas Studio</span></a>
       <button
         type="button"
         on:click={reload}
@@ -867,6 +873,9 @@
             <label class="sm:col-span-2 text-xs font-semibold text-ifa-text-primary">Description
               <textarea bind:value={description} rows="3" class="mt-1 w-full px-3 py-2 rounded-xl bg-ifa-card border border-ifa-border text-xs"></textarea>
             </label>
+            <label class="sm:col-span-2 text-xs font-semibold text-ifa-text-primary">Detailed Course Overview
+              <textarea bind:value={overview} rows="6" maxlength="12000" placeholder="Explain the course approach, scope, learner fit, and expected experience." class="mt-1 w-full px-3 py-2 rounded-xl bg-ifa-card border border-ifa-border text-xs"></textarea>
+            </label>
             <label class="text-xs font-semibold text-ifa-text-primary">Category
               <input type="text" bind:value={category} class="mt-1 w-full px-3 py-2 rounded-xl bg-ifa-card border border-ifa-border text-xs" />
             </label>
@@ -957,6 +966,8 @@
               <input type="number" min="1" max="100" bind:value={maxQuizAttempts} class="mt-1 w-full px-3 py-2 rounded-xl bg-ifa-card border border-ifa-border text-xs" />
             </label>
             <label class="sm:col-span-2 flex items-center gap-2 text-xs text-ifa-text-primary"><input type="checkbox" bind:checked={requirePassingQuizzes} />Require passing quizzes to complete this course</label>
+            <label class="sm:col-span-2 flex items-start gap-2 rounded-xl border border-ifa-border bg-ifa-card-muted p-3 text-xs text-ifa-text-primary"><input class="mt-0.5" type="checkbox" bind:checked={courseAssistantEnabled} /><span><strong class="block">Enable Course Assistant</strong><span class="text-ifa-text-muted">Learners can use the course-aware AI assistant while studying. Disable it to hide and block the assistant for this course.</span></span></label>
+            <label class="sm:col-span-2 flex items-start gap-2 rounded-xl border border-ifa-border bg-ifa-card-muted p-3 text-xs text-ifa-text-primary"><input class="mt-0.5" type="checkbox" bind:checked={awardsCertificate} /><span><strong class="block">Offer a completion certificate</strong><span class="text-ifa-text-muted">Show learners that successful completion can earn a certificate.</span></span></label>
             <label class="sm:col-span-2 text-xs font-semibold text-ifa-text-primary">Enrollment Limit (Blank for Unlimited)
               <input type="number" min="1" bind:value={enrollmentLimit} class="mt-1 w-full px-3 py-2 rounded-xl bg-ifa-card border border-ifa-border text-xs" />
             </label>

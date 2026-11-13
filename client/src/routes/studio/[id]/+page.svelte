@@ -721,7 +721,7 @@
                       <span class="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase {conflict.kind?.toLowerCase() === 'duplicate'
                         ? 'bg-blue-100 text-blue-800'
                         : conflict.kind?.toLowerCase() === 'unrelated'
-                          ? 'bg-gray-200 text-gray-700'
+                          ? 'bg-ifa-card-muted text-ifa-text-secondary'
                           : 'bg-amber-200 text-amber-900'}">
                         {conflict.kind}
                       </span>

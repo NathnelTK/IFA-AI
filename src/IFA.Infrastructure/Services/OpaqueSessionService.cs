@@ -130,6 +130,7 @@ namespace IFA.Infrastructure.Services
                 session.AccountId,
                 session.Account.Name,
                 session.Account.Email,
+                session.Account.RegistrationIntent,
                 session.MfaLevel,
                 roles,
                 workspaceIds);

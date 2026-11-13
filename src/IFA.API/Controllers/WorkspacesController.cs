@@ -102,6 +102,7 @@ namespace IFA.API.Controllers
             CancellationToken cancellationToken)
         {
             var accountId = await GetCurrentLearnerIdAsync(_db);
+            var account = await _db.Learners.SingleAsync(candidate => candidate.Id == accountId, cancellationToken);
             var alreadyExists = await _db.WorkspaceMemberships
                 .Where(membership => membership.AccountId == accountId
                     && membership.State != WorkspaceMembershipState.Revoked)
@@ -159,6 +160,8 @@ namespace IFA.API.Controllers
             _db.Add(membership);
             _db.Add(profile);
             _db.Add(application);
+            account.RegistrationIntent = "Educator";
+            account.AuthorizationVersion++;
             _db.Add(new AuditEvent
             {
                 ActorLearnerId = accountId,
@@ -196,12 +199,39 @@ namespace IFA.API.Controllers
             return Ok(application);
         }
 
+        [HttpGet("applications/mine")]
+        public async Task<IActionResult> GetMyApplication(CancellationToken cancellationToken)
+        {
+            var accountId = await GetCurrentLearnerIdAsync(_db);
+            var application = await _db.EducatorApplications
+                .Where(candidate => candidate.ApplicantAccountId == accountId)
+                .OrderByDescending(candidate => candidate.CreatedAt)
+                .Join(_db.EducatorWorkspaces,
+                    candidate => candidate.WorkspaceId,
+                    workspace => workspace.Id,
+                    (candidate, workspace) => new
+                    {
+                        candidate.Id,
+                        candidate.Status,
+                        candidate.CreatedAt,
+                        candidate.SubmittedAt,
+                        candidate.DecidedAt,
+                        candidate.DecisionReason,
+                        workspaceId = workspace.Id,
+                        workspace.Name,
+                        workspace.Type
+                    })
+                .FirstOrDefaultAsync(cancellationToken);
+            return application == null ? NoContent() : Ok(application);
+        }
+
         [HttpPost("applications/organization")]
         public async Task<IActionResult> CreateOrganizationApplication(
             [FromBody] CreateApplicationRequest request,
             CancellationToken cancellationToken)
         {
             var accountId = await GetCurrentLearnerIdAsync(_db);
+            var account = await _db.Learners.SingleAsync(candidate => candidate.Id == accountId, cancellationToken);
             if (!ValidJsonArray(request.EvidenceJson))
             {
                 return BadRequest(new { message = "Evidence must be a JSON array." });
@@ -250,6 +280,8 @@ namespace IFA.API.Controllers
                 UpdatedAt = now
             });
             _db.Add(application);
+            account.RegistrationIntent = "Educator";
+            account.AuthorizationVersion++;
             await _db.SaveChangesAsync(cancellationToken);
             return CreatedAtAction(nameof(GetApplication), new { id = application.Id }, new
             {
@@ -361,6 +393,7 @@ namespace IFA.API.Controllers
                 }
                 var account = await _db.Learners.SingleAsync(candidate => candidate.Id == application.ApplicantAccountId, cancellationToken);
                 account.Role = "Educator";
+                account.RegistrationIntent = "Educator";
                 account.AuthorizationVersion++;
             }
 
@@ -580,6 +613,7 @@ namespace IFA.API.Controllers
                 educatorGrant.Reason = "Accepted an educator workspace invitation";
             }
             account.Role = "Educator";
+            account.RegistrationIntent = "Educator";
             account.AuthorizationVersion++;
             var workspace = await _db.EducatorWorkspaces.SingleAsync(candidate => candidate.Id == invitation.WorkspaceId, cancellationToken);
             workspace.AuthorizationVersion++;

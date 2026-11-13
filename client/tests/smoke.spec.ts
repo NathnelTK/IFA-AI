@@ -1,4 +1,4 @@
-import { APP_ORIGIN, expect, test } from './fixtures';
+import { APP_ORIGIN, CANVAS_COURSE_ID, expect, test } from './fixtures';
 
 test.describe('frontend smoke', () => {
 	test('anonymous visitor can open the landing page and sign-in screen', async ({ anonymousPage }) => {
@@ -26,7 +26,7 @@ test.describe('frontend smoke', () => {
 	test('registration validates fields live and offers educator onboarding', async ({ anonymousPage }) => {
 		await anonymousPage.goto('/register');
 		await anonymousPage.getByText('Teach', { exact: true }).click();
-		await expect(anonymousPage.getByText(/continues to educator verification/)).toBeVisible();
+		await expect(anonymousPage.getByText(/focused verification step/)).toBeVisible();
 
 		const name = anonymousPage.getByLabel('Full name');
 		await name.focus();
@@ -75,5 +75,14 @@ test.describe('frontend smoke', () => {
 		await expect(educatorPage.getByRole('heading', { level: 1, name: /Courses are the center of gravity/ })).toBeVisible();
 		await expect(educatorPage.getByText('No courses match')).toBeVisible();
 		await expect(educatorPage.getByRole('link', { name: 'Courses', exact: true })).toBeVisible();
+	});
+
+	test('educator can preview and apply a Canvas Studio design', async ({ educatorPage }) => {
+		await educatorPage.goto(`/studio/courses/${CANVAS_COURSE_ID}/design`);
+		await expect(educatorPage.getByRole('heading', { level: 1, name: 'Evidence-led Learning' })).toBeVisible();
+		await educatorPage.getByRole('button', { name: 'Presentation' }).click();
+		await expect(educatorPage.getByText('Evidence before conclusions.')).toBeVisible();
+		await educatorPage.getByRole('button', { name: 'Apply to course' }).click();
+		await expect(educatorPage.getByRole('status')).toContainText('Design applied to this draft');
 	});
 });

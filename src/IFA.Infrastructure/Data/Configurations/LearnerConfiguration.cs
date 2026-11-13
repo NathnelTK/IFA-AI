@@ -15,6 +15,7 @@ namespace IFA.Infrastructure.Data.Configurations
             builder.Property(l => l.Email).IsRequired().HasMaxLength(256);
             builder.Property(l => l.PasswordHash).HasMaxLength(512);
             builder.Property(l => l.Role).HasMaxLength(64).HasDefaultValue("Learner");
+            builder.Property(l => l.RegistrationIntent).HasMaxLength(16).HasDefaultValue("Learner");
             builder.Property(l => l.AvatarUrl).HasMaxLength(512);
             builder.Property(l => l.OverallProgress).HasDefaultValue(0);
             builder.Property(l => l.AuthorizationVersion).HasDefaultValue(0L);

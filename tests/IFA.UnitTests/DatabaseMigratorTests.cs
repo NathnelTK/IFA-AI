@@ -67,6 +67,7 @@ public sealed class DatabaseMigratorTests
 
         var educator = seededLearners.Single(learner => learner.Email == DemoAccounts.All.Single(account => account.Role == "Educator").Email);
         Assert.Equal("Educator", educator.Role);
+        Assert.Equal("Educator", educator.RegistrationIntent);
         Assert.True(await db.AccountRoleGrants.AnyAsync(grant =>
             grant.AccountId == educator.Id
             && grant.Role == AccountRoleKind.Educator
@@ -80,6 +81,17 @@ public sealed class DatabaseMigratorTests
             && membership.Role == WorkspaceMembershipRole.Owner
             && membership.State == WorkspaceMembershipState.Active
             && membership.RevokedAt == null));
+
+        var seededCourses = await db.Courses.ToListAsync();
+        Assert.NotEmpty(seededCourses);
+        Assert.All(seededCourses, course =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace(course.Overview));
+            Assert.True(course.CourseAssistantEnabled);
+            Assert.True(course.AwardsCertificate);
+            Assert.Null(course.AppearanceJson);
+            Assert.Equal(0, course.AppearanceVersion);
+        });
     }
 
     [Fact]

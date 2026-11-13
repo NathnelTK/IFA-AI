@@ -13,6 +13,7 @@ namespace IFA.Application.Common.Interfaces
         Guid AccountId,
         string Name,
         string Email,
+        string RegistrationIntent,
         int MfaLevel,
         IReadOnlyList<AccountRoleKind> Roles,
         IReadOnlyList<Guid> WorkspaceIds);

@@ -3,6 +3,7 @@ import type {
 	AssignmentDto,
 	AssignmentSubmissionDto,
 	CourseDetailDto,
+	CourseAppearanceDto,
 	CourseInvitePreviewDto,
 	CourseDiscussionDto,
 	CoursePipelineProposalDto,
@@ -45,7 +46,7 @@ import type {
  */
 
 export const authApi = {
-	register: (body: { name: string; email: string; password: string }) =>
+	register: (body: { name: string; email: string; password: string; accountType: 'Learner' | 'Educator' }) =>
 		api.post<RegistrationResult>('/api/auth/register', body),
 	login: (body: { email: string; password: string }) =>
 		api.post<TokenResult>('/api/auth/login', body),
@@ -82,6 +83,17 @@ export const ssoApi = {
 };
 
 export const workspacesApi = {
+	myApplication: () => api.get<{
+		id: string;
+		status: string;
+		createdAt: string;
+		submittedAt?: string | null;
+		decidedAt?: string | null;
+		decisionReason?: string | null;
+		workspaceId: string;
+		name: string;
+		type: string;
+	} | null>('/api/workspaces/applications/mine'),
 	mine: () => api.get<Array<{
 		id: string;
 		name: string;
@@ -498,6 +510,7 @@ export const educatorApi = {
 		body: {
 			title?: string;
 			description?: string;
+			overview?: string;
 			category?: string;
 			targetAudience?: string;
 			estimatedDuration?: string;
@@ -506,6 +519,8 @@ export const educatorApi = {
 			enrollmentMode?: string;
 			passingScorePercentage?: number;
 			maxQuizAttempts?: number;
+			courseAssistantEnabled?: boolean;
+			awardsCertificate?: boolean;
 			prerequisites?: string;
 			instructorBio?: string;
 			instructorTitle?: string;
@@ -519,6 +534,9 @@ export const educatorApi = {
 			enrollmentClosesAt?: string | null;
 		}
 	) => api.put<unknown>(`/api/educator/courses/${courseId}/branding`, body),
+	updateAppearance: (courseId: string, appearance: CourseAppearanceDto) =>
+		api.put<{ appearance: CourseAppearanceDto; version: number; updatedAt: string }>(`/api/educator/courses/${courseId}/appearance`, appearance),
+	resetAppearance: (courseId: string) => api.delete<void>(`/api/educator/courses/${courseId}/appearance`),
 	liveSessions: (courseId: string) =>
 		api.get<LiveSessionDto[]>(`/api/educator/courses/${courseId}/live-sessions`),
 	createLiveSession: (
@@ -560,7 +578,7 @@ export const educatorApi = {
 };
 
 export const studioCoursesApi = {
-	list: () => api.get<Array<{
+	list: (workspaceId?: string | null) => api.get<Array<{
 		id: string;
 		workspaceId: string;
 		courseId: string;
@@ -573,7 +591,7 @@ export const studioCoursesApi = {
 		slug?: string;
 		coverImageUrl?: string;
 		isPublished: boolean;
-	}>>('/api/studio/courses'),
+	}>>('/api/studio/courses', workspaceId ? { workspaceId } : undefined),
 	get: (id: string) => api.get<{
 		project: Record<string, unknown>;
 		course: Record<string, unknown>;
@@ -590,6 +608,7 @@ export const studioCoursesApi = {
 		learningObjectives?: string[];
 		templateId?: string;
 		sourceUrls?: string[];
+		materialModules?: Array<{ moduleKey: string; title: string; sourceUrls: string[] }>;
 	}) => api.post<{
 		id: string;
 		courseId: string;
@@ -602,7 +621,10 @@ export const studioCoursesApi = {
 	analyze: (id: string) => api.post<{ id: string; state: string; jobId: string }>(`/api/studio/courses/${id}/analyze`),
 	approve: (id: string) => api.post<{ id: string; state: string; jobId: string }>(`/api/studio/courses/${id}/approve`),
 	retry: (id: string) => api.post<{ id: string; state: string; jobId: string }>(`/api/studio/courses/${id}/retry`),
-	attachAssetSource: (id: string, assetId: string) => api.post(`/api/studio/courses/${id}/sources/assets/${assetId}`)
+	attachAssetSource: (id: string, assetId: string, module?: { moduleKey: string; title: string }) => {
+		const query = module ? `?${new URLSearchParams({ moduleKey: module.moduleKey, moduleTitle: module.title })}` : '';
+		return api.post(`/api/studio/courses/${id}/sources/assets/${assetId}${query}`);
+	}
 };
 
 /* ------------------------------------------------------------------ */

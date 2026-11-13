@@ -15,8 +15,8 @@
   {#if site.seo?.description}<meta name="description" content={site.seo.description} />{/if}
 </svelte:head>
 
-<div class="min-h-screen bg-white text-slate-900" style={`--site-accent:${site.theme?.accent ?? '#176B4A'}`}>
-  <header class="border-b border-slate-200 bg-white/95">
+<div class="min-h-screen bg-ifa-bg text-ifa-text-primary" style={`--site-accent:${site.theme?.accent ?? '#176B4A'}`}>
+  <header class="border-b border-ifa-border bg-ifa-card/95">
     <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-5 sm:px-6">
       <a href="/" class="text-xl font-bold" style="color:var(--site-accent)">{site.name}</a>
       <nav aria-label="Site navigation" class="flex flex-wrap gap-4 text-sm font-semibold text-slate-600">
@@ -46,9 +46,9 @@
           <h2 class="text-3xl font-bold">{section.heading ?? 'Courses'}</h2>
           <div class="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {#each site.courses ?? [] as course}
-              <article class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <article class="overflow-hidden rounded-2xl border border-ifa-border bg-ifa-card shadow-sm">
                 {#if course.coverImageUrl}<img src={course.coverImageUrl} alt="" class="aspect-[16/9] w-full object-cover" />{/if}
-                <div class="p-5"><p class="text-xs font-bold uppercase tracking-wide" style="color:var(--site-accent)">{course.category}</p><h3 class="mt-2 text-lg font-bold">{course.title}</h3><p class="mt-2 line-clamp-3 text-sm text-slate-600">{course.description}</p><a href={`https://witforge.com/courses/${course.id}`} class="mt-5 inline-flex font-bold" style="color:var(--site-accent)">View course</a></div>
+                <div class="p-5"><p class="text-xs font-bold uppercase tracking-wide" style="color:var(--site-accent)">{course.category}</p><h3 class="mt-2 text-lg font-bold">{course.title}</h3><p class="mt-2 line-clamp-3 text-sm text-ifa-text-secondary">{course.description}</p><a href={`https://witforge.com/courses/${course.id}`} class="mt-5 inline-flex font-bold" style="color:var(--site-accent)">View course</a></div>
               </article>
             {/each}
           </div>

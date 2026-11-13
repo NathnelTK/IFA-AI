@@ -70,6 +70,8 @@ namespace IFA.API.Controllers
             public string Email { get; set; } = string.Empty;
             [Required, StringLength(128, MinimumLength = 8)]
             public string Password { get; set; } = string.Empty;
+            [Required, RegularExpression("^(Learner|Educator)$")]
+            public string AccountType { get; set; } = "Learner";
         }
 
         public sealed class LoginRequest
@@ -150,6 +152,7 @@ namespace IFA.API.Controllers
                 Email = cleanEmail,
                 PasswordHash = PasswordHasher.Hash(request.Password),
                 Role = "Learner",
+                RegistrationIntent = request.AccountType,
                 EmailVerifiedAt = _features.OpaqueSessions ? null : now,
                 PasswordChangedAt = now,
                 AvatarUrl = string.Empty,
@@ -694,6 +697,11 @@ namespace IFA.API.Controllers
                 account.Id,
                 account.Name,
                 account.Email,
+                accountType = account.Role.Equals("Educator", StringComparison.OrdinalIgnoreCase)
+                    ? "Educator"
+                    : account.RegistrationIntent,
+                educatorVerificationRequired = account.RegistrationIntent.Equals("Educator", StringComparison.OrdinalIgnoreCase)
+                    && !roles.Contains(AccountRoleKind.Educator.ToString()),
                 role = roles.Contains(AccountRoleKind.Educator.ToString()) ? "Educator" : "Learner",
                 roles,
                 workspaces,
@@ -804,7 +812,12 @@ namespace IFA.API.Controllers
             learnerId = account.Id,
             account.Name,
             account.Email,
-            role = account.Role
+            role = account.Role,
+            accountType = account.Role.Equals("Educator", StringComparison.OrdinalIgnoreCase)
+                ? "Educator"
+                : account.RegistrationIntent,
+            educatorVerificationRequired = account.RegistrationIntent.Equals("Educator", StringComparison.OrdinalIgnoreCase)
+                && !account.Role.Equals("Educator", StringComparison.OrdinalIgnoreCase)
         };
 
         private async Task<bool> ValidateMfaCodeAsync(

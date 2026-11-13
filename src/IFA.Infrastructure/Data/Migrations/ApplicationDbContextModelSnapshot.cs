@@ -1137,6 +1137,22 @@ namespace IFA.Infrastructure.Data.Migrations
                     b.Property<Guid?>("ActiveReleaseId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AppearanceJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTime?>("AppearanceUpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("AppearanceVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<bool>("AwardsCertificate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.Property<string>("Badge")
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
@@ -1154,6 +1170,11 @@ namespace IFA.Infrastructure.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
+
+                    b.Property<bool>("CourseAssistantEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
 
                     b.Property<Guid?>("CoverAssetId")
                         .HasColumnType("uuid");
@@ -1248,6 +1269,13 @@ namespace IFA.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
                         .HasDefaultValue(3);
+
+                    b.Property<string>("Overview")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(12000)
+                        .HasColumnType("character varying(12000)")
+                        .HasDefaultValue("");
 
                     b.Property<int>("PassingScorePercentage")
                         .ValueGeneratedOnAdd()
@@ -2614,6 +2642,13 @@ namespace IFA.Infrastructure.Data.Migrations
                     b.Property<string>("PasswordHash")
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)");
+
+                    b.Property<string>("RegistrationIntent")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("Learner");
 
                     b.Property<string>("Role")
                         .IsRequired()

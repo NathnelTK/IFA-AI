@@ -16,54 +16,52 @@
 
   async function selectFile(event: Event) {
     const input = event.currentTarget as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-    progress = 0;
-    message = '';
+    const files = Array.from(input.files ?? []);
+    if (files.length === 0) return;
     try {
-      status = 'hashing';
-      const sha256 = await digest(file);
-      const session = await assetsApi.createUpload({
-        workspaceId,
-        courseId,
-        purpose,
-        fileName: file.name,
-        contentType: file.type || 'application/octet-stream',
-        sizeBytes: file.size,
-        sha256
-      });
-      status = 'uploading';
-      let parts: Array<{ partNumber: number; eTag: string }> = [];
-      try {
-        if (session.multipart) {
-          parts = await uploadMultipart(
-            session.uploadSessionId,
-            file,
-            session.partSizeBytes ?? 10 * 1024 * 1024,
-            session.partCount ?? 0,
-            (value) => (progress = value)
-          );
-        } else if (session.uploadUrl) {
-          await upload(session.uploadUrl, session.requiredHeaders ?? {}, file, (value) => (progress = value));
-        } else {
-          throw new Error('Storage did not return an upload target.');
-        }
-      } catch (cause) {
-        await assetsApi.abortUpload(session.uploadSessionId).catch(() => undefined);
-        throw cause;
-      }
-      const queued = await assetsApi.completeUpload(session.uploadSessionId, parts);
-      status = 'scanning';
-      await waitForScan(queued.id);
-      status = 'complete';
-      message = `${file.name} is clean and ready.`;
-      dispatch('complete', { assetId: queued.id, fileName: file.name });
+      for (const file of files) await uploadFile(file);
+      message = files.length === 1 ? `${files[0].name} is clean and ready.` : `${files.length} files are clean and ready.`;
     } catch (cause) {
       status = 'error';
       message = cause instanceof Error ? cause.message : 'The upload could not be completed.';
     } finally {
       input.value = '';
     }
+  }
+
+  async function uploadFile(file: File) {
+    progress = 0;
+    message = '';
+    status = 'hashing';
+    const sha256 = await digest(file);
+    const session = await assetsApi.createUpload({
+      workspaceId,
+      courseId,
+      purpose,
+      fileName: file.name,
+      contentType: file.type || 'application/octet-stream',
+      sizeBytes: file.size,
+      sha256
+    });
+    status = 'uploading';
+    let parts: Array<{ partNumber: number; eTag: string }> = [];
+    try {
+      if (session.multipart) {
+        parts = await uploadMultipart(session.uploadSessionId, file, session.partSizeBytes ?? 10 * 1024 * 1024, session.partCount ?? 0, (value) => (progress = value));
+      } else if (session.uploadUrl) {
+        await upload(session.uploadUrl, session.requiredHeaders ?? {}, file, (value) => (progress = value));
+      } else {
+        throw new Error('Storage did not return an upload target.');
+      }
+    } catch (cause) {
+      await assetsApi.abortUpload(session.uploadSessionId).catch(() => undefined);
+      throw cause;
+    }
+    const queued = await assetsApi.completeUpload(session.uploadSessionId, parts);
+    status = 'scanning';
+    await waitForScan(queued.id);
+    status = 'complete';
+    dispatch('complete', { assetId: queued.id, fileName: file.name });
   }
 
   async function digest(file: File): Promise<string> {
@@ -134,7 +132,7 @@
   <label class="flex cursor-pointer items-center gap-3 text-sm font-semibold text-ifa-text-primary">
     <span class="grid h-10 w-10 place-items-center rounded-lg bg-ifa-card text-ifa-pine"><UploadCloud class="h-5 w-5" /></span>
     <span>{label}</span>
-    <input type="file" {accept} on:change={selectFile} disabled={status !== 'idle' && status !== 'complete' && status !== 'error'} class="sr-only" />
+    <input type="file" {accept} multiple on:change={selectFile} disabled={status !== 'idle' && status !== 'complete' && status !== 'error'} class="sr-only" />
   </label>
   {#if status !== 'idle'}
     <div class="mt-3" aria-live="polite">

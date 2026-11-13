@@ -153,6 +153,7 @@ namespace IFA.API.Authentication
                 new(ClaimTypes.NameIdentifier, validated.AccountId.ToString()),
                 new(ClaimTypes.Name, validated.Name),
                 new(ClaimTypes.Email, validated.Email),
+                new("registration_intent", validated.RegistrationIntent),
                 new("session_id", validated.SessionId.ToString()),
                 new("mfa_level", validated.MfaLevel.ToString(CultureInfo.InvariantCulture)),
                 new("site_scope", siteScope.ToString())

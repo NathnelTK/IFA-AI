@@ -294,6 +294,27 @@ if (!opaqueSessionsEnabled)
         await next();
     });
 }
+app.Use(async (context, next) =>
+{
+    var pendingEducator = context.User.Identity?.IsAuthenticated == true
+        && context.User.HasClaim("registration_intent", "Educator")
+        && !context.User.IsInRole("Educator");
+    var path = context.Request.Path;
+    var verificationAllowed = path.StartsWithSegments("/api/auth")
+        || path.StartsWithSegments("/api/workspaces/applications")
+        || path.StartsWithSegments("/api/health");
+    if (pendingEducator && path.StartsWithSegments("/api") && !verificationAllowed)
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        await context.Response.WriteAsJsonAsync(new
+        {
+            code = "educator_verification_required",
+            message = "Complete educator verification before accessing Witforge tools."
+        }, context.RequestAborted);
+        return;
+    }
+    await next();
+});
 app.UseRateLimiter();
 app.UseAuthorization();
 

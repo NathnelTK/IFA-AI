@@ -156,7 +156,16 @@ namespace IFA.API.Controllers
             }
             if (courseId.HasValue)
             {
-                (await CourseAccess.GetAsync(_context, courseId.Value, learnerId, ct)).RequireContent();
+                var access = await CourseAccess.GetAsync(_context, courseId.Value, learnerId, ct);
+                access.RequireContent();
+                if (!access.Course.CourseAssistantEnabled)
+                {
+                    return StatusCode(403, new
+                    {
+                        code = "course_assistant_disabled",
+                        message = "The educator disabled Course Assistant for this course."
+                    });
+                }
                 request.CourseId = courseId;
             }
             var response = await _tutorService.ChatAsync(learnerId, request, ct);

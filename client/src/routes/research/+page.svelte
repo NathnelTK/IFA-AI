@@ -18,6 +18,9 @@
   $: videoSources = results?.sources.filter((s) => s.sourceType === 'Video') ?? [];
   $: imageSources = results?.sources.filter((s) => s.sourceType === 'Image' || s.sourceType === 'Graph') ?? [];
   $: webSources = results?.sources.filter((s) => ['Web', 'Website', 'Document', 'Pdf'].includes(s.sourceType)) ?? [];
+  $: bookSources = results?.sources.filter((s) => ['Book', 'Reference'].includes(s.sourceType)) ?? [];
+  $: toolSources = results?.sources.filter((s) => ['Tool', 'Framework'].includes(s.sourceType)) ?? [];
+  $: keyConcepts = (() => { try { const value = JSON.parse(results?.keyConceptsJson || '[]'); return Array.isArray(value) ? value.filter((item) => typeof item === 'string') : []; } catch { return []; } })();
   $: isEducator = $session.role === 'Educator';
 
   onMount(async () => {
@@ -83,12 +86,18 @@
   <div>
     <h1 class="text-2xl font-bold text-ifa-text-primary">Research</h1>
     <p class="text-sm text-ifa-text-secondary mt-1">
-      Review the real sources attached to a course, or run a separate research query for deeper study.
+      Discover evidence, compare sources, and build a reading trail. Research is designed for deeper study, not quick generated answers.
     </p>
     <p class="text-xs text-ifa-text-muted mt-1.5 font-medium">
       Available when configured: OpenAlex · Semantic Scholar · arXiv · Tavily · Wikimedia Commons
     </p>
   </div>
+
+  <aside class="grid gap-3 rounded-2xl border border-ifa-border bg-ifa-card p-4 text-xs text-ifa-text-secondary sm:grid-cols-3">
+    <p><strong class="block text-ifa-text-primary">1. Search broadly</strong> Find papers, books, lectures, trusted sites, and professional tools.</p>
+    <p><strong class="block text-ifa-text-primary">2. Check evidence</strong> Review authors, publication dates, summaries, and the original source.</p>
+    <p><strong class="block text-ifa-text-primary">3. Think critically</strong> Compare claims and carry credible evidence into your own work.</p>
+  </aside>
 
   <!-- Course picker: show the research used for a specific course -->
   {#if myCourses.length > 0}
@@ -115,7 +124,7 @@
     <input
       type="search"
       bind:value={searchQuery}
-      placeholder="Research again — e.g. clean architecture patterns"
+      placeholder="Explore a concept, debate, paper, method, or framework"
       aria-label="Research topic"
       class="flex-1 px-4 py-3 rounded-xl bg-ifa-card border border-ifa-border text-sm text-ifa-text-primary"
     />
@@ -144,8 +153,13 @@
         <span>{academicSources.length} papers</span>
         <span>{videoSources.length} videos</span>
         <span>{webSources.length} web sources</span>
+        <span>{bookSources.length} books &amp; references</span>
+        <span>{toolSources.length} tools &amp; frameworks</span>
         <span>{imageSources.length} images &amp; diagrams</span>
       </div>
+      {#if keyConcepts.length}
+        <div class="flex flex-wrap gap-2">{#each keyConcepts as concept}<span class="rounded-full border border-ifa-border bg-ifa-card-muted px-3 py-1 text-xs text-ifa-text-secondary">{concept}</span>{/each}</div>
+      {/if}
 
       {#if results.sources.length === 0}
         <p class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
@@ -185,7 +199,7 @@
 
         <!-- Papers & videos -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {#each [...academicSources, ...webSources, ...videoSources] as source (source.id)}
+          {#each [...academicSources, ...bookSources, ...webSources, ...videoSources, ...toolSources] as source (source.id)}
             <article class="bg-ifa-card rounded-xl border border-ifa-border p-5">
               <div class="flex items-center gap-2 text-xs uppercase font-semibold text-ifa-text-secondary mb-2">
                 {#if source.sourceType === 'Video'}

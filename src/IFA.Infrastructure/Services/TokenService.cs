@@ -52,7 +52,8 @@ namespace IFA.Infrastructure.Services
                     new Claim(ClaimTypes.NameIdentifier, learner.Id.ToString()),
                     new Claim(ClaimTypes.Name, learner.Name ?? "Learner"),
                     new Claim(ClaimTypes.Email, learner.Email ?? ""),
-                    new Claim(ClaimTypes.Role, learner.Role)
+                    new Claim(ClaimTypes.Role, learner.Role),
+                    new Claim("registration_intent", learner.RegistrationIntent)
                 }),
                 IssuedAt = issuedAt,
                 NotBefore = issuedAt,

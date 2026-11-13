@@ -33,13 +33,22 @@
     currentPath.startsWith('/verify-email') ||
     currentPath.startsWith('/forgot-password') ||
     currentPath.startsWith('/reset-password') ||
+    currentPath.startsWith('/apply/educator') ||
     currentPath.startsWith('/auth/callback') ||
     currentPath.startsWith('/certificates/verify/') ||
     currentPath.startsWith('/sso') ||
     currentPath === '/chat';
   $: isPublicBrowse = currentPath === '/marketplace' || /^\/courses\/[^/]+$/.test(currentPath) || currentPath.startsWith('/courses/join/');
+  $: requiresAuthStandalone = currentPath.startsWith('/apply/educator');
   $: studioRoute = currentPath.startsWith('/studio');
   $: hasEducatorCapability = $session.roles.includes('Educator');
+  $: educatorVerificationRequired = $session.educatorVerificationRequired;
+  $: learnerOnlyRoute = currentPath.startsWith('/app')
+    || currentPath.startsWith('/home')
+    || currentPath.startsWith('/progress')
+    || currentPath.startsWith('/recommendations')
+    || currentPath.startsWith('/ai-tutor')
+    || currentPath.startsWith('/my-skills');
 
   let lastPath = '';
   $: if (currentPath !== lastPath) {
@@ -53,11 +62,20 @@
     void initSession();
   }
 
-  $: if (browser && $session.ready && !$session.authenticated && !isAuthOrStandalone && !isPublicBrowse) {
+  $: if (browser && $session.ready && !$session.authenticated && ((!isAuthOrStandalone && !isPublicBrowse) || requiresAuthStandalone)) {
     void goto(`/login?redirect=${encodeURIComponent($page.url.pathname + $page.url.search)}`);
   }
   $: if (browser && $session.ready && $session.authenticated && studioRoute && !hasEducatorCapability) {
     void goto('/apply/educator', { replaceState: true });
+  }
+  $: if (browser && $session.ready && $session.authenticated && educatorVerificationRequired && !currentPath.startsWith('/apply/educator')) {
+    void goto('/apply/educator', { replaceState: true });
+  }
+  $: if (browser && $session.ready && $session.authenticated && hasEducatorCapability && currentPath.startsWith('/apply/educator')) {
+    void goto('/studio/courses', { replaceState: true });
+  }
+  $: if (browser && $session.ready && $session.authenticated && hasEducatorCapability && learnerOnlyRoute) {
+    void goto('/studio/courses', { replaceState: true });
   }
 
   let hydratedFor: string | null = null;
@@ -94,7 +112,11 @@
   }
 </script>
 
-{#if isAuthOrStandalone}
+{#if requiresAuthStandalone && !$session.authenticated}
+  <div class="min-h-screen flex items-center justify-center bg-ifa-bg text-ifa-text-secondary text-sm">
+    <p>{$session.ready ? 'Redirecting to sign in…' : 'Loading Witforge…'}</p>
+  </div>
+{:else if isAuthOrStandalone}
   <slot />
 {:else if !$session.authenticated && isPublicBrowse}
   <PublicShell><slot /></PublicShell>

@@ -7,6 +7,7 @@
   import ErrorState from '$lib/components/ui/ErrorState.svelte';
   import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
   import { reveal } from '$lib/motion/premiumMotion';
+  import { session } from '$lib/stores/sessionStore';
 
   type CourseRow = {
     id: string;
@@ -26,6 +27,7 @@
   let error = '';
   let query = '';
   let stateFilter = 'All';
+  let loadedWorkspace = '';
 
   $: filtered = courses.filter((course) =>
     (stateFilter === 'All' || course.state === stateFilter)
@@ -33,12 +35,15 @@
   );
 
   onMount(load);
+  $: if ($session.activeWorkspaceId && $session.activeWorkspaceId !== loadedWorkspace && !loading) void load();
 
   async function load() {
     loading = true;
     error = '';
     try {
-      courses = await studioCoursesApi.list();
+      const workspaceId = $session.activeWorkspaceId;
+      loadedWorkspace = workspaceId ?? '';
+      courses = await studioCoursesApi.list(workspaceId);
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 404) {
         const legacy = await educatorApi.projects();

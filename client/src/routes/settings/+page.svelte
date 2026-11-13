@@ -5,7 +5,7 @@
   import ResourcePreferences from '$lib/components/ResourcePreferences.svelte';
   import NotificationPreferences from '$lib/components/NotificationPreferences.svelte';
   import ThemePreferences from '$lib/components/ThemePreferences.svelte';
-  import { settingsApi, learnerApi, authApi } from '$lib/api';
+  import { apiErrorMessage, settingsApi, learnerApi, authApi } from '$lib/api';
   import { initSession, refreshSession } from '$lib/stores/sessionStore';
   import { hydratePreferences, type ThemeMode, type AccentColor, type FontSize } from '$lib/stores/preferencesStore';
 
@@ -16,7 +16,7 @@
   let loadError = '';
   let saveSuccess = false;
   let loadedSlices = { account: false, profile: false, settings: false };
-  $: canSave = loadedSlices.account && loadedSlices.profile && loadedSlices.settings;
+  $: canSave = loadedSlices.account || loadedSlices.profile || loadedSlices.settings;
 
   // Defaults render the form while loading; save remains disabled until every
   // backend slice succeeds so defaults cannot overwrite unavailable data.
@@ -69,7 +69,11 @@
     }
   }
 
-  onMount(async () => {
+  onMount(loadSettings);
+
+  async function loadSettings() {
+    loading = true;
+    loadError = '';
     try {
       await initSession();
       const [meResult, profileResult, settingsResult] = await Promise.allSettled([
@@ -117,16 +121,17 @@
         loadedSlices.settings = true;
       }
       loadedSlices = { ...loadedSlices };
-      if (!loadedSlices.account || !loadedSlices.profile || !loadedSlices.settings) {
-        loadError = 'Some settings could not be loaded. Saving is disabled to protect your existing preferences.';
+      const unavailable = Object.entries(loadedSlices).filter(([, loaded]) => !loaded).map(([slice]) => slice);
+      if (unavailable.length > 0) {
+        loadError = `The ${unavailable.join(', ')} settings could not be loaded. Available sections remain editable; unavailable data will not be overwritten.`;
       }
 
     } catch (cause) {
-      loadError = cause instanceof Error ? cause.message : 'Settings could not be loaded.';
+      loadError = apiErrorMessage(cause, 'Settings could not be loaded.');
     } finally {
       loading = false;
     }
-  });
+  }
 
   async function handleSaveSettings() {
     if (!canSave) return;
@@ -134,8 +139,8 @@
     saveError = '';
     saveSuccess = false;
     try {
-      await Promise.all([
-        settingsApi.update({
+      const updates: Promise<unknown>[] = [];
+      if (loadedSlices.settings) updates.push(settingsApi.update({
           dailyReminders: userSettings.notifications.courseReminders,
           weeklyDigest: userSettings.notifications.emailDigest !== 'never',
           assessmentResults: userSettings.notifications.assessmentResults,
@@ -146,20 +151,20 @@
           compactMode: userSettings.theme.compactMode,
           reducedMotion: userSettings.theme.reducedMotion,
           preferredTopicsJson: JSON.stringify(userSettings.resources.preferredTopics)
-        }),
-        learnerApi.updateProfile({
+        }));
+      if (loadedSlices.profile) updates.push(learnerApi.updateProfile({
           weeklyStudyHours: userSettings.learning.studyHours,
           currentLevel: userSettings.learning.difficultyPreference,
           learningStyle: userSettings.learning.learningStyle,
           preferredLanguage: LANG_TO_API[userSettings.learning.preferredLanguage] ?? userSettings.learning.preferredLanguage
-        }),
-        authApi.updateMe({ name: userSettings.account.name, avatarUrl: userSettings.account.avatarUrl })
-      ]);
+        }));
+      if (loadedSlices.account) updates.push(authApi.updateMe({ name: userSettings.account.name, avatarUrl: userSettings.account.avatarUrl }));
+      await Promise.all(updates);
       await refreshSession();
       saveSuccess = true;
       setTimeout(() => (saveSuccess = false), 2500);
     } catch (cause) {
-      saveError = cause instanceof Error ? cause.message : 'Could not save your settings.';
+      saveError = apiErrorMessage(cause, 'Could not save your settings.');
     } finally {
       saving = false;
     }
@@ -214,7 +219,7 @@
     <p role="alert" class="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{saveError}</p>
   {/if}
   {#if loadError}
-    <p role="alert" class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">{loadError}</p>
+    <div role="alert" class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"><span>{loadError}</span><button type="button" on:click={loadSettings} disabled={loading} class="font-bold underline">{loading ? 'Retrying…' : 'Retry unavailable sections'}</button></div>
   {/if}
 
   <!-- Tab Navigation -->
@@ -284,6 +289,11 @@
             class="w-full px-4 py-2.5 rounded-lg bg-ifa-card-muted border border-ifa-border text-sm text-ifa-text-muted cursor-not-allowed"
           />
           <p class="text-xs text-ifa-text-muted mt-1">Your sign-in email can't be changed here.</p>
+        </div>
+        <div class="border-t border-ifa-border pt-4">
+          <h3 class="text-sm font-bold text-ifa-text-primary">Sign-in security</h3>
+          <p class="mt-1 text-xs text-ifa-text-secondary">Manage your password, authenticator app, recovery codes, and active sessions.</p>
+          <a href="/settings/security" class="mt-3 inline-flex rounded-lg border border-ifa-border px-4 py-2 text-xs font-bold text-ifa-pine">Open security settings</a>
         </div>
       </div>
     </div>
